@@ -1,9 +1,6 @@
-use std::io::Read;
-
 use std::path::PathBuf;
 
-use crate::ibd::Tablespace;
-
+use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
 use anyhow::Result;
 use log::info;
