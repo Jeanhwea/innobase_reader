@@ -1,10 +1,9 @@
+use crate::ibd::page::{BasePage, FspHdrPage, PAGE_SIZE};
 use anyhow::Result;
 use bytes::Bytes;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
-
-pub const PAGE_SIZE: usize = 16 * 1024;
 
 #[derive(Debug, Default)]
 pub struct Tablespace {
@@ -34,5 +33,10 @@ impl Tablespace {
         let mut buf = vec![0; PAGE_SIZE];
         f.read_exact(&mut buf)?;
         Ok(Bytes::from(buf))
+    }
+
+    pub fn read_fsp_hdr_page(&mut self) -> Result<BasePage<FspHdrPage>> {
+        let buffer = self.read(0)?;
+        Ok(BasePage::new(buffer))
     }
 }
