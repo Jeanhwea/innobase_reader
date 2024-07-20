@@ -23,12 +23,12 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Print basic information
+    /// Print basic information.
     Info,
-    /// List all page data
+    /// List all page. page_type, page_number and more
     List,
-    /// List page data with given page_number
-    ViewPage {
+    /// View page data with given page_number.
+    View {
         #[arg(short, long)]
         page_number: usize,
     },
