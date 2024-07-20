@@ -26,11 +26,9 @@ impl App {
 #[cfg(test)]
 mod tests {
 
-    use std::env::set_var;
-
-    use crate::util;
-
     use super::*;
+    use crate::util;
+    use std::env::set_var;
 
     fn init() {
         set_var("RUST_LOG", "info");
