@@ -1,4 +1,4 @@
-#+TITLE ibr - Innobase Reader
+#+TITLE: ibr - Innobase Reader
 #+AUTHOR: Jinghui Hu
 #+EMAIL: hujinghui@buaa.edu.cn
 #+DATE: <2024-07-20 Sat>
