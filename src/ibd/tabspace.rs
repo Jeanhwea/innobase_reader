@@ -1,4 +1,4 @@
-use crate::ibd::page::{BasePage, FspHdrPage, PAGE_SIZE};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PAGE_SIZE};
 use anyhow::Result;
 use bytes::Bytes;
 use std::fs::File;
@@ -35,7 +35,7 @@ impl Tablespace {
         Ok(Bytes::from(buf))
     }
 
-    pub fn read_fsp_hdr_page(&mut self) -> Result<BasePage<FspHdrPage>> {
+    pub fn read_fsp_hdr_page(&mut self) -> Result<BasePage<FileSpaceHeaderPage>> {
         let buffer = self.read(0)?;
         Ok(BasePage::new(buffer))
     }

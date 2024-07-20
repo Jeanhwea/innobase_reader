@@ -137,12 +137,12 @@ where
 
 // File Space Header Page
 #[derive(Debug)]
-pub struct FspHdrPage {
+pub struct FileSpaceHeaderPage {
     pub fsp_hdr: FileSpaceHeader<Bytes>,
     pub xdes_ents: Vec<XDesEntry<Bytes>>,
 }
 
-impl BasePageOperation for FspHdrPage {
+impl BasePageOperation for FileSpaceHeaderPage {
     fn new(buffer: Bytes, _fil_header: &FileHeader<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
         // todo: parse xdes_ents
