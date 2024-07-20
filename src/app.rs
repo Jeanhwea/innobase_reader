@@ -29,7 +29,7 @@ impl App {
         Ok(())
     }
 
-    pub fn exec(&mut self, command: Commands) -> Result<()> {
+    pub fn run(&mut self, command: Commands) -> Result<()> {
         info!("{:?}, {:?}", command, self);
         self.init()?;
         if let Some(ref mut ts) = self.tablespace {
@@ -59,6 +59,6 @@ mod tests {
         init();
         let in1 = PathBuf::from("data/departments.ibd");
         let mut app = App::new(in1);
-        assert!(app.exec(Commands::Info).is_ok());
+        assert!(app.run(Commands::Info).is_ok());
     }
 }

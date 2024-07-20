@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     let mut app = app::App::new(args.input);
 
     let start = Instant::now();
-    app.exec(args.command)?;
+    app.run(args.command)?;
 
     info!("done in {:?}", start.elapsed());
     Ok(())
