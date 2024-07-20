@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-pub enum Action {
-    List,
-}
+use crate::Commands;
 
 #[derive(Debug, Default)]
 pub struct App {
@@ -17,7 +15,7 @@ impl App {
         }
     }
 
-    pub fn exec(&self, action: Action) {
-        println!("{:#?}", self);
+    pub fn exec(&self, command: Commands) {
+        println!("{:?}, {:#?}", command, self);
     }
 }

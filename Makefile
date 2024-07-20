@@ -5,7 +5,7 @@ ENVS  = RUST_LOG=info RUST_BACKTRACE=1
 all: run
 
 run:
-	$(ENVS) $(CARGO) run $(CFLAG)
+	$(ENVS) $(CARGO) run $(CFLAG) -- -i ./data/departments.ibd info
 
 test:
 	$(ENVS) $(CARGO) test -- --nocapture --show-output
