@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use log::info;
 
 mod app;
+mod ibd;
 mod util;
 
 #[derive(Debug, Parser)]
@@ -38,7 +39,7 @@ fn main() -> Result<()> {
     util::init_logger();
 
     let args = Args::parse();
-    let app = app::App::new(args.input);
+    let mut app = app::App::new(args.input);
 
     let start = Instant::now();
     app.exec(args.command)?;
