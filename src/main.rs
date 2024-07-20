@@ -1,8 +1,14 @@
-use std::path::PathBuf;
+#![warn(unused_imports)]
 
+use std::{path::PathBuf, time::Instant};
+
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+use log::info;
+
 mod app;
+mod util;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -28,8 +34,15 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> Result<()> {
+    util::init_logger();
+
     let args = Args::parse();
     let app = app::App::new(args.input);
-    app.exec(args.command);
+
+    let start = Instant::now();
+    app.exec(args.command)?;
+
+    info!("done in {:?}", start.elapsed());
+    Ok(())
 }

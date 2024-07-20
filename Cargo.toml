@@ -2,11 +2,17 @@
 name = "ibr"
 version = "0.0.1"
 edition = "2021"
+authors = ["Jinghui Hu<hujinghui@buaa.edu.cn>"]
+readme = "readme.org"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.86"
+chrono = "0.4.38"
 clap = { version = "4.5.9", features = ["derive"] }
 env_logger = "0.11.3"
+log = "0.4.22"
 serde = "1.0.204"
 serde_json = "1.0.120"
