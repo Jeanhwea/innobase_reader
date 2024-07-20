@@ -1,6 +1,5 @@
 use bytes::Bytes;
 
-
 pub const PAGE_SIZE: usize = 16 * 1024;
 
 const FIL_HEADER_SIZE: usize = 38;
@@ -92,9 +91,9 @@ where
 #[derive(Debug)]
 pub struct BasePage<P> {
     pub buffer: Bytes,
-    pub header: FileHeader<Bytes>,
+    pub fil_hdr: FileHeader<Bytes>,
     pub page: P,
-    pub trailer: FileTrailer<Bytes>,
+    pub fil_trl: FileTrailer<Bytes>,
 }
 
 pub trait BasePageOperation {
@@ -113,14 +112,14 @@ where
         let trl = FileTrailer::new(buffer.slice(len - FIL_TRAILER_SIZE..));
         Self {
             buffer: buffer,
-            header: hdr,
+            fil_hdr: hdr,
             page: page,
-            trailer: trl,
+            fil_trl: trl,
         }
     }
 }
 
-// Extent Descriptor
+// Extent Descriptor Entry
 #[derive(Debug)]
 pub struct XDesEntry<B> {
     buffer: B,
@@ -140,15 +139,16 @@ where
 #[derive(Debug)]
 pub struct FspHdrPage {
     pub fsp_hdr: FileSpaceHeader<Bytes>,
-    pub xdes_entries: Vec<XDesEntry<Bytes>>,
+    pub xdes_ents: Vec<XDesEntry<Bytes>>,
 }
 
 impl BasePageOperation for FspHdrPage {
     fn new(buffer: Bytes, _fil_header: &FileHeader<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
+        // todo: parse xdes_ents
         Self {
             fsp_hdr: hdr,
-            xdes_entries: Vec::new(),
+            xdes_ents: Vec::new(),
         }
     }
 }
