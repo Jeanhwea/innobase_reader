@@ -58,8 +58,8 @@ impl App {
             let fil_hdr = ts.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
             match pt {
-                PageTypes::TYPE_ALLOCATED => {}
-                PageTypes::UNKNOWN(_) => {
+                PageTypes::ALLOCATED => {}
+                PageTypes::MARKED(_) => {
                     warn!("{:?} page_no = {}", pt, page_no);
                 }
                 _ => {
@@ -77,15 +77,15 @@ impl App {
         let factory = ts.init_page_factory(page_no)?;
         let hdr = factory.fil_hdr();
         match hdr.page_type {
-            PageTypes::TYPE_ALLOCATED => {
+            PageTypes::ALLOCATED => {
                 info!("allocated only page, hdr = {:#?}", hdr);
             }
-            PageTypes::TYPE_FSP_HDR => {
+            PageTypes::FSP_HDR => {
                 assert_eq!(page_no, hdr.page_no as usize);
                 let fsp_page: BasePage<FileSpaceHeaderPage> = factory.build();
                 info!("fsp_page = {:#?}", fsp_page);
             }
-            PageTypes::UNKNOWN(_) => {
+            PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
             }
             _ => {
