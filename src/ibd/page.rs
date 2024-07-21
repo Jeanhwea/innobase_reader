@@ -17,6 +17,15 @@ pub struct FileHeader {
     pub offset: u32,
 }
 
+impl fmt::Debug for FileHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileHeader")
+            .field("check_sum", &format!("{:#08x}", self.check_sum))
+            .field("offset", &self.offset)
+            .finish()
+    }
+}
+
 impl FileHeader {
     pub fn new<B>(buffer: B) -> FileHeader
     where
@@ -29,19 +38,19 @@ impl FileHeader {
     }
 }
 
-impl fmt::Debug for FileHeader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileHeader")
-            .field("check_sum", &format!("{:#08x}", self.check_sum))
-            .field("offset", &self.offset)
-            .finish()
-    }
-}
-
 /// FIL Trailer
-#[derive(Debug)]
 pub struct FileTrailer {
     check_sum: u32,
+    lsn: u32,
+}
+
+impl fmt::Debug for FileTrailer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileTrailer")
+            .field("check_sum", &format!("{:#08x}", self.check_sum))
+            .field("lsn", &self.lsn)
+            .finish()
+    }
 }
 
 impl FileTrailer {
@@ -51,6 +60,7 @@ impl FileTrailer {
     {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            lsn: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
         }
     }
 }
