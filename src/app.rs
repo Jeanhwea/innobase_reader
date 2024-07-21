@@ -58,18 +58,18 @@ impl App {
         for page_no in 0..ts.page_count() {
             let fil_hdr = ts.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
+            println!(
+                "space_id={}, page_no={} => {} ",
+                fil_hdr.space_id.to_string().blue(),
+                &page_no.to_string().magenta(),
+                pt.to_string().yellow(),
+            );
             match pt {
                 PageTypes::ALLOCATED => {}
                 PageTypes::MARKED(_) => {
                     warn!("{:?} page_no = {}", pt, page_no);
                 }
                 _ => {
-                    println!(
-                        "space_id={}, page_no={} => {} ",
-                        fil_hdr.space_id.to_string().blue(),
-                        &page_no.to_string().magenta(),
-                        pt.to_string().yellow(),
-                    );
                     info!("fil_hdr = {:?}", fil_hdr);
                 }
             }
