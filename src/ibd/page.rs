@@ -175,10 +175,80 @@ impl FilePageTrailer {
     }
 }
 
-/// FSP Header
 #[derive(Debug)]
+pub struct FlstBaseNode {
+    pub len: u32,
+    pub first: FilAddr,
+    pub last: FilAddr,
+}
+
+impl FlstBaseNode {
+    pub fn new(buffer: &[u8]) -> Self {
+        Self {
+            len: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            first: FilAddr::new(&buffer[4..10]),
+            last: FilAddr::new(&buffer[10..16]),
+        }
+    }
+}
+
+pub struct FilAddr {
+    pub page: u32,    // Page number within a space
+    pub boffset: u16, // Byte offset within the page
+}
+
+impl fmt::Debug for FilAddr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "FilAddr{{page=\"0x{:08x} ({})\", boffset={}}}",
+            self.page, self.page, self.boffset
+        )
+    }
+}
+
+impl FilAddr {
+    pub fn new(buffer: &[u8]) -> Self {
+        Self {
+            page: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            boffset: u16::from_be_bytes(buffer.as_ref()[4..6].try_into().unwrap()),
+        }
+    }
+}
+
+/// FSP Header, see fsp0fsp.h
 pub struct FileSpaceHeader {
     pub space_id: u32,
+    pub notused: u32,
+    pub fsp_size: u32,
+    pub free_limit: u32,
+    pub flags: u32,
+    pub fsp_frag_n_used: u32,
+    pub fsp_free: FlstBaseNode,
+    pub free_frag: FlstBaseNode,
+    pub full_frag: FlstBaseNode,
+    pub segid: u64,
+    pub inodes_full: FlstBaseNode,
+    pub inodes_free: FlstBaseNode,
+}
+
+impl fmt::Debug for FileSpaceHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSpaceHeader")
+            .field("space_id", &self.space_id)
+            .field("notused", &self.notused)
+            .field("fsp_size", &self.fsp_size)
+            .field("free_limit", &self.free_limit)
+            .field("flags", &format!("0x{:08x} ({})", self.flags, self.flags))
+            .field("fsp_frag_n_used", &self.fsp_frag_n_used)
+            .field("fsp_free", &self.fsp_free)
+            .field("free_frag", &self.free_frag)
+            .field("full_frag", &self.full_frag)
+            .field("segid", &self.segid)
+            .field("inodes_full", &self.inodes_full)
+            .field("inodes_free", &self.inodes_free)
+            .finish()
+    }
 }
 
 impl FileSpaceHeader {
@@ -188,6 +258,17 @@ impl FileSpaceHeader {
     {
         Self {
             space_id: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            notused: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            fsp_size: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
+            free_limit: u32::from_be_bytes(buffer.as_ref()[12..16].try_into().unwrap()),
+            flags: u32::from_be_bytes(buffer.as_ref()[16..20].try_into().unwrap()),
+            fsp_frag_n_used: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()),
+            fsp_free: FlstBaseNode::new(&buffer.as_ref()[24..40]),
+            free_frag: FlstBaseNode::new(&buffer.as_ref()[40..56]),
+            full_frag: FlstBaseNode::new(&buffer.as_ref()[56..72]),
+            segid: u64::from_be_bytes(buffer.as_ref()[72..80].try_into().unwrap()),
+            inodes_full: FlstBaseNode::new(&buffer.as_ref()[80..96]),
+            inodes_free: FlstBaseNode::new(&buffer.as_ref()[96..112]),
         }
     }
 }
