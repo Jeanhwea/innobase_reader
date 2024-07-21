@@ -1,4 +1,6 @@
 use bytes::Bytes;
+use std::fmt;
+use std::fmt::Formatter;
 
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -9,7 +11,7 @@ pub const FSP_TRAILER_SIZE: usize = 8;
 pub const XDES_ENTRY_SIZE: usize = 40;
 
 /// FIL Header
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FileHeader {
     pub check_sum: u32,
     pub offset: u32,
@@ -24,6 +26,15 @@ impl FileHeader {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
             offset: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
         }
+    }
+}
+
+impl fmt::Debug for FileHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileHeader")
+            .field("check_sum", &format!("{:#08x}", self.check_sum))
+            .field("offset", &self.offset)
+            .finish()
     }
 }
 
