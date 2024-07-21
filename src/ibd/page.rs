@@ -11,7 +11,7 @@ const XDES_ENTRY_SIZE: usize = 40;
 /// FIL Header
 #[derive(Debug)]
 pub struct FileHeader<B> {
-    buffer: B,
+    buf: B,
 }
 
 impl<B> FileHeader<B>
@@ -20,16 +20,16 @@ where
 {
     pub fn new(buffer: B) -> FileHeader<B> {
         assert_eq!(buffer.as_ref().len(), FIL_HEADER_SIZE);
-        Self { buffer }
+        Self { buf: buffer }
     }
 
     pub fn check_sum(&self) -> u32 {
-        let data: [u8; 4] = self.buffer.as_ref()[..4].try_into().unwrap();
+        let data: [u8; 4] = self.buf.as_ref()[..4].try_into().unwrap();
         u32::from_be_bytes(data)
     }
 
     pub fn offset(&self) -> u32 {
-        let data: [u8; 4] = self.buffer.as_ref()[4..8].try_into().unwrap();
+        let data: [u8; 4] = self.buf.as_ref()[4..8].try_into().unwrap();
         u32::from_be_bytes(data)
     }
 }
@@ -37,7 +37,7 @@ where
 /// FIL Trailer
 #[derive(Debug)]
 pub struct FileTrailer<B> {
-    buffer: B,
+    buf: B,
 }
 
 impl<B> FileTrailer<B>
@@ -46,14 +46,14 @@ where
 {
     pub fn new(buffer: B) -> FileTrailer<B> {
         assert_eq!(buffer.as_ref().len(), FIL_TRAILER_SIZE);
-        Self { buffer }
+        Self { buf: buffer }
     }
 }
 
 /// FSP Header
 #[derive(Debug)]
 pub struct FileSpaceHeader<B> {
-    buffer: B,
+    buf: B,
 }
 
 impl<B> FileSpaceHeader<B>
@@ -62,11 +62,11 @@ where
 {
     pub fn new(buffer: B) -> FileSpaceHeader<B> {
         assert_eq!(buffer.as_ref().len(), FSP_HEADER_SIZE);
-        Self { buffer }
+        Self { buf: buffer }
     }
 
     pub fn space_id(&self) -> u32 {
-        let data: [u8; 4] = self.buffer.as_ref()[..4].try_into().unwrap();
+        let data: [u8; 4] = self.buf.as_ref()[..4].try_into().unwrap();
         u32::from_be_bytes(data)
     }
 }
@@ -74,7 +74,7 @@ where
 /// FSP Trailer
 #[derive(Debug)]
 pub struct FileSpaceTrailer<B> {
-    buffer: B,
+    buf: B,
 }
 
 impl<B> FileSpaceTrailer<B>
@@ -83,16 +83,16 @@ where
 {
     pub fn new(buffer: B) -> FileSpaceTrailer<B> {
         assert_eq!(buffer.as_ref().len(), FSP_TRAILER_SIZE);
-        Self { buffer }
+        Self { buf: buffer }
     }
 }
 
 // Base Page Structure
 #[derive(Debug)]
 pub struct BasePage<P> {
-    pub buffer: Bytes,
+    pub buf: Bytes,
     pub fil_hdr: FileHeader<Bytes>,
-    pub page: P,
+    pub data: P,
     pub fil_trl: FileTrailer<Bytes>,
 }
 
@@ -111,9 +111,9 @@ where
             BasePageOperation::new(buffer.slice(FIL_HEADER_SIZE..len - FIL_TRAILER_SIZE), &hdr);
         let trl = FileTrailer::new(buffer.slice(len - FIL_TRAILER_SIZE..));
         Self {
-            buffer: buffer,
+            buf: buffer,
             fil_hdr: hdr,
-            page: page,
+            data: page,
             fil_trl: trl,
         }
     }
@@ -122,7 +122,7 @@ where
 // Extent Descriptor Entry
 #[derive(Debug)]
 pub struct XDesEntry<B> {
-    buffer: B,
+    buf: B,
 }
 
 impl<B> XDesEntry<B>
@@ -131,7 +131,7 @@ where
 {
     pub fn new(buffer: B) -> XDesEntry<B> {
         assert_eq!(buffer.as_ref().len(), XDES_ENTRY_SIZE);
-        Self { buffer }
+        Self { buf: buffer }
     }
 }
 
@@ -139,7 +139,7 @@ where
 #[derive(Debug)]
 pub struct FileSpaceHeaderPage {
     pub fsp_hdr: FileSpaceHeader<Bytes>,
-    pub xdes_ents: Vec<XDesEntry<Bytes>>,
+    pub xdes_list: Vec<XDesEntry<Bytes>>,
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
@@ -148,7 +148,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
         // todo: parse xdes_ents
         Self {
             fsp_hdr: hdr,
-            xdes_ents: Vec::new(),
+            xdes_list: Vec::new(),
         }
     }
 }

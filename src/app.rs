@@ -32,7 +32,7 @@ impl App {
         if let Some(ref mut ts) = self.tablespace {
             let fsp_hdr_page = ts.read_fsp_hdr_page()?;
             info!("check_sum = {:#x}", fsp_hdr_page.fil_hdr.check_sum());
-            info!("space_id = {:?}", fsp_hdr_page.page.fsp_hdr.space_id());
+            info!("space_id = {:?}", fsp_hdr_page.data.fsp_hdr.space_id());
         }
         Ok(())
     }
