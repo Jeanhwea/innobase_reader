@@ -6,7 +6,7 @@ use crate::ibd::factory::PageFactory;
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
 use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use log::{debug, error, info, warn};
 
 #[derive(Debug, Default)]
@@ -70,14 +70,18 @@ impl App {
         Ok(())
     }
 
-    fn do_view(ts: &Tablespace, page_no: usize) -> Result<()> {
-        // info!("page_no = {}", page_no);
+    fn do_view(ts: &Tablespace, page_no: usize) -> Result<(), Error> {
+        if page_no >= ts.page_count() {
+            return Err(Error::msg("Page number out of range"));
+        }
         let factory = ts.init_page_factory(page_no)?;
         let hdr = factory.fil_hdr();
-        assert_eq!(page_no, hdr.page_no as usize);
         match hdr.page_type {
-            PageTypes::TYPE_ALLOCATED => {}
+            PageTypes::TYPE_ALLOCATED => {
+                info!("allocated only page, hdr = {:#?}", hdr);
+            }
             PageTypes::TYPE_FSP_HDR => {
+                assert_eq!(page_no, hdr.page_no as usize);
                 let fsp_page: BasePage<FileSpaceHeaderPage> = factory.build();
                 info!("fsp_page = {:#?}", fsp_page);
             }
