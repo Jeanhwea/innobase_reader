@@ -36,7 +36,7 @@ impl Tablespace {
         self.size / page::PAGE_SIZE
     }
 
-    pub fn read(&self, page_no: usize) -> Result<Bytes> {
+    pub fn do_read_bytes(&self, page_no: usize) -> Result<Bytes> {
         let mut f = self.file.as_ref().unwrap();
         f.seek(SeekFrom::Start((page_no * page::PAGE_SIZE) as u64))?;
         let mut buf = vec![0; page::PAGE_SIZE];
@@ -45,14 +45,14 @@ impl Tablespace {
     }
 
     pub fn parse_fil_hdr(&self, page_no: usize) -> Result<page::FilePageHeader> {
-        let buffer = self.read(page_no)?;
+        let buffer = self.do_read_bytes(page_no)?;
         let buflen = buffer.len();
-        Ok(PageFactory::new(buffer, buflen).parse_fil_hdr())
+        Ok(PageFactory::new(buffer, buflen).fil_hdr())
     }
 
-    pub fn read_fsp_hdr_page(&mut self) -> Result<page::BasePage<page::FileSpaceHeaderPage>> {
-        let buffer = self.read(0)?;
+    pub fn init_page_factory(&self, page_no: usize) -> Result<PageFactory> {
+        let buffer = self.do_read_bytes(page_no)?;
         let buflen = buffer.len();
-        Ok(PageFactory::new(buffer, buflen).build())
+        Ok(PageFactory::new(buffer, buflen))
     }
 }

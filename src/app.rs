@@ -2,11 +2,12 @@ use std::collections::{BTreeMap, HashMap};
 
 use std::path::PathBuf;
 
-use crate::ibd::page::PageTypes;
+use crate::ibd::factory::PageFactory;
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
 use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
 use anyhow::Result;
-use log::{info, warn};
+use log::{debug, error, info, warn};
 
 #[derive(Debug, Default)]
 pub struct App {
@@ -30,7 +31,7 @@ impl App {
     }
 
     pub fn run(&mut self, command: Commands) -> Result<()> {
-        info!("{:?}, {:?}", command, self);
+        debug!("{:?}, {:?}", command, self);
         self.init()?;
         if let Some(ref mut ts) = self.tablespace {
             match command {
@@ -70,7 +71,23 @@ impl App {
     }
 
     fn do_view(ts: &Tablespace, page_no: usize) -> Result<()> {
-        info!("page_no = {}", page_no);
+        // info!("page_no = {}", page_no);
+        let factory = ts.init_page_factory(page_no)?;
+        let hdr = factory.fil_hdr();
+        assert_eq!(page_no, hdr.page_no as usize);
+        match hdr.page_type {
+            PageTypes::TYPE_ALLOCATED => {}
+            PageTypes::TYPE_FSP_HDR => {
+                let fsp_page: BasePage<FileSpaceHeaderPage> = factory.build();
+                info!("fsp_page = {:#?}", fsp_page);
+            }
+            PageTypes::Unknown(_) => {
+                warn!("page_no = {}, hdr = {:?}", page_no, hdr);
+            }
+            _ => {
+                error!("unsupported page type, hdr = {:#?}", hdr);
+            }
+        }
         Ok(())
     }
 }
@@ -90,8 +107,16 @@ mod tests {
     #[test]
     fn it_works() {
         init();
-        let in1 = PathBuf::from("data/departments.ibd");
-        let mut app = App::new(in1);
+        let f = PathBuf::from("data/departments.ibd");
+        let mut app = App::new(f);
+        assert!(app.run(Commands::View { page: 0 }).is_ok());
+    }
+
+    #[test]
+    fn list_pages() {
+        init();
+        let f = PathBuf::from("data/departments.ibd");
+        let mut app = App::new(f);
         assert!(app.run(Commands::List).is_ok());
     }
 }

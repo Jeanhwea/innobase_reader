@@ -17,7 +17,7 @@ impl PageFactory {
         }
     }
 
-    pub fn parse_fil_hdr(&self) -> FilePageHeader {
+    pub fn fil_hdr(&self) -> FilePageHeader {
         FilePageHeader::new(self.buf.slice(..FIL_HEADER_SIZE))
     }
 
