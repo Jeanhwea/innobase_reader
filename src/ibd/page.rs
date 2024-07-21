@@ -15,6 +15,7 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PageTypes {
+    TYPE_ALLOCATED = 0,            // Freshly allocated page
     TYPE_UNUSED = 1,               // This page type is unused.
     UNDO_LOG = 2,                  // Undo log page
     INODE = 3,                     // Index node
@@ -53,6 +54,7 @@ pub enum PageTypes {
 impl From<u16> for PageTypes {
     fn from(value: u16) -> Self {
         match value {
+            0 => PageTypes::TYPE_ALLOCATED,
             1 => PageTypes::TYPE_UNUSED,
             2 => PageTypes::UNDO_LOG,
             3 => PageTypes::INODE,
