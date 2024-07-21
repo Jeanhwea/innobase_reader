@@ -1,4 +1,5 @@
 use bytes::Bytes;
+
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -10,8 +11,9 @@ pub const FSP_HEADER_SIZE: usize = 112;
 pub const FSP_TRAILER_SIZE: usize = 8;
 pub const XDES_ENTRY_SIZE: usize = 40;
 
+#[repr(u16)]
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PageTypes {
     TYPE_UNUSED = 1,               // This page type is unused.
     UNDO_LOG = 2,                  // Undo log page
@@ -43,14 +45,14 @@ pub enum PageTypes {
     TYPE_ZLOB_FRAG = 28,           // Fragment pages of compressed LOB.
     TYPE_ZLOB_FRAG_ENTRY = 29,     // Index pages of fragment pages (compressed LOB).
     SDI = 17853,                   // Tablespace SDI Index page
-    INDEX = 17855,                 // B-tree node
     RTREE = 17854,                 // R-tree node
-    Unknown = 0,
+    INDEX = 17855,                 // B-tree node
+    Unknown(u16),
 }
 
-impl Into<PageTypes> for u16 {
-    fn into(self) -> PageTypes {
-        match self {
+impl From<u16> for PageTypes {
+    fn from(value: u16) -> Self {
+        match value {
             1 => PageTypes::TYPE_UNUSED,
             2 => PageTypes::UNDO_LOG,
             3 => PageTypes::INODE,
@@ -83,7 +85,7 @@ impl Into<PageTypes> for u16 {
             17853 => PageTypes::SDI,
             17855 => PageTypes::INDEX,
             17854 => PageTypes::RTREE,
-            _ => PageTypes::Unknown,
+            _ => PageTypes::Unknown(value),
         }
     }
 }

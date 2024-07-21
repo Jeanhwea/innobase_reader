@@ -1,5 +1,5 @@
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, UnknownPage, FIL_HEADER_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
     FIL_TRAILER_SIZE,
 };
 use bytes::Bytes;
@@ -16,6 +16,10 @@ impl PageFactory {
             buf: buffer,
             len: length,
         }
+    }
+
+    pub fn parse_fil_hdr(&self) -> FilePageHeader {
+        FilePageHeader::new(self.buf.slice(..FIL_HEADER_SIZE))
     }
 
     pub fn build<P>(&self) -> BasePage<P>

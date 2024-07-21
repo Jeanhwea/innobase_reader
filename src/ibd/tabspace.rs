@@ -1,5 +1,6 @@
 use crate::ibd::factory::PageFactory;
-use crate::ibd::page::{BasePage, BasePageOperation, FileSpaceHeaderPage, UnknownPage, PAGE_SIZE};
+
+use crate::ibd::page;
 use anyhow::Result;
 use bytes::Bytes;
 use std::fs::File;
@@ -8,8 +9,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Default)]
 pub struct Tablespace {
-    target: PathBuf,    // target *.idb file
-    file: Option<File>, // tablespace file descriptor
+    target: PathBuf,    // Target innobase data file (*.idb)
+    size: usize,        // File size
+    file: Option<File>, // Tablespace file descriptor
 }
 
 impl Tablespace {
@@ -24,19 +26,31 @@ impl Tablespace {
         if !self.target.exists() {
             panic!("Tablespace target not exists");
         }
-        self.file = Some(File::open(&self.target)?);
+        let f = File::open(&self.target)?;
+        self.size = f.metadata().unwrap().len() as usize;
+        self.file = Some(f);
         Ok(())
     }
 
-    pub fn read(&mut self, page_num: usize) -> Result<Bytes> {
+    pub fn page_count(&self) -> usize {
+        self.size / page::PAGE_SIZE
+    }
+
+    pub fn read(&self, page_no: usize) -> Result<Bytes> {
         let mut f = self.file.as_ref().unwrap();
-        f.seek(SeekFrom::Start((page_num * PAGE_SIZE) as u64))?;
-        let mut buf = vec![0; PAGE_SIZE];
+        f.seek(SeekFrom::Start((page_no * page::PAGE_SIZE) as u64))?;
+        let mut buf = vec![0; page::PAGE_SIZE];
         f.read_exact(&mut buf)?;
         Ok(Bytes::from(buf))
     }
 
-    pub fn read_fsp_hdr_page(&mut self) -> Result<BasePage<FileSpaceHeaderPage>> {
+    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<page::FilePageHeader> {
+        let buffer = self.read(page_no)?;
+        let buflen = buffer.len();
+        Ok(PageFactory::new(buffer, buflen).parse_fil_hdr())
+    }
+
+    pub fn read_fsp_hdr_page(&mut self) -> Result<page::BasePage<page::FileSpaceHeaderPage>> {
         let buffer = self.read(0)?;
         let buflen = buffer.len();
         Ok(PageFactory::new(buffer, buflen).build())

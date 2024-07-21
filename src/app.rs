@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use std::path::PathBuf;
 
+use crate::ibd::page::PageTypes;
 use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
 use anyhow::Result;
@@ -30,10 +33,34 @@ impl App {
         info!("{:?}, {:?}", command, self);
         self.init()?;
         if let Some(ref mut ts) = self.tablespace {
-            let fsp_hdr_page = ts.read_fsp_hdr_page()?;
-            info!("FSP_HDR = {:#?}", fsp_hdr_page);
-            // info!("check_sum = {:#x}", fsp_hdr_page.fil_hdr.check_sum);
-            // info!("space_id = {:?}", fsp_hdr_page.data.fsp_hdr.space_id);
+            match command {
+                Commands::Info => {
+                    let mut stats: HashMap<PageTypes, u32> = HashMap::new();
+                    for page_no in 0..ts.page_count() {
+                        let fil_hdr = ts.parse_fil_hdr(page_no)?;
+                        *stats.entry(fil_hdr.page_type).or_insert(0) += 1;
+                    }
+                    info!("stat: {:#?}", stats);
+                }
+                Commands::List => {
+                    for page_no in 0..ts.page_count() {
+                        let fil_hdr = ts.parse_fil_hdr(page_no)?;
+                        match fil_hdr.page_type {
+                            PageTypes::Unknown(_) => {
+                                // info!("fil_hdr = {:?}", fil_hdr);
+                            }
+                            _ => {
+                                info!("fil_hdr = {:?}", fil_hdr);
+                            }
+                        }
+                    }
+                }
+                Commands::View {
+                    page_number: _page_no,
+                } => {
+                    info!("xxx");
+                }
+            }
         }
         Ok(())
     }
@@ -56,6 +83,6 @@ mod tests {
         init();
         let in1 = PathBuf::from("data/departments.ibd");
         let mut app = App::new(in1);
-        assert!(app.run(Commands::Info).is_ok());
+        assert!(app.run(Commands::List).is_ok());
     }
 }
