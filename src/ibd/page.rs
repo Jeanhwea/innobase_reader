@@ -13,6 +13,7 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 
 #[repr(u16)]
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     TYPE_ALLOCATED = 0,            // Freshly allocated page
@@ -107,7 +108,7 @@ pub struct FilePageHeader {
 
 impl fmt::Debug for FilePageHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileHeader")
+        f.debug_struct("FilePageHeader")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
             .field("page_no", &self.page_no)
             .field(
@@ -155,7 +156,7 @@ pub struct FilePageTrailer {
 
 impl fmt::Debug for FilePageTrailer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileTrailer")
+        f.debug_struct("FilePageTrailer")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
             .field("lsn", &format!("0x{:08x} ({})", self.lsn, self.lsn))
             .finish()

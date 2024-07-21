@@ -1,6 +1,5 @@
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
-    FIL_TRAILER_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE, FIL_TRAILER_SIZE,
 };
 use bytes::Bytes;
 

@@ -31,8 +31,9 @@ enum Commands {
     List,
     /// View page data with given page_number.
     View {
+        /// Which page number, 0, 1, ...
         #[arg(short, long)]
-        page_number: usize,
+        page: usize,
     },
 }
 

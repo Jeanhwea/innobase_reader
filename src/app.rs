@@ -34,36 +34,43 @@ impl App {
         self.init()?;
         if let Some(ref mut ts) = self.tablespace {
             match command {
-                Commands::Info => {
-                    let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
-                    for page_no in 0..ts.page_count() {
-                        let fil_hdr = ts.parse_fil_hdr(page_no)?;
-                        *stats.entry(fil_hdr.page_type).or_insert(0) += 1;
-                    }
-                    info!("stat: {:#?}", stats);
+                Commands::Info => Self::do_info(ts)?,
+                Commands::List => Self::do_list(ts)?,
+                Commands::View { page: page_no } => Self::do_view(ts, page_no)?,
+            }
+        }
+        Ok(())
+    }
+
+    fn do_info(ts: &Tablespace) -> Result<()> {
+        let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
+        for page_no in 0..ts.page_count() {
+            let fil_hdr = ts.parse_fil_hdr(page_no)?;
+            *stats.entry(fil_hdr.page_type).or_insert(0) += 1;
+        }
+        info!("stat: {:#?}", stats);
+        Ok(())
+    }
+
+    fn do_list(ts: &Tablespace) -> Result<()> {
+        for page_no in 0..ts.page_count() {
+            let fil_hdr = ts.parse_fil_hdr(page_no)?;
+            let pt = &fil_hdr.page_type;
+            match pt {
+                PageTypes::TYPE_ALLOCATED => {}
+                PageTypes::Unknown(_) => {
+                    warn!("{:?} page_no = {}", pt, page_no);
                 }
-                Commands::List => {
-                    for page_no in 0..ts.page_count() {
-                        let fil_hdr = ts.parse_fil_hdr(page_no)?;
-                        let pt = &fil_hdr.page_type;
-                        match pt {
-                            PageTypes::TYPE_ALLOCATED => {}
-                            PageTypes::Unknown(_) => {
-                                warn!("{:?} page_no = {}", pt, page_no);
-                            }
-                            _ => {
-                                info!("fil_hdr = {:?}", fil_hdr);
-                            }
-                        }
-                    }
-                }
-                Commands::View {
-                    page_number: _page_no,
-                } => {
-                    info!("xxx");
+                _ => {
+                    info!("fil_hdr = {:?}", fil_hdr);
                 }
             }
         }
+        Ok(())
+    }
+
+    fn do_view(ts: &Tablespace, page_no: usize) -> Result<()> {
+        info!("page_no = {}", page_no);
         Ok(())
     }
 }
