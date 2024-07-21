@@ -50,7 +50,15 @@ impl App {
             let fil_hdr = ts.parse_fil_hdr(page_no)?;
             *stats.entry(fil_hdr.page_type).or_insert(0) += 1;
         }
-        info!("stat: {:#?}", stats);
+
+        println!("PageTypes Statistics:");
+        for e in &stats {
+            println!(
+                "{:>12} => {}",
+                e.0.to_string().yellow(),
+                e.1.to_string().blue()
+            );
+        }
         Ok(())
     }
 
