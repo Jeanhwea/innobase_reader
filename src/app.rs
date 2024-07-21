@@ -6,7 +6,7 @@ use crate::ibd::page::PageTypes;
 use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
 use anyhow::Result;
-use log::info;
+use log::{info, warn};
 
 #[derive(Debug, Default)]
 pub struct App {
@@ -45,9 +45,11 @@ impl App {
                 Commands::List => {
                     for page_no in 0..ts.page_count() {
                         let fil_hdr = ts.parse_fil_hdr(page_no)?;
-                        match fil_hdr.page_type {
+                        let pt = &fil_hdr.page_type;
+                        match pt {
+                            PageTypes::TYPE_ALLOCATED => {}
                             PageTypes::Unknown(_) => {
-                                // info!("fil_hdr = {:?}", fil_hdr);
+                                warn!("{:?} page_no = {}", pt, page_no);
                             }
                             _ => {
                                 info!("fil_hdr = {:?}", fil_hdr);

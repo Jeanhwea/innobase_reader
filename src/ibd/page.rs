@@ -110,8 +110,14 @@ impl fmt::Debug for FilePageHeader {
         f.debug_struct("FileHeader")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
             .field("page_no", &self.page_no)
-            .field("prev_page", &format!("0x{:08x}", self.prev_page))
-            .field("next_page", &format!("0x{:08x}", self.next_page))
+            .field(
+                "prev_page",
+                &format!("0x{:08x} ({})", self.prev_page, self.prev_page),
+            )
+            .field(
+                "next_page",
+                &format!("0x{:08x} ({})", self.next_page, self.next_page),
+            )
             .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
             .field("page_type", &self.page_type)
             .field(
