@@ -12,18 +12,18 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 
 /// FIL Header
 #[derive(Clone)]
-pub struct FileHeader {
-    pub check_sum: u32,   // check_sum
-    pub page_number: u32, // page_number/offset
-    pub prev_page: u32,   // Previous Page
-    pub next_page: u32,   // Next Page
-    pub lsn: u64,         // LSN for last page modification
-    pub page_type: u16,   // Page Type
-    pub flush_lsn: u64,   // Flush LSN
-    pub space_id: u32,    // Space ID
+pub struct FilePageHeader {
+    pub check_sum: u32,   // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
+    pub page_number: u32, // page_number/offset, FIL_PAGE_OFFSET
+    pub prev_page: u32,   // Previous Page, FIL_PAGE_PREV
+    pub next_page: u32,   // Next Page, FIL_PAGE_NEXT
+    pub lsn: u64,         // LSN for last page modification, FIL_PAGE_LSN
+    pub page_type: u16,   // Page Type, FIL_PAGE_TYPE
+    pub flush_lsn: u64,   // Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
+    pub space_id: u32,    // Space ID, FIL_PAGE_SPACE_ID
 }
 
-impl fmt::Debug for FileHeader {
+impl fmt::Debug for FilePageHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileHeader")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
@@ -41,8 +41,8 @@ impl fmt::Debug for FileHeader {
     }
 }
 
-impl FileHeader {
-    pub fn new<B>(buffer: B) -> FileHeader
+impl FilePageHeader {
+    pub fn new<B>(buffer: B) -> FilePageHeader
     where
         B: AsRef<[u8]>,
     {
@@ -60,12 +60,12 @@ impl FileHeader {
 }
 
 /// FIL Trailer
-pub struct FileTrailer {
-    check_sum: u32, // Old-style Checksum
-    lsn: u32,       // Low 32-bits of LSN
+pub struct FilePageTrailer {
+    check_sum: u32, // Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
+    lsn: u32,       // Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
 }
 
-impl fmt::Debug for FileTrailer {
+impl fmt::Debug for FilePageTrailer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileTrailer")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
@@ -74,8 +74,8 @@ impl fmt::Debug for FileTrailer {
     }
 }
 
-impl FileTrailer {
-    pub fn new<B>(buffer: B) -> FileTrailer
+impl FilePageTrailer {
+    pub fn new<B>(buffer: B) -> FilePageTrailer
     where
         B: AsRef<[u8]>,
     {
@@ -122,20 +122,20 @@ where
 // Base Page Structure
 #[derive(Debug)]
 pub struct BasePage<P> {
-    pub fil_hdr: FileHeader,
+    pub fil_hdr: FilePageHeader,
     pub data: P,
-    pub fil_trl: FileTrailer,
+    pub fil_trl: FilePageTrailer,
 }
 
 pub trait BasePageOperation {
-    fn new(buffer: Bytes, fil_header: &FileHeader) -> Self;
+    fn new(buffer: Bytes, fil_header: &FilePageHeader) -> Self;
 }
 
 impl<P> BasePage<P>
 where
     P: BasePageOperation,
 {
-    pub fn new(header: FileHeader, buffer: Bytes, trailer: FileTrailer) -> BasePage<P> {
+    pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
         let p = BasePageOperation::new(buffer, &header);
         Self {
             fil_hdr: header,
@@ -150,7 +150,7 @@ pub struct UnknownPage {
 }
 
 impl BasePageOperation for UnknownPage {
-    fn new(buffer: Bytes, _fil_header: &FileHeader) -> Self {
+    fn new(buffer: Bytes, _fil_header: &FilePageHeader) -> Self {
         Self { data: buffer }
     }
 }
@@ -163,7 +163,7 @@ pub struct FileSpaceHeaderPage {
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
-    fn new(buffer: Bytes, _fil_header: &FileHeader) -> Self {
+    fn new(buffer: Bytes, _fil_header: &FilePageHeader) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
         // todo: parse xdes_ents
         Self {
