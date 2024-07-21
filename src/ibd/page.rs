@@ -92,7 +92,7 @@ impl Into<PageTypes> for u16 {
 #[derive(Clone)]
 pub struct FilePageHeader {
     pub check_sum: u32,       // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
-    pub page_number: u32,     // page_number/offset, FIL_PAGE_OFFSET
+    pub page_no: u32,         // page_number/offset, FIL_PAGE_OFFSET
     pub prev_page: u32,       // Previous Page, FIL_PAGE_PREV
     pub next_page: u32,       // Next Page, FIL_PAGE_NEXT
     pub lsn: u64,             // LSN for last page modification, FIL_PAGE_LSN
@@ -105,7 +105,7 @@ impl fmt::Debug for FilePageHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileHeader")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
-            .field("page_number", &self.page_number)
+            .field("page_no", &self.page_no)
             .field("prev_page", &format!("0x{:08x}", self.prev_page))
             .field("next_page", &format!("0x{:08x}", self.next_page))
             .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
@@ -126,7 +126,7 @@ impl FilePageHeader {
     {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            page_number: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
             prev_page: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
             next_page: u32::from_be_bytes(buffer.as_ref()[12..16].try_into().unwrap()),
             lsn: u64::from_be_bytes(buffer.as_ref()[16..24].try_into().unwrap()),
