@@ -1,5 +1,6 @@
 use bytes::Bytes;
 
+use enum_display::EnumDisplay;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -14,7 +15,7 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     ALLOCATED = 0,                 // Freshly allocated page
     UNUSED = 1,                    // This page type is unused.
@@ -373,7 +374,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
     XDES_FREE = 1,       // extent is in free list of space

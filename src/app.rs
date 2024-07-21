@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::ibd::factory::PageFactory;
@@ -63,6 +64,12 @@ impl App {
                     warn!("{:?} page_no = {}", pt, page_no);
                 }
                 _ => {
+                    println!(
+                        "space_id={}, page_no={} => {} ",
+                        fil_hdr.space_id.to_string().blue(),
+                        &page_no.to_string().magenta(),
+                        pt.to_string().yellow(),
+                    );
                     info!("fil_hdr = {:?}", fil_hdr);
                 }
             }
