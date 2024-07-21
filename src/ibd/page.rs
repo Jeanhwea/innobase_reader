@@ -13,15 +13,30 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 /// FIL Header
 #[derive(Clone)]
 pub struct FileHeader {
-    pub check_sum: u32,
-    pub offset: u32,
+    pub check_sum: u32,   // check_sum
+    pub page_number: u32, // page_number/offset
+    pub prev_page: u32,   // Previous Page
+    pub next_page: u32,   // Next Page
+    pub lsn: u64,         // LSN for last page modification
+    pub page_type: u16,   // Page Type
+    pub flush_lsn: u64,   // Flush LSN
+    pub space_id: u32,    // Space ID
 }
 
 impl fmt::Debug for FileHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileHeader")
-            .field("check_sum", &format!("{:#08x}", self.check_sum))
-            .field("offset", &self.offset)
+            .field("check_sum", &format!("0x{:08x}", self.check_sum))
+            .field("page_number", &self.page_number)
+            .field("prev_page", &format!("0x{:08x}", self.prev_page))
+            .field("next_page", &format!("0x{:08x}", self.next_page))
+            .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
+            .field("page_type", &self.page_type)
+            .field(
+                "flush_lsn",
+                &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn),
+            )
+            .field("space_id", &self.space_id)
             .finish()
     }
 }
@@ -33,22 +48,28 @@ impl FileHeader {
     {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            offset: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            page_number: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            prev_page: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
+            next_page: u32::from_be_bytes(buffer.as_ref()[12..16].try_into().unwrap()),
+            lsn: u64::from_be_bytes(buffer.as_ref()[16..24].try_into().unwrap()),
+            page_type: u16::from_be_bytes(buffer.as_ref()[24..26].try_into().unwrap()),
+            flush_lsn: u64::from_be_bytes(buffer.as_ref()[26..34].try_into().unwrap()),
+            space_id: u32::from_be_bytes(buffer.as_ref()[34..38].try_into().unwrap()),
         }
     }
 }
 
 /// FIL Trailer
 pub struct FileTrailer {
-    check_sum: u32,
-    lsn: u32,
+    check_sum: u32, // Old-style Checksum
+    lsn: u32,       // Low 32-bits of LSN
 }
 
 impl fmt::Debug for FileTrailer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileTrailer")
-            .field("check_sum", &format!("{:#08x}", self.check_sum))
-            .field("lsn", &self.lsn)
+            .field("check_sum", &format!("0x{:08x}", self.check_sum))
+            .field("lsn", &format!("0x{:08x} ({})", self.lsn, self.lsn))
             .finish()
     }
 }
