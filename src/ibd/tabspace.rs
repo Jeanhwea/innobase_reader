@@ -1,4 +1,5 @@
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PAGE_SIZE};
+use crate::ibd::factory::PageFactory;
+use crate::ibd::page::{BasePage, BasePageOperation, FileSpaceHeaderPage, UnknownPage, PAGE_SIZE};
 use anyhow::Result;
 use bytes::Bytes;
 use std::fs::File;
@@ -37,6 +38,7 @@ impl Tablespace {
 
     pub fn read_fsp_hdr_page(&mut self) -> Result<BasePage<FileSpaceHeaderPage>> {
         let buffer = self.read(0)?;
-        Ok(BasePage::new(buffer))
+        let buflen = buffer.len();
+        Ok(PageFactory::new(buffer, buflen).build())
     }
 }
