@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use std::path::PathBuf;
 
@@ -35,7 +35,7 @@ impl App {
         if let Some(ref mut ts) = self.tablespace {
             match command {
                 Commands::Info => {
-                    let mut stats: HashMap<PageTypes, u32> = HashMap::new();
+                    let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
                     for page_no in 0..ts.page_count() {
                         let fil_hdr = ts.parse_fil_hdr(page_no)?;
                         *stats.entry(fil_hdr.page_type).or_insert(0) += 1;

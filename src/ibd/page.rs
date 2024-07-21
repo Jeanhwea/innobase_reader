@@ -13,7 +13,7 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 
 #[repr(u16)]
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     TYPE_ALLOCATED = 0,            // Freshly allocated page
     TYPE_UNUSED = 1,               // This page type is unused.
