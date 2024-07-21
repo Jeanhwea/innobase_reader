@@ -59,7 +59,7 @@ impl App {
             let pt = &fil_hdr.page_type;
             match pt {
                 PageTypes::TYPE_ALLOCATED => {}
-                PageTypes::Unknown(_) => {
+                PageTypes::UNKNOWN(_) => {
                     warn!("{:?} page_no = {}", pt, page_no);
                 }
                 _ => {
@@ -85,7 +85,7 @@ impl App {
                 let fsp_page: BasePage<FileSpaceHeaderPage> = factory.build();
                 info!("fsp_page = {:#?}", fsp_page);
             }
-            PageTypes::Unknown(_) => {
+            PageTypes::UNKNOWN(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
             }
             _ => {
@@ -103,7 +103,15 @@ mod tests {
     use crate::util;
     use std::env::set_var;
 
+    static mut INITIALIZED: bool = false;
+
     fn init() {
+        unsafe {
+            if INITIALIZED {
+                return;
+            }
+            INITIALIZED = true;
+        }
         set_var("RUST_LOG", "info");
         util::init_logger();
     }

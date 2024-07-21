@@ -49,7 +49,7 @@ pub enum PageTypes {
     SDI = 17853,                   // Tablespace SDI Index page
     RTREE = 17854,                 // R-tree node
     INDEX = 17855,                 // B-tree node
-    Unknown(u16),
+    UNKNOWN(u16),
 }
 
 impl From<u16> for PageTypes {
@@ -88,7 +88,7 @@ impl From<u16> for PageTypes {
             17853 => PageTypes::SDI,
             17855 => PageTypes::INDEX,
             17854 => PageTypes::RTREE,
-            _ => PageTypes::Unknown(value),
+            _ => PageTypes::UNKNOWN(value),
         }
     }
 }
@@ -192,6 +192,21 @@ impl FlstBaseNode {
     }
 }
 
+#[derive(Debug)]
+pub struct FlstNode {
+    pub prev: FilAddr,
+    pub next: FilAddr,
+}
+
+impl FlstNode {
+    pub fn new(buffer: &[u8]) -> Self {
+        Self {
+            prev: FilAddr::new(&buffer[..6]),
+            next: FilAddr::new(&buffer[6..12]),
+        }
+    }
+}
+
 pub struct FilAddr {
     pub page: u32,    // Page number within a space
     pub boffset: u16, // Byte offset within the page
@@ -201,7 +216,7 @@ impl fmt::Debug for FilAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "FilAddr{{page=\"0x{:08x} ({})\", boffset={}}}",
+            "FilAddr{{page: \"0x{:08x} ({})\", boffset: {}}}",
             self.page, self.page, self.boffset
         )
     }
@@ -298,7 +313,7 @@ pub struct BasePage<P> {
 }
 
 pub trait BasePageOperation {
-    fn new(buffer: Bytes, fil_header: &FilePageHeader) -> Self;
+    fn new(buffer: Bytes, fil_hdr: &FilePageHeader) -> Self;
 }
 
 impl<P> BasePage<P>
@@ -315,12 +330,14 @@ where
     }
 }
 
+// UnknowPage
+#[derive(Debug)]
 pub struct UnknownPage {
     data: Bytes,
 }
 
 impl BasePageOperation for UnknownPage {
-    fn new(buffer: Bytes, _fil_header: &FilePageHeader) -> Self {
+    fn new(buffer: Bytes, _: &FilePageHeader) -> Self {
         Self { data: buffer }
     }
 }
@@ -333,24 +350,70 @@ pub struct FileSpaceHeaderPage {
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
-    fn new(buffer: Bytes, _fil_header: &FilePageHeader) -> Self {
+    fn new(buffer: Bytes, _: &FilePageHeader) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
-        // todo: parse xdes_ents
+        let mut entries = Vec::new();
+        let len = hdr.fsp_free.len
+            + hdr.free_frag.len
+            + hdr.full_frag.len
+            + hdr.inodes_free.len
+            + hdr.inodes_full.len;
+        for offset in 0..len as usize {
+            let beg = FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
+            let end = beg + XDES_ENTRY_SIZE;
+            entries.push(XDesEntry::new(buffer.slice(beg..end)));
+        }
         Self {
             fsp_hdr: hdr,
-            xdes_list: Vec::new(),
+            xdes_list: entries,
         }
     }
 }
 
-// Extent Descriptor Entry
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum XDesStates {
+    XDES_NOT_INITED = 0, // extent descriptor is not initialized
+    XDES_FREE = 1,       // extent is in free list of space
+    XDES_FREE_FRAG = 2,  // extent is in free fragment list of space
+    XDES_FULL_FRAG = 3,  // extent is in full fragment list of space
+    XDES_FSEG = 4,       // extent belongs to a segment
+    XDES_FSEG_FRAG = 5,  // fragment extent leased to segment
+    UNKNOWN(u32),
+}
+
+impl From<u32> for XDesStates {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => XDesStates::XDES_NOT_INITED, // extent descriptor is not initialized
+            1 => XDesStates::XDES_FREE,       // extent is in free list of space
+            2 => XDesStates::XDES_FREE_FRAG,  // extent is in free fragment list of space
+            3 => XDesStates::XDES_FULL_FRAG,  // extent is in full fragment list of space
+            4 => XDesStates::XDES_FSEG,       // extent belongs to a segment
+            5 => XDesStates::XDES_FSEG_FRAG,  // fragment extent leased to segment
+            _ => XDesStates::UNKNOWN(value),
+        }
+    }
+}
+
+// Extent Descriptor Entry, see fsp0fsp.h
 #[derive(Debug)]
 pub struct XDesEntry {
-    buffer: Bytes,
+    seg_id: u64,         // seg_id
+    flst_node: FlstNode, // list node data
+    state: XDesStates,   // state information
+    bitmap: Bytes,       // bitmap
 }
 
 impl XDesEntry {
     pub fn new(buffer: Bytes) -> XDesEntry {
-        Self { buffer }
+        Self {
+            seg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
+            flst_node: FlstNode::new(&buffer.as_ref()[8..20]),
+            state: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()).into(),
+            bitmap: buffer.slice(24..40),
+        }
     }
 }
