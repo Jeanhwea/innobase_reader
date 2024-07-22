@@ -426,7 +426,7 @@ pub struct INodePage {
 impl BasePageOperation for INodePage {
     fn new(buffer: Bytes) -> Self {
         let mut entries = Vec::new();
-        for offset in 0..INODE_ENTRY_COUNT as usize {
+        for offset in 0..INODE_ENTRY_COUNT {
             let beg = INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
             let end = beg + INODE_ENTRY_SIZE;
             let entry = INodeEntry::new(buffer.slice(beg..end));
@@ -481,10 +481,10 @@ impl fmt::Debug for INodeEntry {
 impl INodeEntry {
     pub fn new(buffer: Bytes) -> Self {
         let mut arr = [0u32; INODE_ENTRY_ARR_COUNT];
-        for offset in 0..INODE_ENTRY_ARR_COUNT as usize {
+        for (offset, element) in arr.iter_mut().enumerate() {
             let beg = 64 + offset * FRAG_ARR_ENTRY_SIZE;
             let end = beg + FRAG_ARR_ENTRY_SIZE;
-            arr[offset] = u32::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
+            *element = u32::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
         }
 
         Self {
@@ -499,15 +499,98 @@ impl INodeEntry {
     }
 }
 
+// Index Page
 #[derive(Debug)]
 pub struct IndexPage {
-    pub page_size: u32,
+    index_header: IndexHeader,
+    fseg_header: FSegHeader,
 }
 
 impl BasePageOperation for IndexPage {
     fn new(buffer: Bytes) -> Self {
         Self {
-            page_size: buffer.len() as u32,
+            index_header: IndexHeader::new(buffer.slice(0..36)),
+            fseg_header: FSegHeader::new(buffer.slice(36..56)),
+        }
+    }
+}
+
+// Index Page Header, see page0types.h
+#[derive(Debug)]
+pub struct IndexHeader {
+    /// number of slots in page directory
+    page_n_dir_slots: u16,
+    /// pointer to record heap top
+    page_heap_top: u16,
+    /// number of records in the heap, bit 15=flag: new-style compact page
+    /// format
+    page_n_heap: u16,
+    /// pointer to start of page free record list
+    page_free: u16,
+    /// number of bytes in deleted records
+    page_garbage: u16,
+    /// pointer to the last inserted record, or NULL if this info has been reset
+    /// by a delete, for example
+    page_last_insert: u16,
+    /// last insert direction: PAGE_LEFT, ...
+    page_direction: u16,
+    /// number of consecutive inserts to the same direction
+    page_n_direction: u16,
+    /// number of user records on the page
+    page_n_recs: u16,
+    /// highest id of a trx which may have modified a record on the page;
+    /// trx_id_t; defined only in secondary indexes and in the insert buffer
+    /// tree
+    page_max_trx_id: u64,
+    /// level of the node in an index tree; the leaf level is the level 0. This
+    /// field should not be written to after page creation.
+    page_level: u16,
+    /// index id where the page belongs. This field should not be written to
+    /// after page creation.
+    page_index_id: u64,
+}
+
+impl IndexHeader {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            page_n_dir_slots: u16::from_be_bytes(buffer.as_ref()[..2].try_into().unwrap()),
+            page_heap_top: u16::from_be_bytes(buffer.as_ref()[2..4].try_into().unwrap()),
+            page_n_heap: u16::from_be_bytes(buffer.as_ref()[4..6].try_into().unwrap()),
+            page_free: u16::from_be_bytes(buffer.as_ref()[6..8].try_into().unwrap()),
+            page_garbage: u16::from_be_bytes(buffer.as_ref()[8..10].try_into().unwrap()),
+            page_last_insert: u16::from_be_bytes(buffer.as_ref()[10..12].try_into().unwrap()),
+            page_direction: u16::from_be_bytes(buffer.as_ref()[12..14].try_into().unwrap()),
+            page_n_direction: u16::from_be_bytes(buffer.as_ref()[14..16].try_into().unwrap()),
+            page_n_recs: u16::from_be_bytes(buffer.as_ref()[16..18].try_into().unwrap()),
+            page_max_trx_id: u64::from_be_bytes(buffer.as_ref()[18..26].try_into().unwrap()),
+            page_level: u16::from_be_bytes(buffer.as_ref()[26..28].try_into().unwrap()),
+            page_index_id: u64::from_be_bytes(buffer.as_ref()[28..].try_into().unwrap()),
+        }
+    }
+}
+
+// File Segment Header, see fsp0types.h/page0types.h
+#[derive(Debug)]
+pub struct FSegHeader {
+    /// leaf page
+    leaf_space_id: u32, // space id
+    leaf_page_no: u32, // page number
+    leaf_offset: u16,  // byte offset
+    /// non-leaf page
+    nonleaf_space_id: u32, // space id
+    nonleaf_page_no: u32, // page number
+    nonleaf_offset: u16, // byte offset
+}
+
+impl FSegHeader {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            leaf_space_id: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            leaf_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            leaf_offset: u16::from_be_bytes(buffer.as_ref()[8..10].try_into().unwrap()),
+            nonleaf_space_id: u32::from_be_bytes(buffer.as_ref()[10..14].try_into().unwrap()),
+            nonleaf_page_no: u32::from_be_bytes(buffer.as_ref()[14..18].try_into().unwrap()),
+            nonleaf_offset: u16::from_be_bytes(buffer.as_ref()[18..20].try_into().unwrap()),
         }
     }
 }
