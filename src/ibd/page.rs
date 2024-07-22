@@ -95,7 +95,7 @@ impl From<u16> for PageTypes {
     }
 }
 
-/// FIL Header
+/// FIL Header, see fil0types.h
 #[derive(Clone)]
 pub struct FilePageHeader {
     pub check_sum: u32,       // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
@@ -150,17 +150,20 @@ impl FilePageHeader {
     }
 }
 
-/// FIL Trailer
+/// FIL Trailer, see fil0types.h
 pub struct FilePageTrailer {
-    check_sum: u32, // Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
-    lsn: u32,       // Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
+    check_sum: u32,    // Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
+    lsn_low32bit: u32, // Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
 }
 
 impl fmt::Debug for FilePageTrailer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FilePageTrailer")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
-            .field("lsn", &format!("0x{:08x} ({})", self.lsn, self.lsn))
+            .field(
+                "lsn_low32bit",
+                &format!("0x{:08x} ({})", self.lsn_low32bit, self.lsn_low32bit),
+            )
             .finish()
     }
 }
@@ -172,7 +175,7 @@ impl FilePageTrailer {
     {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            lsn: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            lsn_low32bit: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
         }
     }
 }

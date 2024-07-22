@@ -1,11 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 
 use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::ibd::factory::PageFactory;
+use crate::ibd::factory::DatafileFactory;
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
-use crate::ibd::tabspace::Tablespace;
 use crate::Commands;
 use anyhow::{Error, Result};
 use log::{debug, error, info, warn};
@@ -13,7 +12,7 @@ use log::{debug, error, info, warn};
 #[derive(Debug, Default)]
 pub struct App {
     pub input: PathBuf,
-    pub tablespace: Option<Tablespace>,
+    pub tablespace: Option<DatafileFactory>,
 }
 
 impl App {
@@ -25,7 +24,7 @@ impl App {
     }
 
     fn init(&mut self) -> Result<()> {
-        let mut ts = Tablespace::new(self.input.clone());
+        let mut ts = DatafileFactory::new(self.input.clone());
         ts.open()?;
         self.tablespace = Some(ts);
         Ok(())
@@ -44,7 +43,7 @@ impl App {
         Ok(())
     }
 
-    fn do_info(ts: &Tablespace) -> Result<()> {
+    fn do_info(ts: &DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..ts.page_count() {
             let fil_hdr = ts.parse_fil_hdr(page_no)?;
@@ -62,7 +61,7 @@ impl App {
         Ok(())
     }
 
-    fn do_list(ts: &Tablespace) -> Result<()> {
+    fn do_list(ts: &DatafileFactory) -> Result<()> {
         for page_no in 0..ts.page_count() {
             let fil_hdr = ts.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
@@ -85,7 +84,7 @@ impl App {
         Ok(())
     }
 
-    fn do_view(ts: &Tablespace, page_no: usize) -> Result<(), Error> {
+    fn do_view(ts: &DatafileFactory, page_no: usize) -> Result<(), Error> {
         if page_no >= ts.page_count() {
             return Err(Error::msg("Page number out of range"));
         }
