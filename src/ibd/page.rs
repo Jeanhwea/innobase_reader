@@ -1,6 +1,7 @@
 use bytes::Bytes;
 
 use enum_display::EnumDisplay;
+use log::info;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -10,6 +11,9 @@ pub const FIL_HEADER_SIZE: usize = 38;
 pub const FIL_TRAILER_SIZE: usize = 8;
 pub const FSP_HEADER_SIZE: usize = 112;
 pub const XDES_ENTRY_SIZE: usize = 40;
+pub const INODE_FLST_NODE_SIZE: usize = 12;
+pub const INODE_ENTRY_SIZE: usize = 192;
+pub const INODE_ENTRY_COUNT: usize = 85;
 
 /// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
@@ -339,7 +343,7 @@ where
 #[derive(Debug)]
 pub struct FileSpaceHeaderPage {
     pub fsp_hdr: FileSpaceHeader,
-    pub xdes_list: Vec<XDesEntry>,
+    pub xdes_ent_list: Vec<XDesEntry>,
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
@@ -358,7 +362,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
         }
         Self {
             fsp_hdr: hdr,
-            xdes_list: entries,
+            xdes_ent_list: entries,
         }
     }
 }
@@ -414,13 +418,26 @@ impl XDesEntry {
 // File Segment Inode, see fsp0fsp.h
 #[derive(Debug)]
 pub struct INodePage {
-    pub skip: FlstNode,
+    pub inode_flst_node: FlstNode,
+    pub inode_ent_list: Vec<INodeEntry>,
 }
 
 impl BasePageOperation for INodePage {
     fn new(buffer: Bytes) -> Self {
+        let mut entries = Vec::new();
+        for offset in 0..INODE_ENTRY_COUNT as usize {
+            let beg = INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
+            let end = beg + INODE_ENTRY_SIZE;
+            let entry = INodeEntry::new(buffer.slice(beg..end));
+            info!("0x{:08x}", &entry.fseg_magic_n);
+            if entry.fseg_magic_n == 0 || entry.fseg_id == 0 {
+                break;
+            }
+            entries.push(entry);
+        }
         Self {
-            skip: FlstNode::new(&buffer.as_ref()[0..12]),
+            inode_flst_node: FlstNode::new(&buffer.as_ref()[0..INODE_FLST_NODE_SIZE]),
+            inode_ent_list: entries,
         }
     }
 }
@@ -433,6 +450,20 @@ pub struct INodeEntry {
     fseg_free: FlstBaseNode,
     fseg_not_full: FlstBaseNode,
     fseg_full: FlstBaseNode,
+    /// FSEG_MAGIC_N_VALUE = 97937874;
     fseg_magic_n: u32,
     // fseg_frag_arr: u32,
+}
+
+impl INodeEntry {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            fseg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
+            fseg_not_full_n_used: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
+            fseg_free: FlstBaseNode::new(&buffer.as_ref()[12..28]),
+            fseg_not_full: FlstBaseNode::new(&buffer.as_ref()[28..44]),
+            fseg_full: FlstBaseNode::new(&buffer.as_ref()[44..60]),
+            fseg_magic_n: u32::from_be_bytes(buffer.as_ref()[60..64].try_into().unwrap()),
+        }
+    }
 }
