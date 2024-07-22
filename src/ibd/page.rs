@@ -458,7 +458,6 @@ impl fmt::Debug for INodeEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("INodeEntry")
             .field("fseg_id", &self.fseg_id)
-            .field("fseg_id", &self.fseg_id)
             .field("fseg_not_full_n_used", &self.fseg_not_full_n_used)
             .field("fseg_free", &self.fseg_free)
             .field("fseg_not_full", &self.fseg_not_full)
