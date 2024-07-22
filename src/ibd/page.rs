@@ -504,6 +504,8 @@ impl INodeEntry {
 pub struct IndexPage {
     index_header: IndexHeader,
     fseg_header: FSegHeader,
+    infimum: GenericRow,
+    supremum: GenericRow,
 }
 
 impl BasePageOperation for IndexPage {
@@ -511,6 +513,8 @@ impl BasePageOperation for IndexPage {
         Self {
             index_header: IndexHeader::new(buffer.slice(0..36)),
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
+            infimum: GenericRow::new(buffer.slice(56..69)),
+            supremum: GenericRow::new(buffer.slice(69..82)),
         }
     }
 }
@@ -591,6 +595,23 @@ impl FSegHeader {
             nonleaf_space_id: u32::from_be_bytes(buffer.as_ref()[10..14].try_into().unwrap()),
             nonleaf_page_no: u32::from_be_bytes(buffer.as_ref()[14..18].try_into().unwrap()),
             nonleaf_offset: u16::from_be_bytes(buffer.as_ref()[18..20].try_into().unwrap()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GenericRow {
+    row_flags: Bytes,
+    page_offset: u16,
+    record: Bytes,
+}
+
+impl GenericRow {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            row_flags: buffer.slice(..3),
+            page_offset: u16::from_be_bytes(buffer.as_ref()[3..5].try_into().unwrap()),
+            record: buffer.slice(5..),
         }
     }
 }
