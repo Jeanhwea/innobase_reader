@@ -4,7 +4,7 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, PageTypes};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes};
 use crate::ibd::tabspace::Datafile;
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -131,6 +131,10 @@ impl App {
                 let inode_page: BasePage<INodePage> = pg.build();
                 info!("inode_page = {:#?}", inode_page);
             }
+            PageTypes::INDEX => {
+                let index_page: BasePage<IndexPage> = pg.build();
+                info!("index_page = {:#?}", index_page);
+            }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
             }
@@ -167,7 +171,7 @@ mod tests {
     fn it_works() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::View { page: 4 }).is_ok());
+        assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 
     #[test]

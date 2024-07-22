@@ -14,6 +14,8 @@ pub const XDES_ENTRY_SIZE: usize = 40;
 pub const INODE_FLST_NODE_SIZE: usize = 12;
 pub const INODE_ENTRY_SIZE: usize = 192;
 pub const INODE_ENTRY_COUNT: usize = 85;
+pub const INODE_ENTRY_ARR_COUNT: usize = 32;
+pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 
 /// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
@@ -330,10 +332,9 @@ where
     P: BasePageOperation,
 {
     pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
-        let p = BasePageOperation::new(buffer);
         Self {
             fil_hdr: header,
-            data: p,
+            data: BasePageOperation::new(buffer),
             fil_trl: trailer,
         }
     }
@@ -443,20 +444,49 @@ impl BasePageOperation for INodePage {
 }
 
 // INode Entry, see fsp0fsp.h
-#[derive(Debug)]
 pub struct INodeEntry {
     fseg_id: u64,
     fseg_not_full_n_used: u32,
     fseg_free: FlstBaseNode,
     fseg_not_full: FlstBaseNode,
     fseg_full: FlstBaseNode,
-    /// FSEG_MAGIC_N_VALUE = 97937874;
-    fseg_magic_n: u32,
-    // fseg_frag_arr: u32,
+    fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
+    fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
+}
+
+impl fmt::Debug for INodeEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("INodeEntry")
+            .field("fseg_id", &self.fseg_id)
+            .field("fseg_id", &self.fseg_id)
+            .field("fseg_not_full_n_used", &self.fseg_not_full_n_used)
+            .field("fseg_free", &self.fseg_free)
+            .field("fseg_not_full", &self.fseg_not_full)
+            .field("fseg_full", &self.fseg_full)
+            .field("fseg_magic_n", &self.fseg_magic_n)
+            .field(
+                "fseg_frag_arr",
+                &format!(
+                    "[0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}, ...]",
+                    self.fseg_frag_arr[0],
+                    self.fseg_frag_arr[1],
+                    self.fseg_frag_arr[2],
+                    self.fseg_frag_arr[3]
+                ),
+            )
+            .finish()
+    }
 }
 
 impl INodeEntry {
     pub fn new(buffer: Bytes) -> Self {
+        let mut arr = [0u32; INODE_ENTRY_ARR_COUNT];
+        for offset in 0..INODE_ENTRY_ARR_COUNT as usize {
+            let beg = 64 + offset * FRAG_ARR_ENTRY_SIZE;
+            let end = beg + FRAG_ARR_ENTRY_SIZE;
+            arr[offset] = u32::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
+        }
+
         Self {
             fseg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
             fseg_not_full_n_used: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
@@ -464,6 +494,20 @@ impl INodeEntry {
             fseg_not_full: FlstBaseNode::new(&buffer.as_ref()[28..44]),
             fseg_full: FlstBaseNode::new(&buffer.as_ref()[44..60]),
             fseg_magic_n: u32::from_be_bytes(buffer.as_ref()[60..64].try_into().unwrap()),
+            fseg_frag_arr: arr,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct IndexPage {
+    pub page_size: u32,
+}
+
+impl BasePageOperation for IndexPage {
+    fn new(buffer: Bytes) -> Self {
+        Self {
+            page_size: buffer.len() as u32,
         }
     }
 }
