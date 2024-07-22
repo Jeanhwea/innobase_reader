@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes};
-use crate::ibd::tabspace::Datafile;
+
 use crate::Commands;
 use anyhow::{Error, Result};
 use log::{debug, error, info, warn};
