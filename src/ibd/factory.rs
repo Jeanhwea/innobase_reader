@@ -26,7 +26,10 @@ impl DatafileFactory {
 
     pub fn open(&mut self) -> Result<(), Error> {
         if !self.target.exists() {
-            return Err(Error::msg(format!("Target file not exists: {}", target)));
+            return Err(Error::msg(format!(
+                "Target file not exists: {:?}",
+                self.target
+            )));
         }
 
         let f = File::open(&self.target)?;
