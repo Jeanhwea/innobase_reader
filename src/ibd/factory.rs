@@ -2,8 +2,9 @@ use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE, FIL_TRAILER_SIZE,
 };
 use crate::ibd::page;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use bytes::Bytes;
+use log::info;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -11,8 +12,8 @@ use std::path::PathBuf;
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
     target: PathBuf,    // Target innobase data file (*.idb)
-    size: usize,        // File size
     file: Option<File>, // Tablespace file descriptor
+    size: usize,        // File size
 }
 
 impl DatafileFactory {
@@ -23,13 +24,19 @@ impl DatafileFactory {
         }
     }
 
-    pub fn open(&mut self) -> Result<()> {
+    pub fn open(&mut self) -> Result<(), Error> {
         if !self.target.exists() {
-            panic!("Tablespace target not exists");
+            return Err(Error::msg(format!("Target file not exists: {}", target)));
         }
+
         let f = File::open(&self.target)?;
-        self.size = f.metadata().unwrap().len() as usize;
+        let size = f.metadata().unwrap().len() as usize;
+
+        info!("load {:?}, size = {}", f, size);
+
         self.file = Some(f);
+        self.size = size;
+
         Ok(())
     }
 
