@@ -456,6 +456,12 @@ pub struct INodeEntry {
 
 impl fmt::Debug for INodeEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let frag_arr_str = &self
+            .fseg_frag_arr
+            .iter()
+            .map(|e| format!("0x{:08x}", e))
+            .collect::<Vec<_>>()
+            .join(", ");
         f.debug_struct("INodeEntry")
             .field("fseg_id", &self.fseg_id)
             .field("fseg_not_full_n_used", &self.fseg_not_full_n_used)
@@ -463,16 +469,7 @@ impl fmt::Debug for INodeEntry {
             .field("fseg_not_full", &self.fseg_not_full)
             .field("fseg_full", &self.fseg_full)
             .field("fseg_magic_n", &self.fseg_magic_n)
-            .field(
-                "fseg_frag_arr",
-                &format!(
-                    "[0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}, ...]",
-                    self.fseg_frag_arr[0],
-                    self.fseg_frag_arr[1],
-                    self.fseg_frag_arr[2],
-                    self.fseg_frag_arr[3]
-                ),
-            )
+            .field("fseg_frag_arr", &format!("[{}]", frag_arr_str))
             .finish()
     }
 }
