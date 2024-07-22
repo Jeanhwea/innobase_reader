@@ -24,30 +24,29 @@ impl DatafileFactory {
         }
     }
 
-    pub fn open(&mut self) -> Result<(), Error> {
+    pub fn init(&mut self) -> Result<(), Error> {
         if !self.target.exists() {
-            return Err(Error::msg(format!(
-                "Target file not exists: {:?}",
-                self.target
-            )));
+            return Err(Error::msg(format!("TargetFileNotFound: {:?}", self.target)));
         }
 
-        let f = File::open(&self.target)?;
-        let size = f.metadata().unwrap().len() as usize;
+        self.do_open_file()?;
 
-        info!("load {:?}, size = {}", f, size);
+        Ok(())
+    }
 
-        self.file = Some(f);
+    fn do_open_file(&mut self) -> Result<(), Error> {
+        let file = File::open(&self.target)?;
+        let size = file.metadata().unwrap().len() as usize;
+
+        info!("load {:?}, size = {}", file, size);
+
+        self.file = Some(file);
         self.size = size;
 
         Ok(())
     }
 
-    pub fn page_count(&self) -> usize {
-        self.size / page::PAGE_SIZE
-    }
-
-    pub fn do_read_bytes(&self, page_no: usize) -> Result<Bytes> {
+    fn do_read_bytes(&self, page_no: usize) -> Result<Bytes> {
         let mut f = self.file.as_ref().unwrap();
         f.seek(SeekFrom::Start((page_no * page::PAGE_SIZE) as u64))?;
         let mut buf = vec![0; page::PAGE_SIZE];
@@ -55,35 +54,43 @@ impl DatafileFactory {
         Ok(Bytes::from(buf))
     }
 
-    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<page::FilePageHeader> {
-        let buffer = self.do_read_bytes(page_no)?;
-        let buflen = buffer.len();
-        Ok(PageFactory::new(buffer, buflen).fil_hdr())
+    pub fn page_count(&self) -> usize {
+        self.size / page::PAGE_SIZE
     }
 
-    pub fn init_page_factory(&self, page_no: usize) -> Result<PageFactory> {
+    pub fn read_page(&self, page_no: usize) -> Result<Bytes> {
+        self.do_read_bytes(page_no)
+    }
+
+    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<page::FilePageHeader> {
         let buffer = self.do_read_bytes(page_no)?;
-        let buflen = buffer.len();
-        Ok(PageFactory::new(buffer, buflen))
+        Ok(PageFactory::new(buffer).fil_hdr())
+    }
+
+    pub fn first_fil_hdr(&self) -> Result<page::FilePageHeader> {
+        let buffer = self.do_read_bytes(0)?;
+        Ok(PageFactory::new(buffer).fil_hdr())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PageFactory {
-    buf: Bytes,
-    len: usize,
+    buffer: Bytes,
+    buflen: usize,
+    page_no: usize,
 }
 
 impl PageFactory {
-    pub fn new(buffer: Bytes, length: usize) -> PageFactory {
+    pub fn new(buffer: Bytes) -> PageFactory {
         Self {
-            buf: buffer,
-            len: length,
+            buflen: buffer.len(),
+            buffer,
+            ..PageFactory::default()
         }
     }
 
     pub fn fil_hdr(&self) -> FilePageHeader {
-        FilePageHeader::new(self.buf.slice(..FIL_HEADER_SIZE))
+        FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE))
     }
 
     pub fn build<P>(&self) -> BasePage<P>
@@ -91,9 +98,10 @@ impl PageFactory {
         P: BasePageOperation,
     {
         BasePage::new(
-            FilePageHeader::new(self.buf.slice(..FIL_HEADER_SIZE)),
-            self.buf.slice(FIL_HEADER_SIZE..self.len - FIL_TRAILER_SIZE),
-            FilePageTrailer::new(self.buf.slice(self.len - FIL_TRAILER_SIZE..)),
+            FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE)),
+            self.buffer
+                .slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
+            FilePageTrailer::new(self.buffer.slice(self.buflen - FIL_TRAILER_SIZE..)),
         )
     }
 }

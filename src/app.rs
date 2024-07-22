@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 
 use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::ibd::factory::DatafileFactory;
+use crate::ibd::factory::{DatafileFactory, PageFactory};
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -23,9 +23,9 @@ impl App {
         }
     }
 
-    fn init(&mut self) -> Result<()> {
+    pub fn init(&mut self) -> Result<()> {
         let mut df = DatafileFactory::new(self.input.clone());
-        df.open()?;
+        df.init()?;
         self.datafile = Some(df);
         Ok(())
     }
@@ -37,7 +37,12 @@ impl App {
             match command {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
-                Commands::View { page: page_no } => Self::do_view(df, page_no)?,
+                Commands::View { page: page_no } => {
+                    if page_no >= df.page_count() {
+                        return Err(Error::msg("Page number out of range"));
+                    }
+                    Self::do_view(df, page_no)?
+                }
             }
         }
         Ok(())
@@ -85,18 +90,16 @@ impl App {
     }
 
     fn do_view(df: &DatafileFactory, page_no: usize) -> Result<(), Error> {
-        if page_no >= df.page_count() {
-            return Err(Error::msg("Page number out of range"));
-        }
-        let factory = df.init_page_factory(page_no)?;
-        let hdr = factory.fil_hdr();
+        let buf = df.read_page(page_no)?;
+        let pg = PageFactory::new(buf);
+        let hdr = pg.fil_hdr();
         match hdr.page_type {
             PageTypes::ALLOCATED => {
                 info!("allocated only page, hdr = {:#?}", hdr);
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, hdr.page_no as usize);
-                let fsp_page: BasePage<FileSpaceHeaderPage> = factory.build();
+                let fsp_page: BasePage<FileSpaceHeaderPage> = pg.build();
                 info!("fsp_page = {:#?}", fsp_page);
             }
             PageTypes::MARKED(_) => {
