@@ -12,6 +12,7 @@ pub const FSP_HEADER_SIZE: usize = 112;
 pub const FSP_TRAILER_SIZE: usize = 8;
 pub const XDES_ENTRY_SIZE: usize = 40;
 
+/// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
