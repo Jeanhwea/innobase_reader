@@ -96,10 +96,11 @@ impl App {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
             println!(
-                "space_id={}, page_no={} => {} ",
-                fil_hdr.space_id.to_string().blue(),
+                "space_id={}, page_no={} => LSN = {:>8}, {:<12}",
+                &fil_hdr.space_id.to_string().blue(),
                 &page_no.to_string().magenta(),
-                pt.to_string().yellow(),
+                &fil_hdr.lsn.to_string().green(),
+                &pt.to_string().yellow(),
             );
             match pt {
                 PageTypes::ALLOCATED => {}
