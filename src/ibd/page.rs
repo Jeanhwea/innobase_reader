@@ -554,18 +554,44 @@ impl BasePageOperation for IndexPage {
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum PageFormat {
+pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
     MARKED(u8),
 }
 
-impl From<u8> for PageFormat {
+impl From<u8> for PageFormats {
     fn from(value: u8) -> Self {
         match value {
-            0 => PageFormat::REDUNDANT,
-            1 => PageFormat::COMPACT,
-            _ => PageFormat::MARKED(value),
+            0 => PageFormats::REDUNDANT,
+            1 => PageFormats::COMPACT,
+            _ => PageFormats::MARKED(value),
+        }
+    }
+}
+
+#[repr(u16)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum PageDirections {
+    PAGE_LEFT = 1,
+    PAGE_RIGHT = 2,
+    PAGE_SAME_REC = 3,
+    PAGE_SAME_PAGE = 4,
+    PAGE_NO_DIRECTION = 5,
+    MARKED(u16),
+}
+
+impl From<u16> for PageDirections {
+    fn from(value: u16) -> Self {
+        match value {
+            1 => PageDirections::PAGE_LEFT,
+            2 => PageDirections::PAGE_RIGHT,
+            3 => PageDirections::PAGE_SAME_REC,
+            4 => PageDirections::PAGE_SAME_PAGE,
+            5 => PageDirections::PAGE_NO_DIRECTION,
+            _ => PageDirections::MARKED(value),
         }
     }
 }
@@ -579,7 +605,7 @@ pub struct IndexHeader {
     page_heap_top: u16,
     /// number of records in the heap, bit 15=flag: new-style compact page
     /// format
-    page_format: PageFormat,
+    page_format: PageFormats,
     page_n_heap: u16,
     /// pointer to start of page free record list
     page_free: u16,
@@ -589,7 +615,7 @@ pub struct IndexHeader {
     /// by a delete, for example
     page_last_insert: u16,
     /// last insert direction: PAGE_LEFT, ...
-    page_direction: u16,
+    page_direction: PageDirections,
     /// number of consecutive inserts to the same direction
     page_n_direction: u16,
     /// number of user records on the page
@@ -610,6 +636,7 @@ impl IndexHeader {
     pub fn new(buffer: Bytes) -> Self {
         let n_heap = u16::from_be_bytes(buffer.as_ref()[4..6].try_into().unwrap());
         let fmt_flag = ((n_heap & 0x8000) >> 15) as u8;
+        let page_direct = u16::from_be_bytes(buffer.as_ref()[12..14].try_into().unwrap());
         Self {
             page_n_dir_slots: u16::from_be_bytes(buffer.as_ref()[..2].try_into().unwrap()),
             page_heap_top: u16::from_be_bytes(buffer.as_ref()[2..4].try_into().unwrap()),
@@ -618,7 +645,7 @@ impl IndexHeader {
             page_free: u16::from_be_bytes(buffer.as_ref()[6..8].try_into().unwrap()),
             page_garbage: u16::from_be_bytes(buffer.as_ref()[8..10].try_into().unwrap()),
             page_last_insert: u16::from_be_bytes(buffer.as_ref()[10..12].try_into().unwrap()),
-            page_direction: u16::from_be_bytes(buffer.as_ref()[12..14].try_into().unwrap()),
+            page_direction: page_direct.into(),
             page_n_direction: u16::from_be_bytes(buffer.as_ref()[14..16].try_into().unwrap()),
             page_n_recs: u16::from_be_bytes(buffer.as_ref()[16..18].try_into().unwrap()),
             page_max_trx_id: u64::from_be_bytes(buffer.as_ref()[18..26].try_into().unwrap()),
