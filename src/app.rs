@@ -4,7 +4,7 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, PageTypes};
 use crate::ibd::tabspace::Datafile;
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -66,11 +66,11 @@ impl App {
         println!("{:>12} => {}", "space", df.space_version.to_string().blue(),);
 
         println!("PageTypes Statistics:");
-        for e in &stats {
+        for s in &stats {
             println!(
                 "{:>12} => {}",
-                e.0.to_string().yellow(),
-                e.1.to_string().blue()
+                s.0.to_string().yellow(),
+                s.1.to_string().blue()
             );
         }
         Ok(())
@@ -112,6 +112,10 @@ impl App {
                 let fsp_page: BasePage<FileSpaceHeaderPage> = pg.build();
                 info!("fsp_page = {:#?}", fsp_page);
             }
+            PageTypes::INODE => {
+                let inode_page: BasePage<INodePage> = pg.build();
+                info!("inode_page = {:#?}", inode_page);
+            }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
             }
@@ -130,6 +134,7 @@ mod tests {
     use crate::util;
     use std::env::set_var;
 
+    const IBD_FILE: &str = "data/departments.ibd";
     static mut INITIALIZED: bool = false;
 
     fn init() {
@@ -146,16 +151,28 @@ mod tests {
     #[test]
     fn it_works() {
         init();
-        let f = PathBuf::from("data/departments.ibd");
-        let mut app = App::new(f);
-        assert!(app.run(Commands::View { page: 0 }).is_ok());
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::View { page: 2 }).is_ok());
+    }
+
+    #[test]
+    fn info_datafile() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::Info).is_ok());
     }
 
     #[test]
     fn list_pages() {
         init();
-        let f = PathBuf::from("data/departments.ibd");
-        let mut app = App::new(f);
+        let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::List).is_ok());
+    }
+
+    #[test]
+    fn view_first_fsp_hdr_page() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::View { page: 0 }).is_ok());
     }
 }

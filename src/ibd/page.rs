@@ -9,7 +9,6 @@ pub const PAGE_SIZE: usize = 16 * 1024;
 pub const FIL_HEADER_SIZE: usize = 38;
 pub const FIL_TRAILER_SIZE: usize = 8;
 pub const FSP_HEADER_SIZE: usize = 112;
-pub const FSP_TRAILER_SIZE: usize = 8;
 pub const XDES_ENTRY_SIZE: usize = 40;
 
 /// MySQL Page Type, see fil0fil.h
@@ -133,7 +132,7 @@ impl fmt::Debug for FilePageHeader {
 }
 
 impl FilePageHeader {
-    pub fn new<B>(buffer: B) -> FilePageHeader
+    pub fn new<B>(buffer: B) -> Self
     where
         B: AsRef<[u8]>,
     {
@@ -169,7 +168,7 @@ impl fmt::Debug for FilePageTrailer {
 }
 
 impl FilePageTrailer {
-    pub fn new<B>(buffer: B) -> FilePageTrailer
+    pub fn new<B>(buffer: B) -> Self
     where
         B: AsRef<[u8]>,
     {
@@ -289,7 +288,7 @@ impl fmt::Debug for FileSpaceHeader {
 }
 
 impl FileSpaceHeader {
-    pub fn new<B>(buffer: B) -> FileSpaceHeader
+    pub fn new<B>(buffer: B) -> Self
     where
         B: AsRef<[u8]>,
     {
@@ -310,22 +309,6 @@ impl FileSpaceHeader {
     }
 }
 
-/// FSP Trailer
-#[derive(Debug)]
-pub struct FileSpaceTrailer<B> {
-    buf: B,
-}
-
-impl<B> FileSpaceTrailer<B>
-where
-    B: AsRef<[u8]>,
-{
-    pub fn new(buffer: B) -> FileSpaceTrailer<B> {
-        assert_eq!(buffer.as_ref().len(), FSP_TRAILER_SIZE);
-        Self { buf: buffer }
-    }
-}
-
 // Base Page Structure
 #[derive(Debug)]
 pub struct BasePage<P> {
@@ -335,7 +318,7 @@ pub struct BasePage<P> {
 }
 
 pub trait BasePageOperation {
-    fn new(buffer: Bytes, fil_hdr: &FilePageHeader) -> Self;
+    fn new(buffer: Bytes) -> Self;
 }
 
 impl<P> BasePage<P>
@@ -343,24 +326,12 @@ where
     P: BasePageOperation,
 {
     pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
-        let p = BasePageOperation::new(buffer, &header);
+        let p = BasePageOperation::new(buffer);
         Self {
             fil_hdr: header,
             data: p,
             fil_trl: trailer,
         }
-    }
-}
-
-// UnknowPage
-#[derive(Debug)]
-pub struct UnknownPage {
-    data: Bytes,
-}
-
-impl BasePageOperation for UnknownPage {
-    fn new(buffer: Bytes, _: &FilePageHeader) -> Self {
-        Self { data: buffer }
     }
 }
 
@@ -372,7 +343,7 @@ pub struct FileSpaceHeaderPage {
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
-    fn new(buffer: Bytes, _: &FilePageHeader) -> Self {
+    fn new(buffer: Bytes) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
         let mut entries = Vec::new();
         let len = hdr.fsp_free.len
@@ -430,7 +401,7 @@ pub struct XDesEntry {
 }
 
 impl XDesEntry {
-    pub fn new(buffer: Bytes) -> XDesEntry {
+    pub fn new(buffer: Bytes) -> Self {
         Self {
             seg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
             flst_node: FlstNode::new(&buffer.as_ref()[8..20]),
@@ -438,4 +409,30 @@ impl XDesEntry {
             bitmap: buffer.slice(24..40),
         }
     }
+}
+
+// File Segment Inode, see fsp0fsp.h
+#[derive(Debug)]
+pub struct INodePage {
+    pub skip: FlstNode,
+}
+
+impl BasePageOperation for INodePage {
+    fn new(buffer: Bytes) -> Self {
+        Self {
+            skip: FlstNode::new(&buffer.as_ref()[0..12]),
+        }
+    }
+}
+
+// INode Entry, see fsp0fsp.h
+#[derive(Debug)]
+pub struct INodeEntry {
+    fseg_id: u64,
+    fseg_not_full_n_used: u32,
+    fseg_free: FlstBaseNode,
+    fseg_not_full: FlstBaseNode,
+    fseg_full: FlstBaseNode,
+    fseg_magic_n: u32,
+    // fseg_frag_arr: u32,
 }
