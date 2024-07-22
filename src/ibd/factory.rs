@@ -1,7 +1,7 @@
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE, FIL_TRAILER_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
+    FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use crate::ibd::page;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::info;
@@ -48,26 +48,26 @@ impl DatafileFactory {
 
     fn do_read_bytes(&self, page_no: usize) -> Result<Bytes> {
         let mut f = self.file.as_ref().unwrap();
-        f.seek(SeekFrom::Start((page_no * page::PAGE_SIZE) as u64))?;
-        let mut buf = vec![0; page::PAGE_SIZE];
+        f.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
+        let mut buf = vec![0; PAGE_SIZE];
         f.read_exact(&mut buf)?;
         Ok(Bytes::from(buf))
     }
 
     pub fn page_count(&self) -> usize {
-        self.size / page::PAGE_SIZE
+        self.size / PAGE_SIZE
     }
 
     pub fn read_page(&self, page_no: usize) -> Result<Bytes> {
         self.do_read_bytes(page_no)
     }
 
-    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<page::FilePageHeader> {
+    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<FilePageHeader> {
         let buffer = self.do_read_bytes(page_no)?;
         Ok(PageFactory::new(buffer).fil_hdr())
     }
 
-    pub fn first_fil_hdr(&self) -> Result<page::FilePageHeader> {
+    pub fn first_fil_hdr(&self) -> Result<FilePageHeader> {
         let buffer = self.do_read_bytes(0)?;
         Ok(PageFactory::new(buffer).fil_hdr())
     }

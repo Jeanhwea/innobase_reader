@@ -190,7 +190,7 @@ pub struct FlstBaseNode {
 impl FlstBaseNode {
     pub fn new(buffer: &[u8]) -> Self {
         Self {
-            len: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            len: u32::from_be_bytes(buffer[..4].try_into().unwrap()),
             first: FilAddr::new(&buffer[4..10]),
             last: FilAddr::new(&buffer[10..16]),
         }
@@ -230,8 +230,8 @@ impl fmt::Debug for FilAddr {
 impl FilAddr {
     pub fn new(buffer: &[u8]) -> Self {
         Self {
-            page: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            boffset: u16::from_be_bytes(buffer.as_ref()[4..6].try_into().unwrap()),
+            page: u32::from_be_bytes(buffer[..4].try_into().unwrap()),
+            boffset: u16::from_be_bytes(buffer[4..6].try_into().unwrap()),
         }
     }
 }
