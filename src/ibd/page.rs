@@ -238,17 +238,31 @@ impl FilAddr {
 
 /// FSP Header, see fsp0fsp.h
 pub struct FileSpaceHeader {
+    /// Table space ID
     pub space_id: u32,
+    /// not used now
     pub notused: u32,
+    /// Current size of the space in pages
     pub fsp_size: u32,
+    /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
-    pub flags: u32,
+    /// fsp_space_t.flags, see fsp0types.h
+    pub fsp_flags: u32,
+    /// number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
+    /// list of free extents
     pub fsp_free: FlstBaseNode,
+    /// list of partially free extents not belonging to any segment
     pub free_frag: FlstBaseNode,
+    /// list of full extents not belonging to any segment
     pub full_frag: FlstBaseNode,
+    /// next segemnt id, 8 bytes which give the first unused segment id
     pub segid: u64,
+    /// list of pages containing segment headers, where all the segment inode
+    /// slots are reserved
     pub inodes_full: FlstBaseNode,
+    /// list of pages containing segment headers, where not all the segment
+    /// header slots are reserved
     pub inodes_free: FlstBaseNode,
 }
 
@@ -259,7 +273,10 @@ impl fmt::Debug for FileSpaceHeader {
             .field("notused", &self.notused)
             .field("fsp_size", &self.fsp_size)
             .field("free_limit", &self.free_limit)
-            .field("flags", &format!("0x{:08x} ({})", self.flags, self.flags))
+            .field(
+                "fsp_flags",
+                &format!("0x{:08x} ({})", self.fsp_flags, self.fsp_flags),
+            )
             .field("fsp_frag_n_used", &self.fsp_frag_n_used)
             .field("fsp_free", &self.fsp_free)
             .field("free_frag", &self.free_frag)
@@ -281,7 +298,7 @@ impl FileSpaceHeader {
             notused: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
             fsp_size: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
             free_limit: u32::from_be_bytes(buffer.as_ref()[12..16].try_into().unwrap()),
-            flags: u32::from_be_bytes(buffer.as_ref()[16..20].try_into().unwrap()),
+            fsp_flags: u32::from_be_bytes(buffer.as_ref()[16..20].try_into().unwrap()),
             fsp_frag_n_used: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()),
             fsp_free: FlstBaseNode::new(&buffer.as_ref()[24..40]),
             free_frag: FlstBaseNode::new(&buffer.as_ref()[40..56]),
