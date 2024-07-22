@@ -2,6 +2,7 @@ use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
     FIL_TRAILER_SIZE, PAGE_SIZE,
 };
+use super::tabspace::Datafile;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::info;
@@ -11,9 +12,10 @@ use std::path::PathBuf;
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    target: PathBuf,    // Target innobase data file (*.idb)
-    file: Option<File>, // Tablespace file descriptor
-    size: usize,        // File size
+    target: PathBuf,            // Target innobase data file (*.idb)
+    file: Option<File>,         // Tablespace file descriptor
+    size: usize,                // File size
+    datafile: Option<Datafile>, // version
 }
 
 impl DatafileFactory {
@@ -30,6 +32,9 @@ impl DatafileFactory {
         }
 
         self.do_open_file()?;
+
+        let hdr0 = self.first_fil_hdr()?;
+        self.datafile = Some(Datafile::new(hdr0));
 
         Ok(())
     }
@@ -70,6 +75,10 @@ impl DatafileFactory {
     pub fn first_fil_hdr(&self) -> Result<FilePageHeader> {
         let buffer = self.do_read_bytes(0)?;
         Ok(PageFactory::new(buffer).fil_hdr())
+    }
+
+    pub fn datafile(&self) -> Datafile {
+        self.datafile.clone().unwrap()
     }
 }
 

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, PageTypes};
+use crate::ibd::tabspace::Datafile;
 use crate::Commands;
 use anyhow::{Error, Result};
 use log::{debug, error, info, warn};
@@ -12,7 +13,7 @@ use log::{debug, error, info, warn};
 #[derive(Debug, Default)]
 pub struct App {
     pub input: PathBuf,
-    pub datafile: Option<DatafileFactory>,
+    pub factory: Option<DatafileFactory>,
 }
 
 impl App {
@@ -26,14 +27,14 @@ impl App {
     pub fn init(&mut self) -> Result<()> {
         let mut df = DatafileFactory::new(self.input.clone());
         df.init()?;
-        self.datafile = Some(df);
+        self.factory = Some(df);
         Ok(())
     }
 
     pub fn run(&mut self, command: Commands) -> Result<()> {
         debug!("{:?}, {:?}", command, self);
         self.init()?;
-        if let Some(ref mut df) = self.datafile {
+        if let Some(ref mut df) = self.factory {
             match command {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
@@ -48,12 +49,21 @@ impl App {
         Ok(())
     }
 
-    fn do_info(df: &DatafileFactory) -> Result<()> {
+    fn do_info(factory: &DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
-        for page_no in 0..df.page_count() {
-            let fil_hdr = df.parse_fil_hdr(page_no)?;
-            *stats.entry(fil_hdr.page_type).or_insert(0) += 1;
+        for page_no in 0..factory.page_count() {
+            let hdr = factory.parse_fil_hdr(page_no)?;
+            *stats.entry(hdr.page_type).or_insert(0) += 1;
         }
+
+        let df = factory.datafile();
+        println!("Version Info:");
+        println!(
+            "{:>12} => {}",
+            "server",
+            df.server_version.to_string().blue(),
+        );
+        println!("{:>12} => {}", "space", df.space_version.to_string().blue(),);
 
         println!("PageTypes Statistics:");
         for e in &stats {
@@ -66,9 +76,9 @@ impl App {
         Ok(())
     }
 
-    fn do_list(df: &DatafileFactory) -> Result<()> {
-        for page_no in 0..df.page_count() {
-            let fil_hdr = df.parse_fil_hdr(page_no)?;
+    fn do_list(factory: &DatafileFactory) -> Result<()> {
+        for page_no in 0..factory.page_count() {
+            let fil_hdr = factory.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
             println!(
                 "space_id={}, page_no={} => {} ",
@@ -89,8 +99,8 @@ impl App {
         Ok(())
     }
 
-    fn do_view(df: &DatafileFactory, page_no: usize) -> Result<(), Error> {
-        let buf = df.read_page(page_no)?;
+    fn do_view(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
+        let buf = factory.read_page(page_no)?;
         let pg = PageFactory::new(buf);
         let hdr = pg.fil_hdr();
         match hdr.page_type {
