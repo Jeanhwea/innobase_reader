@@ -120,20 +120,20 @@ impl App {
         let hdr = pg.fil_hdr();
         match hdr.page_type {
             PageTypes::ALLOCATED => {
-                info!("allocated only page, hdr = {:#?}", hdr);
+                println!("allocated only page, fil_hdr = {:#?}", hdr);
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, hdr.page_no as usize);
                 let fsp_page: BasePage<FileSpaceHeaderPage> = pg.build();
-                info!("fsp_page = {:#?}", fsp_page);
+                println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {
                 let inode_page: BasePage<INodePage> = pg.build();
-                info!("inode_page = {:#?}", inode_page);
+                println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {
                 let index_page: BasePage<IndexPage> = pg.build();
-                info!("index_page = {:#?}", index_page);
+                println!("{:#?}", index_page);
             }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);

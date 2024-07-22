@@ -1,5 +1,6 @@
 use bytes::Bytes;
 
+use colored::Colorize;
 use enum_display::EnumDisplay;
 use log::info;
 use std::fmt;
