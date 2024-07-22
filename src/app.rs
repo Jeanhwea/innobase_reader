@@ -148,23 +148,19 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::util;
     use std::env::set_var;
+    use std::sync::Once;
 
     const IBD_FILE: &str = "data/departments.ibd";
-    static mut INITIALIZED: bool = false;
+    static INIT_ONCE: Once = Once::new();
 
     fn init() {
-        unsafe {
-            if INITIALIZED {
-                return;
-            }
-            INITIALIZED = true;
-        }
-        set_var("RUST_LOG", "info");
-        util::init_logger();
+        INIT_ONCE.call_once(|| {
+            set_var("RUST_LOG", "info");
+            util::init_logger();
+        });
     }
 
     #[test]
