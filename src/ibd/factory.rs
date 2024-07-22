@@ -63,6 +63,10 @@ impl DatafileFactory {
         self.size / PAGE_SIZE
     }
 
+    pub fn file_size(&self) -> usize {
+        self.size
+    }
+
     pub fn read_page(&self, page_no: usize) -> Result<Bytes> {
         self.do_read_bytes(page_no)
     }

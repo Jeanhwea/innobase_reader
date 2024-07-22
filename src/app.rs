@@ -57,13 +57,28 @@ impl App {
         }
 
         let df = factory.datafile();
-        println!("Version Info:");
+        println!("Meta Information:");
+        println!(
+            "{:>12} => server({}), space({})",
+            "version".green(),
+            df.server_version.to_string().blue(),
+            df.space_version.to_string().blue()
+        );
         println!(
             "{:>12} => {}",
-            "server",
-            df.server_version.to_string().blue(),
+            "space_id".green(),
+            df.space_id.to_string().blue()
         );
-        println!("{:>12} => {}", "space", df.space_version.to_string().blue(),);
+        println!(
+            "{:>12} => {}",
+            "page_count".green(),
+            factory.page_count().to_string().blue()
+        );
+        println!(
+            "{:>12} => {}",
+            "file_size".green(),
+            factory.file_size().to_string().blue()
+        );
 
         println!("PageTypes Statistics:");
         for s in &stats {
@@ -152,7 +167,7 @@ mod tests {
     fn it_works() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::View { page: 2 }).is_ok());
+        assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
@@ -174,5 +189,12 @@ mod tests {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 0 }).is_ok());
+    }
+
+    #[test]
+    fn view_first_inode_page() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 }
