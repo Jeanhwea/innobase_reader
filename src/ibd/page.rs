@@ -2,8 +2,8 @@ use bytes::Bytes;
 
 use enum_display::EnumDisplay;
 use log::{debug, info};
-use std::fmt;
 use std::fmt::Formatter;
+use std::{cmp, fmt};
 
 use crate::ibd::data::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
@@ -718,10 +718,11 @@ pub struct SdiIndexPage {
 
 impl fmt::Debug for SdiIndexPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let trunc = cmp::min(self.sdi_str.len(), 220);
         f.debug_struct("SdiIndexPage")
             .field("index", &self.index)
             .field("sdi_hdr", &self.sdi_hdr)
-            .field("sdi_str", &&self.sdi_str[0..220])
+            .field("sdi_str", &&self.sdi_str[0..trunc])
             .finish()
     }
 }
@@ -748,11 +749,19 @@ impl BasePageOperation for SdiIndexPage {
 
 impl SdiIndexPage {
     pub fn get_sdi_data(&self) -> String {
-        jsonxf::pretty_print(&self.sdi_str).unwrap()
+        if self.sdi_str.len() > 0 {
+            jsonxf::pretty_print(&self.sdi_str).unwrap()
+        } else {
+            "".into()
+        }
     }
 
     pub fn get_sdi_object(&self) -> Option<SdiObject> {
-        serde_json::from_str(&self.sdi_str).expect("ERR_SDI_STRING")
+        if self.sdi_str.len() > 0 {
+            serde_json::from_str(&self.sdi_str).expect("ERR_SDI_STRING")
+        } else {
+            None
+        }
     }
 }
 
