@@ -760,3 +760,54 @@ impl RecordHeader {
         (self.info_bits & Self::REC_INFO_DELETED_FLAG) > 0
     }
 }
+
+// SDI Index Page, see ibd2sdi.cc
+pub struct SdiIndexPage {
+    /// Index Header
+    index_header: IndexHeader, // Index Header
+    /// FSEG Header
+    fseg_header: FSegHeader, // FSEG Header
+    /// System Record
+    infimum: Record, // infimum_extra[], see page0page.h
+    supremum: Record, // supremum_extra_data[], see page0page.h
+    /// User Records, grow down
+
+    ////////////////////////////////////////
+    //  Free Space
+    ////////////////////////////////////////
+
+    /// Page Directory, grows up
+    dir_slots: Vec<u16>, // page directory slots
+}
+
+impl fmt::Debug for SdiIndexPage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SdiIndexPage")
+            .field("index_header", &self.index_header)
+            .field("fseg_header", &self.fseg_header)
+            .field("infimum", &self.infimum)
+            .field("supremum", &self.supremum)
+            .field("dir_slots", &format!("{:?}", &self.dir_slots))
+            .finish()
+    }
+}
+
+impl BasePageOperation for SdiIndexPage {
+    fn new(buffer: Bytes) -> Self {
+        let idx_hdr = IndexHeader::new(buffer.slice(0..36));
+        let n_slots = idx_hdr.page_n_dir_slots as usize;
+        let mut slots = vec![0; n_slots];
+        for (offset, element) in slots.iter_mut().enumerate() {
+            let end = buffer.len() - offset * 2;
+            let beg = end - 2;
+            *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
+        }
+        Self {
+            index_header: idx_hdr,
+            fseg_header: FSegHeader::new(buffer.slice(36..56)),
+            infimum: Record::new(buffer.slice(56..69)),
+            supremum: Record::new(buffer.slice(69..82)),
+            dir_slots: slots,
+        }
+    }
+}

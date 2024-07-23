@@ -4,7 +4,7 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage};
 
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -35,6 +35,7 @@ impl App {
         debug!("{:?}, {:?}", command, self);
         self.init()?;
         if let Some(ref mut df) = self.factory {
+            info!("datafile = {:?}", df.datafile());
             match command {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
@@ -136,6 +137,10 @@ impl App {
                 let index_page: BasePage<IndexPage> = pg.build();
                 println!("{:#?}", index_page);
             }
+            PageTypes::SDI => {
+                let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                println!("{:#?}", sdi_page);
+            }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
             }
@@ -168,7 +173,7 @@ mod tests {
     fn it_works() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::View { page: 4 }).is_ok());
+        assert!(app.run(Commands::View { page: 3 }).is_ok());
     }
 
     #[test]
@@ -197,5 +202,12 @@ mod tests {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 2 }).is_ok());
+    }
+
+    #[test]
+    fn view_first_index_page() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 }
