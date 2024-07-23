@@ -645,18 +645,18 @@ impl FSegHeader {
 
 // SDI Index Page, see ibd2sdi.cc
 pub struct SdiIndexPage {
-    index: IndexPage,
-    sdi_hdr: SdiRecord,
-    sdi_str: String,
+    index: IndexPage,       // common Index Page
+    sdi_hdr: SdiDataHeader, // SDI Data Header
+    sdi_data: String,       // unzipped SDI Data as string, a JSON string
 }
 
 impl fmt::Debug for SdiIndexPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let trunc = cmp::min(self.sdi_str.len(), 520);
+        let trunc = cmp::min(self.sdi_data.len(), 520);
         f.debug_struct("SdiIndexPage")
             .field("index", &self.index)
             .field("sdi_hdr", &self.sdi_hdr)
-            .field("sdi_str", &&self.sdi_str[0..trunc])
+            .field("sdi_str", &&self.sdi_data[0..trunc])
             .finish()
     }
 }
@@ -666,33 +666,33 @@ impl BasePageOperation for SdiIndexPage {
         let index = IndexPage::new(buffer.clone());
         let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.rec_hdr.next_rec_offset as usize;
         let end = beg + 33;
-        let sdi_rec = SdiRecord::new(buffer.slice(beg..end));
-        debug!("beg={}, end={}, comp_len={}", beg, end, sdi_rec.comp_len);
+        let hdr = SdiDataHeader::new(buffer.slice(beg..end));
+        debug!("beg={}, end={}, comp_len={}", beg, end, hdr.comp_len);
 
-        let comped_data = buffer.slice(end..end + (sdi_rec.comp_len as usize));
+        let comped_data = buffer.slice(end..end + (hdr.comp_len as usize));
         let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
-        assert_eq!(uncomped_data.len(), sdi_rec.uncomp_len as usize);
+        assert_eq!(uncomped_data.len(), hdr.uncomp_len as usize);
 
         Self {
             index,
-            sdi_hdr: sdi_rec,
-            sdi_str: uncomped_data,
+            sdi_hdr: hdr,
+            sdi_data: uncomped_data,
         }
     }
 }
 
 impl SdiIndexPage {
     pub fn get_sdi_data(&self) -> String {
-        if !self.sdi_str.is_empty() {
-            jsonxf::pretty_print(&self.sdi_str).unwrap()
+        if !self.sdi_data.is_empty() {
+            jsonxf::pretty_print(&self.sdi_data).unwrap()
         } else {
             "".into()
         }
     }
 
     pub fn get_sdi_object(&self) -> Option<SdiObject> {
-        if !self.sdi_str.is_empty() {
-            serde_json::from_str(&self.sdi_str).expect("ERR_SDI_STRING")
+        if !self.sdi_data.is_empty() {
+            serde_json::from_str(&self.sdi_data).expect("ERR_SDI_STRING")
         } else {
             None
         }
@@ -700,7 +700,7 @@ impl SdiIndexPage {
 }
 
 #[derive(Debug)]
-pub struct SdiRecord {
+pub struct SdiDataHeader {
     /// Length of TYPE field in record of SDI Index.
     data_type: u32, // 4 bytes
     /// Length of ID field in record of SDI Index.
@@ -715,7 +715,7 @@ pub struct SdiRecord {
     comp_len: u32, // 4 bytes
 }
 
-impl SdiRecord {
+impl SdiDataHeader {
     pub fn new(buffer: Bytes) -> Self {
         let a = buffer.slice(12..18);
         let trx_id_data = [a[0], a[1], a[2], a[3], a[4], a[5], 0u8, 0u8];
