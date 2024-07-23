@@ -257,7 +257,7 @@ mod tests {
     fn init() {
         INIT_ONCE.call_once(|| {
             set_var("RUST_LOG", "info");
-            util::initlog();
+            util::init_logger();
         });
     }
 

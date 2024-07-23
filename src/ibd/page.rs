@@ -669,14 +669,14 @@ impl BasePageOperation for SdiIndexPage {
         let sdi_rec = SdiRecord::new(buffer.slice(beg..end));
         debug!("beg={}, end={}, comp_len={}", beg, end, sdi_rec.comp_len);
 
-        let data = buffer.slice(end..end + (sdi_rec.comp_len as usize));
-        let out = util::uncomp(data).unwrap();
-        assert_eq!(out.len(), sdi_rec.uncomp_len as usize);
+        let comped_data = buffer.slice(end..end + (sdi_rec.comp_len as usize));
+        let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
+        assert_eq!(uncomped_data.len(), sdi_rec.uncomp_len as usize);
 
         Self {
             index,
             sdi_hdr: sdi_rec,
-            sdi_str: out,
+            sdi_str: uncomped_data,
         }
     }
 }

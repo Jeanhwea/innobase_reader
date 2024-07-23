@@ -5,7 +5,7 @@ use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
 
-pub fn initlog() {
+pub fn init_logger() {
     env_logger::builder()
         .format(|buf, record| {
             writeln!(
@@ -20,10 +20,10 @@ pub fn initlog() {
         .init();
 }
 
-pub fn uncomp(din: Bytes) -> Result<String> {
-    let buf = din.to_vec();
-    let mut decoder = ZlibDecoder::new(&*buf);
-    let mut dout = String::new();
-    decoder.read_to_string(&mut dout)?;
-    Ok(dout)
+pub fn zlib_uncomp(input: Bytes) -> Result<String> {
+    let input_buffer = input.to_vec();
+    let mut decoder = ZlibDecoder::new(&*input_buffer);
+    let mut output = String::new();
+    decoder.read_to_string(&mut output)?;
+    Ok(output)
 }
