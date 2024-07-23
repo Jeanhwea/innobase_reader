@@ -1,7 +1,7 @@
 use bytes::Bytes;
 
 use enum_display::EnumDisplay;
-use log::info;
+use log::{debug, info};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -506,14 +506,18 @@ pub struct IndexPage {
     index_header: IndexHeader, // Index Header
     /// FSEG Header
     fseg_header: FSegHeader, // FSEG Header
+
     /// System Record
     infimum: Record, // infimum_extra[], see page0page.h
     supremum: Record, // supremum_extra_data[], see page0page.h
+
     /// User Records, grow down
-    urec_list: Vec<Record>, // User Record List
+    records: Vec<Record>, // User Record List
 
     ////////////////////////////////////////
+    //
     //  Free Space
+    //
     ////////////////////////////////////////
     /// Page Directory, grows up
     dir_slots: Vec<u16>, // page directory slots
@@ -526,7 +530,7 @@ impl fmt::Debug for IndexPage {
             .field("fseg_header", &self.fseg_header)
             .field("infimum", &self.infimum)
             .field("supremum", &self.supremum)
-            .field("urec_list", &self.urec_list)
+            .field("records", &self.records)
             .field("dir_slots", &format!("{:?}", &self.dir_slots))
             .finish()
     }
@@ -553,6 +557,10 @@ impl BasePageOperation for IndexPage {
         let mut urecs = Vec::new();
         let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
         for nrec in 0..idx_hdr.page_n_recs {
+            debug!("Parse Record, nrec = {}", nrec);
+            if addr > buffer.len() {
+                break;
+            }
             let rec_hdr = RecordHeader::new(buffer.slice(addr - 5..addr));
             addr += rec_hdr.next_rec_offset as usize;
             urecs.push(Record::new(rec_hdr));
@@ -563,7 +571,7 @@ impl BasePageOperation for IndexPage {
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
             infimum: inf,
             supremum: sup,
-            urec_list: urecs,
+            records: urecs,
             dir_slots: slots,
         }
     }
@@ -704,7 +712,7 @@ impl FSegHeader {
 #[derive(Debug)]
 pub struct SdiIndexPage {
     index: IndexPage,
-    // pub payload: Bytes,
+    pub payload: Bytes,
 }
 
 impl BasePageOperation for SdiIndexPage {
@@ -714,7 +722,7 @@ impl BasePageOperation for SdiIndexPage {
         let end = buffer.len() - PAGE_DIR_ENTRY_SIZE * index.dir_slots.len();
         Self {
             index,
-            // payload: buffer.slice(beg..end),
+            payload: buffer.slice(beg..end),
         }
     }
 }
