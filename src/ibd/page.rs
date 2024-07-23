@@ -3,6 +3,7 @@ use bytes::Bytes;
 use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
 use log::{debug, info};
+use num_enum::FromPrimitive;
 use std::fmt::Formatter;
 use std::{cmp, fmt};
 use strum::{Display, EnumString};
@@ -26,7 +27,7 @@ pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumString, Display, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     ALLOCATED = 0,                 // Freshly allocated page
     UNUSED = 1,                    // This page type is unused.
@@ -61,48 +62,8 @@ pub enum PageTypes {
     SDI = 17853,                   // Tablespace SDI Index page
     RTREE = 17854,                 // R-tree node
     INDEX = 17855,                 // B-tree node
-    MARKED(u16),
-}
-
-impl From<u16> for PageTypes {
-    fn from(value: u16) -> Self {
-        match value {
-            0 => PageTypes::ALLOCATED,
-            1 => PageTypes::UNUSED,
-            2 => PageTypes::UNDO_LOG,
-            3 => PageTypes::INODE,
-            4 => PageTypes::IBUF_FREE_LIST,
-            5 => PageTypes::IBUF_BITMAP,
-            6 => PageTypes::SYS,
-            7 => PageTypes::TRX_SYS,
-            8 => PageTypes::FSP_HDR,
-            9 => PageTypes::XDES,
-            10 => PageTypes::BLOB,
-            11 => PageTypes::ZBLOB,
-            12 => PageTypes::ZBLOB2,
-            13 => PageTypes::UNKNOWN,
-            14 => PageTypes::COMPRESSED,
-            15 => PageTypes::ENCRYPTED,
-            16 => PageTypes::COMPRESSED_AND_ENCRYPTED,
-            17 => PageTypes::ENCRYPTED_RTREE,
-            18 => PageTypes::SDI_BLOB,
-            19 => PageTypes::SDI_ZBLOB,
-            20 => PageTypes::LEGACY_DBLWR,
-            21 => PageTypes::RSEG_ARRAY,
-            22 => PageTypes::LOB_INDEX,
-            23 => PageTypes::LOB_DATA,
-            24 => PageTypes::LOB_FIRST,
-            25 => PageTypes::ZLOB_FIRST,
-            26 => PageTypes::ZLOB_DATA,
-            27 => PageTypes::ZLOB_INDEX,
-            28 => PageTypes::ZLOB_FRAG,
-            29 => PageTypes::ZLOB_FRAG_ENTRY,
-            17853 => PageTypes::SDI,
-            17855 => PageTypes::INDEX,
-            17854 => PageTypes::RTREE,
-            _ => PageTypes::MARKED(value),
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 /// FIL Header, see fil0types.h
@@ -376,7 +337,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
     XDES_FREE = 1,       // extent is in free list of space
@@ -384,21 +345,8 @@ pub enum XDesStates {
     XDES_FULL_FRAG = 3,  // extent is in full fragment list of space
     XDES_FSEG = 4,       // extent belongs to a segment
     XDES_FSEG_FRAG = 5,  // fragment extent leased to segment
-    MARKED(u32),
-}
-
-impl From<u32> for XDesStates {
-    fn from(value: u32) -> Self {
-        match value {
-            0 => XDesStates::XDES_NOT_INITED, // extent descriptor is not initialized
-            1 => XDesStates::XDES_FREE,       // extent is in free list of space
-            2 => XDesStates::XDES_FREE_FRAG,  // extent is in free fragment list of space
-            3 => XDesStates::XDES_FULL_FRAG,  // extent is in full fragment list of space
-            4 => XDesStates::XDES_FSEG,       // extent belongs to a segment
-            5 => XDesStates::XDES_FSEG_FRAG,  // fragment extent leased to segment
-            _ => XDesStates::MARKED(value),
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // Extent Descriptor Entry, see fsp0fsp.h
@@ -588,47 +536,26 @@ impl IndexPage {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
-    MARKED(u8),
-}
-
-impl From<u8> for PageFormats {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => PageFormats::REDUNDANT,
-            1 => PageFormats::COMPACT,
-            _ => PageFormats::MARKED(value),
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageDirections {
     PAGE_LEFT = 1,
     PAGE_RIGHT = 2,
     PAGE_SAME_REC = 3,
     PAGE_SAME_PAGE = 4,
     PAGE_NO_DIRECTION = 5,
-    MARKED(u16),
-}
-
-impl From<u16> for PageDirections {
-    fn from(value: u16) -> Self {
-        match value {
-            1 => PageDirections::PAGE_LEFT,
-            2 => PageDirections::PAGE_RIGHT,
-            3 => PageDirections::PAGE_SAME_REC,
-            4 => PageDirections::PAGE_SAME_PAGE,
-            5 => PageDirections::PAGE_NO_DIRECTION,
-            _ => PageDirections::MARKED(value),
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // Index Page Header, see page0types.h

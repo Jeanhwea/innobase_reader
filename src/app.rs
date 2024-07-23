@@ -115,7 +115,7 @@ impl App {
             );
             match pt {
                 PageTypes::ALLOCATED => {}
-                PageTypes::MARKED(_) => {
+                PageTypes::UNDEF => {
                     warn!("{:?} page_no = {}", pt, page_no);
                 }
                 _ => {
@@ -233,7 +233,7 @@ impl App {
                 let sdi_page: BasePage<SdiIndexPage> = pg_fact.build();
                 println!("{:#?}", sdi_page);
             }
-            PageTypes::MARKED(_) => {
+            PageTypes::UNDEF => {
                 warn!("page_no = {}, hdr = {:?}", page_no, fil_hdr);
             }
             _ => {

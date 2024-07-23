@@ -1,3 +1,4 @@
+use num_enum::FromPrimitive;
 use std::collections::HashMap;
 
 use bytes::Bytes;
@@ -13,25 +14,14 @@ pub const PAGE_ADDR_SUP: usize = 112;
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
     REC_STATUS_ORDINARY = 0,
     REC_STATUS_NODE_PTR = 1,
     REC_STATUS_INFIMUM = 2,
     REC_STATUS_SUPREMUM = 3,
-    MARKED(u8),
-}
-
-impl From<u8> for RecordStatus {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => RecordStatus::REC_STATUS_ORDINARY,
-            1 => RecordStatus::REC_STATUS_NODE_PTR,
-            2 => RecordStatus::REC_STATUS_INFIMUM,
-            3 => RecordStatus::REC_STATUS_SUPREMUM,
-            _ => RecordStatus::MARKED(value),
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 #[derive(Debug)]
@@ -133,9 +123,8 @@ pub struct DataDictObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnTypes {
-    UNDEF = 0,
     DECIMAL = 1,
     TINY = 2,
     SHORT = 3,
@@ -167,45 +156,8 @@ pub enum ColumnTypes {
     STRING = 29,
     GEOMETRY = 30,
     JSON = 31,
-}
-
-impl From<u8> for ColumnTypes {
-    fn from(value: u8) -> Self {
-        match value {
-            1 => ColumnTypes::DECIMAL,
-            2 => ColumnTypes::TINY,
-            3 => ColumnTypes::SHORT,
-            4 => ColumnTypes::LONG,
-            5 => ColumnTypes::FLOAT,
-            6 => ColumnTypes::DOUBLE,
-            7 => ColumnTypes::TYPE_NULL,
-            8 => ColumnTypes::TIMESTAMP,
-            9 => ColumnTypes::LONGLONG,
-            10 => ColumnTypes::INT24,
-            11 => ColumnTypes::DATE,
-            12 => ColumnTypes::TIME,
-            13 => ColumnTypes::DATETIME,
-            14 => ColumnTypes::YEAR,
-            15 => ColumnTypes::NEWDATE,
-            16 => ColumnTypes::VARCHAR,
-            17 => ColumnTypes::BIT,
-            18 => ColumnTypes::TIMESTAMP2,
-            19 => ColumnTypes::DATETIME2,
-            20 => ColumnTypes::TIME2,
-            21 => ColumnTypes::NEWDECIMAL,
-            22 => ColumnTypes::ENUM,
-            23 => ColumnTypes::SET,
-            24 => ColumnTypes::TINY_BLOB,
-            25 => ColumnTypes::MEDIUM_BLOB,
-            26 => ColumnTypes::LONG_BLOB,
-            27 => ColumnTypes::BLOB,
-            28 => ColumnTypes::VAR_STRING,
-            29 => ColumnTypes::STRING,
-            30 => ColumnTypes::GEOMETRY,
-            31 => ColumnTypes::JSON,
-            _ => ColumnTypes::UNDEF,
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // see sql/dd/types/column.h
@@ -213,7 +165,7 @@ impl From<u8> for ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -226,20 +178,8 @@ pub enum HiddenTypes {
     /// attribute. Column is hidden from the user unless it is explicitly
     /// referenced in the statement. Column is visible to the server.
     HT_HIDDEN_USER = 4,
-    // unknown hidden type
-    HT_UNKNOWN = 0,
-}
-
-impl From<u8> for HiddenTypes {
-    fn from(value: u8) -> Self {
-        match value {
-            1 => HiddenTypes::HT_VISIBLE,
-            2 => HiddenTypes::HT_HIDDEN_SE,
-            3 => HiddenTypes::HT_HIDDEN_SQL,
-            4 => HiddenTypes::HT_HIDDEN_USER,
-            _ => HiddenTypes::HT_UNKNOWN,
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // see sql/dd/types/column.h
@@ -247,25 +187,14 @@ impl From<u8> for HiddenTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumString)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,
     CK_UNIQUE = 3,
     CK_MULTIPLE = 4,
-    CK_UNKNOWN = 0,
-}
-
-impl From<u8> for ColumnKeys {
-    fn from(value: u8) -> Self {
-        match value {
-            1 => ColumnKeys::CK_NONE,
-            2 => ColumnKeys::CK_PRIMARY,
-            3 => ColumnKeys::CK_UNIQUE,
-            4 => ColumnKeys::CK_MULTIPLE,
-            _ => ColumnKeys::CK_UNKNOWN,
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // see sql/dd/impl/types/column_impl.h
@@ -296,27 +225,15 @@ pub struct DataDictColumn {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
     IT_UNIQUE = 2,
     IT_MULTIPLE = 3,
     IT_FULLTEXT = 4,
     IT_SPATIAL = 5,
-    IT_UNKNOWN = 0,
-}
-
-impl From<u8> for IndexTypes {
-    fn from(value: u8) -> Self {
-        match value {
-            1 => IndexTypes::IT_PRIMARY,
-            2 => IndexTypes::IT_UNIQUE,
-            3 => IndexTypes::IT_MULTIPLE,
-            4 => IndexTypes::IT_FULLTEXT,
-            5 => IndexTypes::IT_SPATIAL,
-            _ => IndexTypes::IT_UNKNOWN,
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // see sql/dd/types/index.h
@@ -324,27 +241,15 @@ impl From<u8> for IndexTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,
     IA_RTREE = 3,
     IA_HASH = 4,
     IA_FULLTEXT = 5,
-    IA_UNKNOWN = 0,
-}
-
-impl From<u8> for IndexAlgorithm {
-    fn from(value: u8) -> Self {
-        match value {
-            1 => IndexAlgorithm::IA_SE_SPECIFIC,
-            2 => IndexAlgorithm::IA_BTREE,
-            3 => IndexAlgorithm::IA_RTREE,
-            4 => IndexAlgorithm::IA_HASH,
-            5 => IndexAlgorithm::IA_FULLTEXT,
-            _ => IndexAlgorithm::IA_UNKNOWN,
-        }
-    }
+    #[num_enum(default)]
+    UNDEF,
 }
 
 // see sql/dd/impl/types/index_impl.h
