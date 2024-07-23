@@ -717,6 +717,12 @@ pub struct SdiIndexPage {
     sdi_str: String,
 }
 
+impl SdiIndexPage {
+    pub fn get_sdi_data(&self) -> String {
+        jsonxf::pretty_print(&self.sdi_str).unwrap()
+    }
+}
+
 impl BasePageOperation for SdiIndexPage {
     fn new(buffer: Bytes) -> Self {
         let index = IndexPage::new(buffer.clone());
@@ -729,7 +735,6 @@ impl BasePageOperation for SdiIndexPage {
         let out = util::uncomp(data).unwrap();
         assert_eq!(out.len(), sdi_rec.uncomp_len as usize);
 
-        info!("sdi_str = {}", jsonxf::pretty_print(&out).unwrap());
         Self {
             index,
             sdi_hdr: sdi_rec,
