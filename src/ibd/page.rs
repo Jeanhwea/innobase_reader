@@ -5,6 +5,8 @@ use log::info;
 use std::fmt;
 use std::fmt::Formatter;
 
+use super::data::Record;
+
 pub const PAGE_SIZE: usize = 16 * 1024;
 
 pub const FIL_HEADER_SIZE: usize = 38;
@@ -16,6 +18,7 @@ pub const INODE_ENTRY_SIZE: usize = 192;
 pub const INODE_ENTRY_COUNT: usize = 85;
 pub const INODE_ENTRY_ARR_COUNT: usize = 32;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
+pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
 /// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
@@ -319,7 +322,7 @@ impl FileSpaceHeader {
 #[derive(Debug)]
 pub struct BasePage<P> {
     pub fil_hdr: FilePageHeader,
-    pub data: P,
+    pub body: P,
     pub fil_trl: FilePageTrailer,
 }
 
@@ -334,7 +337,7 @@ where
     pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
         Self {
             fil_hdr: header,
-            data: BasePageOperation::new(buffer),
+            body: BasePageOperation::new(buffer),
             fil_trl: trailer,
         }
     }
@@ -532,8 +535,8 @@ impl BasePageOperation for IndexPage {
         let n_slots = idx_hdr.page_n_dir_slots as usize;
         let mut slots = vec![0; n_slots];
         for (offset, element) in slots.iter_mut().enumerate() {
-            let end = buffer.len() - offset * 2;
-            let beg = end - 2;
+            let end = buffer.len() - offset * PAGE_DIR_ENTRY_SIZE;
+            let beg = end - PAGE_DIR_ENTRY_SIZE;
             *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
         }
         Self {
@@ -677,137 +680,21 @@ impl FSegHeader {
     }
 }
 
-#[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum RecordStatus {
-    REC_STATUS_ORDINARY = 0,
-    REC_STATUS_NODE_PTR = 1,
-    REC_STATUS_INFIMUM = 2,
-    REC_STATUS_SUPREMUM = 3,
-    MARKED(u8),
-}
-
-impl From<u8> for RecordStatus {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => RecordStatus::REC_STATUS_ORDINARY,
-            1 => RecordStatus::REC_STATUS_NODE_PTR,
-            2 => RecordStatus::REC_STATUS_INFIMUM,
-            3 => RecordStatus::REC_STATUS_SUPREMUM,
-            _ => RecordStatus::MARKED(value),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Record {
-    rec_hdr: RecordHeader, // record header
-    row_data: Bytes,       // row data
-}
-
-impl Record {
-    pub fn new(buffer: Bytes) -> Self {
-        Self {
-            rec_hdr: RecordHeader::new(buffer.slice(..5)),
-            row_data: buffer.slice(5..),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct RecordHeader {
-    info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
-    n_owned: u8,              // 4 bits
-    heap_no: u16,             // 13 bits
-    rec_status: RecordStatus, // 3 bits, see rec.h
-    next_rec_offset: u16,     // next record offset
-}
-
-impl RecordHeader {
-    pub fn new(buffer: Bytes) -> Self {
-        let b1 = u16::from_be_bytes(buffer.as_ref()[1..3].try_into().unwrap());
-        let status = (b1 & 0x0007) as u8;
-        Self {
-            info_bits: (buffer[0] & 0xf0) >> 4,
-            n_owned: (buffer[0] & 0x0f),
-            heap_no: (b1 & 0xfff8) >> 3,
-            rec_status: status.into(),
-            next_rec_offset: u16::from_be_bytes(buffer.as_ref()[3..5].try_into().unwrap()),
-        }
-    }
-
-    // Info bit denoting the predefined minimum record: this bit is set if and
-    // only if the record is the first user record on a non-leaf B-tree page
-    // that is the leftmost page on its level (PAGE_LEVEL is nonzero and
-    // FIL_PAGE_PREV is FIL_NULL).
-    const REC_INFO_MIN_REC_FLAG: u8 = 1;
-    // The deleted flag in info bits; when bit is set to 1, it means the record
-    // has been delete marked
-    const REC_INFO_DELETED_FLAG: u8 = 2;
-    // Use this bit to indicate record has version
-    const REC_INFO_VERSION_FLAG: u8 = 4;
-    // The instant ADD COLUMN flag. When it is set to 1, it means this record
-    // was inserted/updated after an instant ADD COLUMN.
-    const REC_INFO_INSTANT_FLAG: u8 = 8;
-
-    pub fn is_min_rec(&self) -> bool {
-        (self.info_bits & Self::REC_INFO_MIN_REC_FLAG) > 0
-    }
-
-    pub fn is_deleted(&self) -> bool {
-        (self.info_bits & Self::REC_INFO_DELETED_FLAG) > 0
-    }
-}
-
 // SDI Index Page, see ibd2sdi.cc
+#[derive(Debug)]
 pub struct SdiIndexPage {
-    /// Index Header
-    index_header: IndexHeader, // Index Header
-    /// FSEG Header
-    fseg_header: FSegHeader, // FSEG Header
-    /// System Record
-    infimum: Record, // infimum_extra[], see page0page.h
-    supremum: Record, // supremum_extra_data[], see page0page.h
-    /// User Records, grow down
-
-    ////////////////////////////////////////
-    //  Free Space
-    ////////////////////////////////////////
-
-    /// Page Directory, grows up
-    dir_slots: Vec<u16>, // page directory slots
-}
-
-impl fmt::Debug for SdiIndexPage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SdiIndexPage")
-            .field("index_header", &self.index_header)
-            .field("fseg_header", &self.fseg_header)
-            .field("infimum", &self.infimum)
-            .field("supremum", &self.supremum)
-            .field("dir_slots", &format!("{:?}", &self.dir_slots))
-            .finish()
-    }
+    index: IndexPage,
+    pub payload: Bytes,
 }
 
 impl BasePageOperation for SdiIndexPage {
     fn new(buffer: Bytes) -> Self {
-        let idx_hdr = IndexHeader::new(buffer.slice(0..36));
-        let n_slots = idx_hdr.page_n_dir_slots as usize;
-        let mut slots = vec![0; n_slots];
-        for (offset, element) in slots.iter_mut().enumerate() {
-            let end = buffer.len() - offset * 2;
-            let beg = end - 2;
-            *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
-        }
+        let index = IndexPage::new(buffer.clone());
+        let beg = 82;
+        let end = buffer.len() - PAGE_DIR_ENTRY_SIZE * index.dir_slots.len();
         Self {
-            index_header: idx_hdr,
-            fseg_header: FSegHeader::new(buffer.slice(36..56)),
-            infimum: Record::new(buffer.slice(56..69)),
-            supremum: Record::new(buffer.slice(69..82)),
-            dir_slots: slots,
+            index,
+            payload: buffer.slice(beg..end),
         }
     }
 }

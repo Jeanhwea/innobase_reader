@@ -4,7 +4,9 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::ibd::factory::{DatafileFactory, PageFactory};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage};
+use crate::ibd::page::{
+    BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage,
+};
 
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -140,6 +142,12 @@ impl App {
             PageTypes::SDI => {
                 let sdi_page: BasePage<SdiIndexPage> = pg.build();
                 println!("{:#?}", sdi_page);
+                // println!("{:?}", sdi_page.data.payload.slice(..10));
+                // for b in &sdi_page.data.payload {
+                //     if *b > 20 && *b < 128 {
+                //         print!("{}", char::from_u32(*b as u32).unwrap());
+                //     }
+                // }
             }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
