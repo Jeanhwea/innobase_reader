@@ -42,6 +42,7 @@ impl App {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
                 Commands::Desc => Self::do_desc(df)?,
+                Commands::SDI => Self::do_print_sdi_json(df)?,
                 Commands::View { page: page_no } => {
                     if page_no >= df.page_count() {
                         return Err(Error::msg("Page number out of range"));
@@ -167,6 +168,24 @@ impl App {
                             }
                         }
                     }
+                    break;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn do_print_sdi_json(factory: &DatafileFactory) -> Result<()> {
+        for page_no in 0..factory.page_count() {
+            let fil_hdr = factory.parse_fil_hdr(page_no)?;
+            match &fil_hdr.page_type {
+                PageTypes::SDI => {
+                    let buf = factory.read_page(page_no)?;
+                    let pg = PageFactory::new(buf);
+                    let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                    let sdi_data = sdi_page.body.get_sdi_data();
+                    println!("{}", sdi_data);
                     break;
                 }
                 _ => {}
