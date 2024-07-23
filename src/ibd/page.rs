@@ -6,6 +6,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use crate::ibd::data::{RecordHeader, PAGE_ADDR_INF};
+use crate::util;
 
 use super::data::Record;
 
@@ -712,17 +713,54 @@ impl FSegHeader {
 #[derive(Debug)]
 pub struct SdiIndexPage {
     index: IndexPage,
-    pub payload: Bytes,
+    rec: SdiRecord,
+    sdi_str: String,
 }
 
 impl BasePageOperation for SdiIndexPage {
     fn new(buffer: Bytes) -> Self {
         let index = IndexPage::new(buffer.clone());
-        let beg = 82;
-        let end = buffer.len() - PAGE_DIR_ENTRY_SIZE * index.dir_slots.len();
+        let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.rec_hdr.next_rec_offset as usize;
+        let end = beg + 33;
+        let sdi_rec = SdiRecord::new(buffer.slice(beg..end));
+        debug!("beg={}, end={}, comp_len={}", beg, end, sdi_rec.comp_len);
+
+        let data = buffer.slice(end..end + (sdi_rec.comp_len as usize));
+        let out = util::uncomp(data).unwrap();
+        assert_eq!(out.len(), sdi_rec.uncomp_len as usize);
+
+        info!("sdi_str = {}", jsonxf::pretty_print(&out).unwrap());
         Self {
             index,
-            payload: buffer.slice(beg..end),
+            rec: sdi_rec,
+            sdi_str: out,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SdiRecord {
+    data_type: u32,  // 4 bytes
+    data_id: u64,    // 8 bytes
+    trx_id: u64,     // 6 bytes
+    roll_ptr: u64,   // 7 bytes
+    uncomp_len: u32, // 4 bytes
+    comp_len: u32,   // 4 bytes
+}
+
+impl SdiRecord {
+    pub fn new(buffer: Bytes) -> Self {
+        let a = buffer.slice(12..18);
+        let trx_id_data = [a[0], a[1], a[2], a[3], a[4], a[5], 0u8, 0u8];
+        let b = buffer.slice(18..25);
+        let roll_ptr_data = [b[0], b[1], b[2], b[3], b[4], b[5], b[6], 0u8];
+        Self {
+            data_type: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            data_id: u64::from_be_bytes(buffer.as_ref()[4..12].try_into().unwrap()),
+            trx_id: u64::from_be_bytes(trx_id_data),
+            roll_ptr: u64::from_be_bytes(roll_ptr_data),
+            uncomp_len: u32::from_be_bytes(buffer.as_ref()[25..29].try_into().unwrap()),
+            comp_len: u32::from_be_bytes(buffer.as_ref()[29..33].try_into().unwrap()),
         }
     }
 }
