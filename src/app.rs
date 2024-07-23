@@ -134,7 +134,7 @@ impl App {
                 let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).build();
 
                 if let Some(obj) = sdi_page.body.get_sdi_object() {
-                    info!("sdi_obj = {:#?}", obj);
+                    debug!("sdi_obj = {:#?}", obj);
                     let mut cols = obj.dd_object.columns;
                     if !cols.is_empty() {
                         cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
