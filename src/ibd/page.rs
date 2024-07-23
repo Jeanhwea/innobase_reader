@@ -713,7 +713,7 @@ impl FSegHeader {
 #[derive(Debug)]
 pub struct SdiIndexPage {
     index: IndexPage,
-    rec: SdiRecord,
+    sdi_hdr: SdiRecord,
     sdi_str: String,
 }
 
@@ -732,7 +732,7 @@ impl BasePageOperation for SdiIndexPage {
         info!("sdi_str = {}", jsonxf::pretty_print(&out).unwrap());
         Self {
             index,
-            rec: sdi_rec,
+            sdi_hdr: sdi_rec,
             sdi_str: out,
         }
     }
