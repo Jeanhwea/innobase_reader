@@ -111,23 +111,21 @@ impl Record {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SdiObject {
-    pub mysqld_version_id: u32,
-    pub dd_version: u32,
-    pub sdi_version: u32,
-    pub dd_object_type: String,
-    pub dd_object: SdiDDObject,
+    pub dd_object: DataDictObject,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct SdiDDObject {
+pub struct DataDictObject {
     pub name: String,
-    pub mysql_version_id: u64,
     pub created: u64,
     pub last_altered: u64,
     pub hidden: u8,
-    pub options: String,
-    pub columns: Vec<DDColumn>,
-    pub indexes: Vec<DDIndex>,
+    pub columns: Vec<DataDictColumn>,
+    pub indexes: Vec<DataDictIndex>,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
 }
 
 // see sql/dd/types/column.h
@@ -273,7 +271,7 @@ impl From<u8> for ColumnKeys {
 // see sql/dd/impl/types/column_impl.h
 //    class Column_impl : public Entity_object_impl, public Column {
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DDColumn {
+pub struct DataDictColumn {
     #[serde(rename = "name")]
     pub col_name: String,
     #[serde(rename = "type")]
@@ -352,7 +350,7 @@ impl From<u8> for IndexAlgorithm {
 // see sql/dd/impl/types/index_impl.h
 //    class Index_impl : public Entity_object_impl, public Index {
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DDIndex {
+pub struct DataDictIndex {
     pub name: String,
     pub hidden: bool,
     pub ordinal_position: u32,

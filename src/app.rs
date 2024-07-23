@@ -130,11 +130,11 @@ impl App {
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
-                let buf = factory.read_page(page_no)?;
-                let pg = PageFactory::new(buf);
-                let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                let buffer = factory.read_page(page_no)?;
+                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).build();
 
                 if let Some(obj) = sdi_page.body.get_sdi_object() {
+                    info!("sdi_obj = {:#?}", obj);
                     let mut cols = obj.dd_object.columns;
                     if !cols.is_empty() {
                         cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
@@ -183,9 +183,8 @@ impl App {
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
-                let buf = factory.read_page(page_no)?;
-                let pg = PageFactory::new(buf);
-                let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                let buffer = factory.read_page(page_no)?;
+                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).build();
                 let sdi_data = sdi_page.body.get_sdi_data();
                 println!("{}", sdi_data);
                 break;
@@ -202,44 +201,43 @@ impl App {
                 fil_hdr.page_type
             )));
         }
-        let buf = factory.read_page(page_no)?;
-        let pg = PageFactory::new(buf);
-        let mut index_page: BasePage<IndexPage> = pg.build();
+        let buffer = factory.read_page(page_no)?;
+        let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).build();
         index_page.body.parse_records();
         info!("{:#?}", index_page);
         Ok(())
     }
 
     fn do_view(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
-        let buf = factory.read_page(page_no)?;
-        let pg = PageFactory::new(buf);
-        let hdr = pg.fil_hdr();
-        match hdr.page_type {
+        let buffer = factory.read_page(page_no)?;
+        let pg_fact = PageFactory::new(buffer);
+        let fil_hdr = pg_fact.fil_hdr();
+        match fil_hdr.page_type {
             PageTypes::ALLOCATED => {
-                println!("allocated only page, fil_hdr = {:#?}", hdr);
+                println!("allocated only page, fil_hdr = {:#?}", fil_hdr);
             }
             PageTypes::FSP_HDR => {
-                assert_eq!(page_no, hdr.page_no as usize);
-                let fsp_page: BasePage<FileSpaceHeaderPage> = pg.build();
+                assert_eq!(page_no, fil_hdr.page_no as usize);
+                let fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.build();
                 println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {
-                let inode_page: BasePage<INodePage> = pg.build();
+                let inode_page: BasePage<INodePage> = pg_fact.build();
                 println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {
-                let index_page: BasePage<IndexPage> = pg.build();
+                let index_page: BasePage<IndexPage> = pg_fact.build();
                 println!("{:#?}", index_page);
             }
             PageTypes::SDI => {
-                let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                let sdi_page: BasePage<SdiIndexPage> = pg_fact.build();
                 println!("{:#?}", sdi_page);
             }
             PageTypes::MARKED(_) => {
-                warn!("page_no = {}, hdr = {:?}", page_no, hdr);
+                warn!("page_no = {}, hdr = {:?}", page_no, fil_hdr);
             }
             _ => {
-                error!("unsupported page type, hdr = {:#?}", hdr);
+                error!("unsupported page type, hdr = {:#?}", fil_hdr);
             }
         }
         Ok(())
