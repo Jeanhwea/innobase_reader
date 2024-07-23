@@ -5,7 +5,7 @@ use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
 
-pub fn init_logger() {
+pub fn initlog() {
     env_logger::builder()
         .format(|buf, record| {
             writeln!(

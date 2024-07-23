@@ -40,7 +40,7 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
-    util::init_logger();
+    util::initlog();
 
     let args = Args::parse();
     let mut app = app::App::new(args.input);
