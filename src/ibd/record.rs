@@ -1,8 +1,8 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-use enum_display::EnumDisplay;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::{Display, EnumString};
 
 pub const PAGE_ADDR_INF: usize = 99;
 pub const PAGE_ADDR_SUP: usize = 112;
@@ -10,7 +10,7 @@ pub const PAGE_ADDR_SUP: usize = 112;
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
     REC_STATUS_ORDINARY = 0,
     REC_STATUS_NODE_PTR = 1,
@@ -132,7 +132,7 @@ pub struct SdiDDObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
 pub enum ColumnTypes {
     UNDEF = 0,
     DECIMAL = 1,
@@ -212,7 +212,7 @@ impl From<u8> for ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -246,7 +246,7 @@ impl From<u8> for HiddenTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, EnumString)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,
@@ -324,7 +324,7 @@ pub struct DDColumn {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
     IT_UNIQUE = 2,
@@ -352,7 +352,7 @@ impl From<u8> for IndexTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,

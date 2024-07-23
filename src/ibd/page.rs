@@ -1,12 +1,11 @@
 use bytes::Bytes;
 
-use enum_display::EnumDisplay;
+use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
+use crate::util;
 use log::{debug, info};
 use std::fmt::Formatter;
 use std::{cmp, fmt};
-
-use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
-use crate::util;
+use strum::{Display, EnumString};
 
 use super::record::{Record, SdiObject};
 
@@ -27,7 +26,7 @@ pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, Display, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     ALLOCATED = 0,                 // Freshly allocated page
     UNUSED = 1,                    // This page type is unused.
@@ -377,7 +376,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
     XDES_FREE = 1,       // extent is in free list of space
@@ -589,7 +588,7 @@ impl IndexPage {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
@@ -609,7 +608,7 @@ impl From<u8> for PageFormats {
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageDirections {
     PAGE_LEFT = 1,
     PAGE_RIGHT = 2,
