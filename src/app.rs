@@ -127,8 +127,46 @@ impl App {
                     let buf = factory.read_page(page_no)?;
                     let pg = PageFactory::new(buf);
                     let sdi_page: BasePage<SdiIndexPage> = pg.build();
-                    println!("{}", sdi_page.body.get_sdi_data());
-                    return Ok(());
+
+                    if let Some(obj) = sdi_page.body.get_sdi_object() {
+                        let mut cols = obj.dd_object.columns;
+                        if cols.len() > 0 {
+                            cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
+                            println!("Columns:");
+                            for c in &cols {
+                                println!(
+                                    "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, comment={}",
+                                    c.ordinal_position,
+                                    c.col_name.magenta(),
+                                    c.dd_type.to_string().blue(),
+                                    c.column_type_utf8.green(),
+                                    c.is_nullable.to_string().yellow(),
+                                    c.char_length.to_string().yellow(),
+                                    c.hidden.to_string().cyan(),
+                                    c.comment,
+                                );
+                                info!("{:?}", c);
+                            }
+                        }
+
+                        let mut idxs = obj.dd_object.indexes;
+                        if idxs.len() > 0 {
+                            idxs.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
+                            println!("Indexes:");
+                            for i in &idxs {
+                                println!(
+                                    "{:>3}: name={}, hidden={}, type={}, algorithm={}",
+                                    i.ordinal_position,
+                                    i.name.magenta(),
+                                    i.hidden.to_string().yellow(),
+                                    i.dd_type.to_string().cyan(),
+                                    i.algorithm.to_string().green(),
+                                );
+                                info!("{:?}", i);
+                            }
+                        }
+                    }
+                    break;
                 }
                 _ => {}
             }
@@ -160,20 +198,6 @@ impl App {
             PageTypes::SDI => {
                 let sdi_page: BasePage<SdiIndexPage> = pg.build();
                 println!("{:#?}", sdi_page);
-                if let Some(obj) = sdi_page.body.get_sdi_object() {
-                    let mut cols = obj.dd_object.columns;
-                    cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
-                    for c in &cols {
-                        println!(
-                            "ord={}, {}, dd_type={}, utf8_type={}, {:#?}",
-                            c.ordinal_position.to_string().yellow(),
-                            c.col_name.magenta(),
-                            c.dd_type.to_string().blue(),
-                            c.column_type_utf8.green(),
-                            c,
-                        );
-                    }
-                }
             }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
