@@ -123,8 +123,8 @@ pub struct SdiDDObject {
     pub last_altered: u64,
     pub hidden: u8,
     pub options: String,
-    pub columns: Vec<Column>,
-    pub indexes: Vec<Index>,
+    pub columns: Vec<DDColumn>,
+    pub indexes: Vec<DDIndex>,
 }
 
 // see sql/dd/types/column.h
@@ -270,7 +270,7 @@ impl From<u8> for ColumnKeys {
 // see sql/dd/impl/types/column_impl.h
 //    class Column_impl : public Entity_object_impl, public Column {
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Column {
+pub struct DDColumn {
     #[serde(rename = "name")]
     pub col_name: String,
 
@@ -378,7 +378,7 @@ impl From<u8> for IndexAlgorithm {
 // see sql/dd/impl/types/index_impl.h
 //    class Index_impl : public Entity_object_impl, public Index {
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Index {
+pub struct DDIndex {
     pub name: String,
     pub hidden: bool,
     pub is_generated: bool,
@@ -386,7 +386,7 @@ pub struct Index {
     pub comment: String,
     pub options: String,
     #[serde(rename = "type")]
-    pub dd_type: IndexTypes,
+    pub idx_type: IndexTypes,
     pub algorithm: IndexAlgorithm,
     pub is_algorithm_explicit: bool,
     pub is_visible: bool,

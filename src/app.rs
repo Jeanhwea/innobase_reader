@@ -159,7 +159,7 @@ impl App {
                                     i.ordinal_position,
                                     i.name.magenta(),
                                     i.hidden.to_string().yellow(),
-                                    i.dd_type.to_string().cyan(),
+                                    i.idx_type.to_string().cyan(),
                                     i.algorithm.to_string().green(),
                                 );
                                 info!("{:?}", i);
