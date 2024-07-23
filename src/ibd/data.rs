@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 
 use enum_display::EnumDisplay;
 
@@ -102,4 +103,64 @@ impl Record {
             row: None,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SdiObject {
+    pub mysqld_version_id: u32,
+    pub dd_version: u32,
+    pub sdi_version: u32,
+    pub dd_object_type: String,
+    pub dd_object: SdiDDObject,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SdiDDObject {
+    pub name: String,
+    pub mysql_version_id: u64,
+    pub created: u64,
+    pub last_altered: u64,
+    pub hidden: u8,
+    pub options: String,
+    pub columns: Vec<Column>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Column {
+    pub ordinal_position: u32,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub col_type: u32,
+    pub is_nullable: bool,
+    pub is_zerofill: bool,
+    pub is_unsigned: bool,
+    pub is_auto_increment: bool,
+    pub is_virtual: bool,
+    pub hidden: u8,
+    pub char_length: u32,
+    pub numeric_precision: u32,
+    pub numeric_scale: u32,
+    pub numeric_scale_null: bool,
+    pub datetime_precision: u32,
+    pub datetime_precision_null: u32,
+    pub has_no_default: bool,
+    pub default_value_null: bool,
+    pub srs_id_null: bool,
+    pub srs_id: u32,
+    pub default_value: String,
+    pub default_value_utf8_null: bool,
+    pub default_value_utf8: String,
+    pub default_option: String,
+    pub update_option: String,
+    pub comment: String,
+    pub generation_expression: String,
+    pub generation_expression_utf8: String,
+    pub options: String,
+    pub se_private_data: String,
+    pub engine_attribute: String,
+    pub secondary_engine_attribute: String,
+    pub column_key: u32,
+    pub column_type_utf8: String,
+    pub collation_id: u32,
+    pub is_explicit_collation: bool,
 }

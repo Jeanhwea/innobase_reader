@@ -142,7 +142,18 @@ impl App {
             PageTypes::SDI => {
                 let sdi_page: BasePage<SdiIndexPage> = pg.build();
                 println!("{:#?}", sdi_page);
-                println!("{}", sdi_page.body.get_sdi_data());
+                if let Some(obj) = sdi_page.body.get_sdi_object() {
+                    let mut cols = obj.dd_object.columns;
+                    cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
+                    for c in &cols {
+                        println!(
+                            "ord={}, {}, col_type={}",
+                            c.ordinal_position.to_string().yellow(),
+                            c.name,
+                            c.col_type,
+                        );
+                    }
+                }
             }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);

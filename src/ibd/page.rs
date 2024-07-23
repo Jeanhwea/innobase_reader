@@ -8,7 +8,7 @@ use std::fmt::Formatter;
 use crate::ibd::data::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
 
-use super::data::Record;
+use super::data::{Record, SdiObject};
 
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -749,6 +749,10 @@ impl BasePageOperation for SdiIndexPage {
 impl SdiIndexPage {
     pub fn get_sdi_data(&self) -> String {
         jsonxf::pretty_print(&self.sdi_str).unwrap()
+    }
+
+    pub fn get_sdi_object(&self) -> Option<SdiObject> {
+        serde_json::from_str(&self.sdi_str).unwrap_or(None)
     }
 }
 

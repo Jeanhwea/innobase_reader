@@ -20,5 +20,5 @@ flate2 = "1.0.30"
 hex = "0.4.3"
 jsonxf = "1.1.1"
 log = "0.4.22"
-serde = "1.0.204"
+serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.120"
