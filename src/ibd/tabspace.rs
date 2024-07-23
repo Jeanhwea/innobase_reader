@@ -16,3 +16,17 @@ impl Datafile {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct TableDef {
+    pub table_name: String,
+    pub col_defs: Vec<ColumnDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ColumnDef {
+    pub ord_pos: u32,
+    pub col_name: String,
+    pub char_len: u32,
+    pub nullable: bool,
+}

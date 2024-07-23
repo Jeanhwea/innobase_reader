@@ -522,6 +522,8 @@ pub struct IndexPage {
     ////////////////////////////////////////
     /// Page Directory, grows up
     dir_slots: Vec<u16>, // page directory slots
+
+    buf: Bytes,
 }
 
 impl fmt::Debug for IndexPage {
@@ -555,25 +557,31 @@ impl BasePageOperation for IndexPage {
         let sup = Record::new(RecordHeader::new(buffer.slice(69..82)));
 
         // Parse User Records
-        let mut urecs = Vec::new();
-        let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
-        for nrec in 0..idx_hdr.page_n_recs {
-            debug!("Parse Record, nrec = {}", nrec);
-            if addr > buffer.len() {
-                break;
-            }
-            let rec_hdr = RecordHeader::new(buffer.slice(addr - 5..addr));
-            addr += rec_hdr.next_rec_offset as usize;
-            urecs.push(Record::new(rec_hdr));
-        }
-
         Self {
             index_header: idx_hdr,
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
             infimum: inf,
             supremum: sup,
-            records: urecs,
+            records: Vec::new(),
             dir_slots: slots,
+            buf: buffer,
+        }
+    }
+}
+
+impl IndexPage {
+    pub fn parse_records(&mut self) {
+        let inf = &self.infimum;
+        let urecs = &mut self.records;
+        let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
+        for nrec in 0..self.index_header.page_n_recs {
+            debug!("Parse Record, nrec = {}", nrec);
+            if addr > self.buf.len() {
+                break;
+            }
+            let rec_hdr = RecordHeader::new(self.buf.slice(addr - 5..addr));
+            addr += rec_hdr.next_rec_offset as usize;
+            urecs.push(Record::new(rec_hdr));
         }
     }
 }

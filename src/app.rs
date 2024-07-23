@@ -43,6 +43,12 @@ impl App {
                 Commands::List => Self::do_list(df)?,
                 Commands::Desc => Self::do_desc(df)?,
                 Commands::Sdi => Self::do_print_sdi_json(df)?,
+                Commands::Dump { page: page_no } => {
+                    if page_no >= df.page_count() {
+                        return Err(Error::msg("Page number out of range"));
+                    }
+                    Self::do_dump(df, page_no)?
+                }
                 Commands::View { page: page_no } => {
                     if page_no >= df.page_count() {
                         return Err(Error::msg("Page number out of range"));
@@ -188,6 +194,22 @@ impl App {
         Ok(())
     }
 
+    fn do_dump(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
+        let fil_hdr = factory.parse_fil_hdr(page_no)?;
+        if fil_hdr.page_type != PageTypes::INDEX {
+            return Err(Error::msg(format!(
+                "Only support dump INDEX page, but found {:?}",
+                fil_hdr.page_type
+            )));
+        }
+        let buf = factory.read_page(page_no)?;
+        let pg = PageFactory::new(buf);
+        let mut index_page: BasePage<IndexPage> = pg.build();
+        index_page.body.parse_records();
+        info!("{:#?}", index_page);
+        Ok(())
+    }
+
     fn do_view(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
         let buf = factory.read_page(page_no)?;
         let pg = PageFactory::new(buf);
@@ -245,7 +267,7 @@ mod tests {
     fn it_works() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::View { page: 3 }).is_ok());
+        assert!(app.run(Commands::Dump { page: 4 }).is_ok());
     }
 
     #[test]
@@ -281,5 +303,12 @@ mod tests {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 4 }).is_ok());
+    }
+
+    #[test]
+    fn view_first_sdi_page() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::View { page: 3 }).is_ok());
     }
 }
