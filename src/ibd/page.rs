@@ -510,7 +510,7 @@ pub struct IndexPage {
     infimum: Record, // infimum_extra[], see page0page.h
     supremum: Record, // supremum_extra_data[], see page0page.h
     /// User Records, grow down
-    user_records: Vec<Record>, // User Records
+    urec_list: Vec<Record>, // User Record List
 
     ////////////////////////////////////////
     //  Free Space
@@ -526,6 +526,7 @@ impl fmt::Debug for IndexPage {
             .field("fseg_header", &self.fseg_header)
             .field("infimum", &self.infimum)
             .field("supremum", &self.supremum)
+            .field("urec_list", &self.urec_list)
             .field("dir_slots", &format!("{:?}", &self.dir_slots))
             .finish()
     }
@@ -534,6 +535,8 @@ impl fmt::Debug for IndexPage {
 impl BasePageOperation for IndexPage {
     fn new(buffer: Bytes) -> Self {
         let idx_hdr = IndexHeader::new(buffer.slice(0..36));
+
+        // Parse Page Directory Slots
         let n_slots = idx_hdr.page_n_dir_slots as usize;
         let mut slots = vec![0; n_slots];
         for (offset, element) in slots.iter_mut().enumerate() {
@@ -542,22 +545,25 @@ impl BasePageOperation for IndexPage {
             *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
         }
 
-        let inf = Record::new(buffer.slice(56..69));
+        // Parse System Records
+        let inf = Record::new(RecordHeader::new(buffer.slice(56..69)));
+        let sup = Record::new(RecordHeader::new(buffer.slice(69..82)));
+
+        // Parse User Records
         let mut urecs = Vec::new();
-        let mut next_rec_addr =
-            PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
-        for nrec in 0..idx_hdr.page_n_recs - 1 {
-            let rec_hdr = RecordHeader::new(buffer.slice(next_rec_addr - 5..next_rec_addr));
-            info!("{:?}", rec_hdr);
-            next_rec_addr += rec_hdr.next_rec_offset as usize;
+        let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
+        for nrec in 0..idx_hdr.page_n_recs {
+            let rec_hdr = RecordHeader::new(buffer.slice(addr - 5..addr));
+            addr += rec_hdr.next_rec_offset as usize;
+            urecs.push(Record::new(rec_hdr));
         }
 
         Self {
             index_header: idx_hdr,
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
             infimum: inf,
-            supremum: Record::new(buffer.slice(69..82)),
-            user_records: urecs,
+            supremum: sup,
+            urec_list: urecs,
             dir_slots: slots,
         }
     }
@@ -698,7 +704,7 @@ impl FSegHeader {
 #[derive(Debug)]
 pub struct SdiIndexPage {
     index: IndexPage,
-    pub payload: Bytes,
+    // pub payload: Bytes,
 }
 
 impl BasePageOperation for SdiIndexPage {
@@ -708,7 +714,7 @@ impl BasePageOperation for SdiIndexPage {
         let end = buffer.len() - PAGE_DIR_ENTRY_SIZE * index.dir_slots.len();
         Self {
             index,
-            payload: buffer.slice(beg..end),
+            // payload: buffer.slice(beg..end),
         }
     }
 }

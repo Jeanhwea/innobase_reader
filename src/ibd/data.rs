@@ -75,16 +75,31 @@ impl RecordHeader {
 }
 
 #[derive(Debug)]
+pub struct RecordInfo {
+    // nullable list
+    // vary field list
+}
+
+#[derive(Debug)]
+pub struct Row {
+    pub row_id: u64,   // 6 bytes
+    pub trx_id: u64,   // 6 bytes
+    pub roll_ptr: u64, // 6 bytes
+}
+
+#[derive(Debug)]
 pub struct Record {
-    pub rec_hdr: RecordHeader, // record header
-    pub row_data: Bytes,       // row data
+    pub rec_info: Option<RecordInfo>, // record information
+    pub rec_hdr: RecordHeader,        // record header
+    pub row: Option<Row>,             // row data
 }
 
 impl Record {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(hdr: RecordHeader) -> Self {
         Self {
-            rec_hdr: RecordHeader::new(buffer.slice(..5)),
-            row_data: buffer.slice(5..),
+            rec_hdr: hdr,
+            rec_info: None,
+            row: None,
         }
     }
 }
