@@ -710,16 +710,19 @@ impl FSegHeader {
 }
 
 // SDI Index Page, see ibd2sdi.cc
-#[derive(Debug)]
 pub struct SdiIndexPage {
     index: IndexPage,
     sdi_hdr: SdiRecord,
     sdi_str: String,
 }
 
-impl SdiIndexPage {
-    pub fn get_sdi_data(&self) -> String {
-        jsonxf::pretty_print(&self.sdi_str).unwrap()
+impl fmt::Debug for SdiIndexPage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SdiIndexPage")
+            .field("index", &self.index)
+            .field("sdi_hdr", &self.sdi_hdr)
+            .field("sdi_str", &&self.sdi_str[0..220])
+            .finish()
     }
 }
 
@@ -740,6 +743,12 @@ impl BasePageOperation for SdiIndexPage {
             sdi_hdr: sdi_rec,
             sdi_str: out,
         }
+    }
+}
+
+impl SdiIndexPage {
+    pub fn get_sdi_data(&self) -> String {
+        jsonxf::pretty_print(&self.sdi_str).unwrap()
     }
 }
 
