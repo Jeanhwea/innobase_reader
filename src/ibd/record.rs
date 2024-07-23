@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
+use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
@@ -273,50 +276,21 @@ impl From<u8> for ColumnKeys {
 pub struct DDColumn {
     #[serde(rename = "name")]
     pub col_name: String,
-
     #[serde(rename = "type")]
     pub dd_type: ColumnTypes,
-
     pub is_nullable: bool,
     pub is_zerofill: bool,
     pub is_unsigned: bool,
     pub is_auto_increment: bool,
     pub is_virtual: bool,
     pub hidden: HiddenTypes,
-
     pub ordinal_position: u32,
     pub char_length: u32,
-    pub numeric_precision: u32,
-    pub numeric_scale: u32,
-    pub numeric_scale_null: bool,
-    pub datetime_precision: u32,
-    pub datetime_precision_null: u32,
-
-    pub has_no_default: bool,
-
-    pub default_value_null: bool,
-    pub default_value: String,
-    pub default_value_utf8_null: bool,
-    pub default_value_utf8: String,
-
-    pub default_option: String,
-    pub update_option: String,
     pub comment: String,
-
-    pub generation_expression: String,
-    pub generation_expression_utf8: String,
-
-    pub options: String,
-    pub se_private_data: String,
-
-    pub engine_attribute: String,
-    pub secondary_engine_attribute: String,
-
     pub column_key: ColumnKeys,
     pub column_type_utf8: String,
-
-    pub collation_id: u32,
-    pub is_explicit_collation: bool,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
 }
 
 // see sql/dd/types/index.h
@@ -381,17 +355,13 @@ impl From<u8> for IndexAlgorithm {
 pub struct DDIndex {
     pub name: String,
     pub hidden: bool,
-    pub is_generated: bool,
     pub ordinal_position: u32,
     pub comment: String,
-    pub options: String,
     #[serde(rename = "type")]
     pub idx_type: IndexTypes,
     pub algorithm: IndexAlgorithm,
-    pub is_algorithm_explicit: bool,
     pub is_visible: bool,
     pub engine: String,
-    pub engine_attribute: String,
-    pub secondary_engine_attribute: String,
-    pub tablespace_ref: String,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
 }

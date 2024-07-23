@@ -151,7 +151,7 @@ impl App {
                                     c.hidden.to_string().cyan(),
                                     c.comment,
                                 );
-                            info!("{:?}", c);
+                            info!("{:#?}", c);
                         }
                     }
 
@@ -169,7 +169,7 @@ impl App {
                                 i.hidden.to_string().yellow(),
                                 i.comment,
                             );
-                            info!("{:?}", i);
+                            info!("{:#?}", i);
                         }
                     }
                 }
