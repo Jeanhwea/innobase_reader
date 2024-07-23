@@ -84,21 +84,21 @@ pub struct RecordInfo {
 pub struct Row {
     pub row_id: u64,   // 6 bytes
     pub trx_id: u64,   // 6 bytes
-    pub roll_ptr: u64, // 6 bytes
+    pub roll_ptr: u64, // 7 bytes
 }
 
 #[derive(Debug)]
 pub struct Record {
-    pub rec_info: Option<RecordInfo>, // record information
-    pub rec_hdr: RecordHeader,        // record header
-    pub row: Option<Row>,             // row data
+    pub rec_pre: Option<RecordInfo>, // record prefix information
+    pub rec_hdr: RecordHeader,       // record header
+    pub row: Option<Row>,            // row data
 }
 
 impl Record {
     pub fn new(hdr: RecordHeader) -> Self {
         Self {
             rec_hdr: hdr,
-            rec_info: None,
+            rec_pre: None,
             row: None,
         }
     }
