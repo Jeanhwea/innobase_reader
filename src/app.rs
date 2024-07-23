@@ -142,7 +142,7 @@ impl App {
             PageTypes::SDI => {
                 let sdi_page: BasePage<SdiIndexPage> = pg.build();
                 println!("{:#?}", sdi_page);
-                println!("{}", sdi_page.body.get_sdi_data().yellow());
+                println!("{}", sdi_page.body.get_sdi_data());
             }
             PageTypes::MARKED(_) => {
                 warn!("page_no = {}, hdr = {:?}", page_no, hdr);
