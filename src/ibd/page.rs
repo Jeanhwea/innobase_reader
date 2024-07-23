@@ -5,10 +5,10 @@ use log::{debug, info};
 use std::fmt::Formatter;
 use std::{cmp, fmt};
 
-use crate::ibd::data::{RecordHeader, PAGE_ADDR_INF};
+use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
 
-use super::data::{Record, SdiObject};
+use super::record::{Record, SdiObject};
 
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -749,7 +749,7 @@ impl BasePageOperation for SdiIndexPage {
 
 impl SdiIndexPage {
     pub fn get_sdi_data(&self) -> String {
-        if self.sdi_str.len() > 0 {
+        if !self.sdi_str.is_empty() {
             jsonxf::pretty_print(&self.sdi_str).unwrap()
         } else {
             "".into()
@@ -757,7 +757,7 @@ impl SdiIndexPage {
     }
 
     pub fn get_sdi_object(&self) -> Option<SdiObject> {
-        if self.sdi_str.len() > 0 {
+        if !self.sdi_str.is_empty() {
             serde_json::from_str(&self.sdi_str).expect("ERR_SDI_STRING")
         } else {
             None

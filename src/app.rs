@@ -42,7 +42,7 @@ impl App {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
                 Commands::Desc => Self::do_desc(df)?,
-                Commands::SDI => Self::do_print_sdi_json(df)?,
+                Commands::Sdi => Self::do_print_sdi_json(df)?,
                 Commands::View { page: page_no } => {
                     if page_no >= df.page_count() {
                         return Err(Error::msg("Page number out of range"));
@@ -123,19 +123,18 @@ impl App {
     fn do_desc(factory: &DatafileFactory) -> Result<()> {
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
-            match &fil_hdr.page_type {
-                PageTypes::SDI => {
-                    let buf = factory.read_page(page_no)?;
-                    let pg = PageFactory::new(buf);
-                    let sdi_page: BasePage<SdiIndexPage> = pg.build();
+            if fil_hdr.page_type == PageTypes::SDI {
+                let buf = factory.read_page(page_no)?;
+                let pg = PageFactory::new(buf);
+                let sdi_page: BasePage<SdiIndexPage> = pg.build();
 
-                    if let Some(obj) = sdi_page.body.get_sdi_object() {
-                        let mut cols = obj.dd_object.columns;
-                        if cols.len() > 0 {
-                            cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
-                            println!("Columns:");
-                            for c in &cols {
-                                println!(
+                if let Some(obj) = sdi_page.body.get_sdi_object() {
+                    let mut cols = obj.dd_object.columns;
+                    if !cols.is_empty() {
+                        cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
+                        println!("Columns:");
+                        for c in &cols {
+                            println!(
                                     "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, comment={}",
                                     c.ordinal_position,
                                     c.col_name.magenta(),
@@ -146,31 +145,29 @@ impl App {
                                     c.hidden.to_string().cyan(),
                                     c.comment,
                                 );
-                                info!("{:?}", c);
-                            }
-                        }
-
-                        let mut idxs = obj.dd_object.indexes;
-                        if idxs.len() > 0 {
-                            idxs.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
-                            println!("Indexes:");
-                            for i in &idxs {
-                                println!(
-                                    "{:>3}: name={}, idx_type={}, algorithm={}, hidden={}, comment={}",
-                                    i.ordinal_position,
-                                    i.name.magenta(),
-                                    i.idx_type.to_string().cyan(),
-                                    i.algorithm.to_string().green(),
-                                    i.hidden.to_string().yellow(),
-                                    i.comment,
-                                );
-                                info!("{:?}", i);
-                            }
+                            info!("{:?}", c);
                         }
                     }
-                    break;
+
+                    let mut idxs = obj.dd_object.indexes;
+                    if !idxs.is_empty() {
+                        idxs.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
+                        println!("Indexes:");
+                        for i in &idxs {
+                            println!(
+                                "{:>3}: name={}, idx_type={}, algorithm={}, hidden={}, comment={}",
+                                i.ordinal_position,
+                                i.name.magenta(),
+                                i.idx_type.to_string().cyan(),
+                                i.algorithm.to_string().green(),
+                                i.hidden.to_string().yellow(),
+                                i.comment,
+                            );
+                            info!("{:?}", i);
+                        }
+                    }
                 }
-                _ => {}
+                break;
             }
         }
         Ok(())
@@ -179,16 +176,13 @@ impl App {
     fn do_print_sdi_json(factory: &DatafileFactory) -> Result<()> {
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
-            match &fil_hdr.page_type {
-                PageTypes::SDI => {
-                    let buf = factory.read_page(page_no)?;
-                    let pg = PageFactory::new(buf);
-                    let sdi_page: BasePage<SdiIndexPage> = pg.build();
-                    let sdi_data = sdi_page.body.get_sdi_data();
-                    println!("{}", sdi_data);
-                    break;
-                }
-                _ => {}
+            if fil_hdr.page_type == PageTypes::SDI {
+                let buf = factory.read_page(page_no)?;
+                let pg = PageFactory::new(buf);
+                let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                let sdi_data = sdi_page.body.get_sdi_data();
+                println!("{}", sdi_data);
+                break;
             }
         }
         Ok(())

@@ -32,7 +32,7 @@ enum Commands {
     /// Describe Datafile Information by SDI page
     Desc,
     /// Print SDI Json
-    SDI,
+    Sdi,
     /// View page data with given page_number.
     View {
         /// Which page number, which starts from zero. [0, 1, ...]
