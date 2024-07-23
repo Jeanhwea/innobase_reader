@@ -41,6 +41,7 @@ impl App {
             match command {
                 Commands::Info => Self::do_info(df)?,
                 Commands::List => Self::do_list(df)?,
+                Commands::Desc => Self::do_desc(df)?,
                 Commands::View { page: page_no } => {
                     if page_no >= df.page_count() {
                         return Err(Error::msg("Page number out of range"));
@@ -118,6 +119,23 @@ impl App {
         Ok(())
     }
 
+    fn do_desc(factory: &DatafileFactory) -> Result<()> {
+        for page_no in 0..factory.page_count() {
+            let fil_hdr = factory.parse_fil_hdr(page_no)?;
+            match &fil_hdr.page_type {
+                PageTypes::SDI => {
+                    let buf = factory.read_page(page_no)?;
+                    let pg = PageFactory::new(buf);
+                    let sdi_page: BasePage<SdiIndexPage> = pg.build();
+                    println!("{}", sdi_page.body.get_sdi_data());
+                    return Ok(())
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     fn do_view(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
         let buf = factory.read_page(page_no)?;
         let pg = PageFactory::new(buf);
@@ -147,10 +165,10 @@ impl App {
                     cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
                     for c in &cols {
                         println!(
-                            "ord={}, {}, col_type={}, {:?}",
+                            "ord={}, {}, dd_type={}, utf8_type={}, {:#?}",
                             c.ordinal_position.to_string().yellow(),
-                            c.name.magenta(),
-                            // c.col_type.to_string().blue(),
+                            c.col_name.magenta(),
+                            c.dd_type.to_string().blue(),
                             c.column_type_utf8.green(),
                             c,
                         );

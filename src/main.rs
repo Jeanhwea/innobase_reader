@@ -29,6 +29,8 @@ enum Commands {
     Info,
     /// List all page. page_type, page_number and more
     List,
+    /// Describe Datafile Information by SDI page
+    Desc,
     /// View page data with given page_number.
     View {
         /// Which page number, which starts from zero. [0, 1, ...]
