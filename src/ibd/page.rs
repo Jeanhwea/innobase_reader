@@ -758,12 +758,18 @@ impl SdiIndexPage {
 
 #[derive(Debug)]
 pub struct SdiRecord {
-    data_type: u32,  // 4 bytes
-    data_id: u64,    // 8 bytes
-    trx_id: u64,     // 6 bytes
-    roll_ptr: u64,   // 7 bytes
+    /// Length of TYPE field in record of SDI Index.
+    data_type: u32, // 4 bytes
+    /// Length of ID field in record of SDI Index.
+    data_id: u64, // 8 bytes
+    /// trx id
+    trx_id: u64, // 6 bytes
+    /// 7-byte roll-ptr.
+    roll_ptr: u64, // 7 bytes
+    /// Length of UNCOMPRESSED_LEN field in record of SDI Index.
     uncomp_len: u32, // 4 bytes
-    comp_len: u32,   // 4 bytes
+    /// Length of COMPRESSED_LEN field in record of SDI Index.
+    comp_len: u32, // 4 bytes
 }
 
 impl SdiRecord {
