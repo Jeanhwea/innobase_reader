@@ -262,13 +262,6 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
-        init();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::Dump { page: 4 }).is_ok());
-    }
-
-    #[test]
     fn info_datafile() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
@@ -308,5 +301,12 @@ mod tests {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 3 }).is_ok());
+    }
+
+    #[test]
+    fn it_works() {
+        init();
+        let mut app = App::new(PathBuf::from(IBD_FILE));
+        assert!(app.run(Commands::Dump { page: 4 }).is_ok());
     }
 }
