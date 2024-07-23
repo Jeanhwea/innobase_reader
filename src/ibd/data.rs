@@ -27,21 +27,6 @@ impl From<u8> for RecordStatus {
 }
 
 #[derive(Debug)]
-pub struct Record {
-    rec_hdr: RecordHeader, // record header
-    row_data: Bytes,       // row data
-}
-
-impl Record {
-    pub fn new(buffer: Bytes) -> Self {
-        Self {
-            rec_hdr: RecordHeader::new(buffer.slice(..5)),
-            row_data: buffer.slice(5..),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct RecordHeader {
     info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
     n_owned: u8,              // 4 bits
@@ -83,5 +68,20 @@ impl RecordHeader {
 
     pub fn is_deleted(&self) -> bool {
         (self.info_bits & Self::REC_INFO_DELETED_FLAG) > 0
+    }
+}
+
+#[derive(Debug)]
+pub struct Record {
+    rec_hdr: RecordHeader, // record header
+    row_data: Bytes,       // row data
+}
+
+impl Record {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            rec_hdr: RecordHeader::new(buffer.slice(..5)),
+            row_data: buffer.slice(5..),
+        }
     }
 }
