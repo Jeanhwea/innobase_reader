@@ -5,6 +5,8 @@ use log::info;
 use std::fmt;
 use std::fmt::Formatter;
 
+use crate::ibd::data::{RecordHeader, PAGE_ADDR_INF};
+
 use super::data::Record;
 
 pub const PAGE_SIZE: usize = 16 * 1024;
@@ -508,11 +510,11 @@ pub struct IndexPage {
     infimum: Record, // infimum_extra[], see page0page.h
     supremum: Record, // supremum_extra_data[], see page0page.h
     /// User Records, grow down
+    user_records: Vec<Record>, // User Records
 
     ////////////////////////////////////////
     //  Free Space
     ////////////////////////////////////////
-
     /// Page Directory, grows up
     dir_slots: Vec<u16>, // page directory slots
 }
@@ -539,11 +541,23 @@ impl BasePageOperation for IndexPage {
             let beg = end - PAGE_DIR_ENTRY_SIZE;
             *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
         }
+
+        let inf = Record::new(buffer.slice(56..69));
+        let mut urecs = Vec::new();
+        let mut next_rec_addr =
+            PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
+        for nrec in 0..idx_hdr.page_n_recs - 1 {
+            let rec_hdr = RecordHeader::new(buffer.slice(next_rec_addr - 5..next_rec_addr));
+            info!("{:?}", rec_hdr);
+            next_rec_addr += rec_hdr.next_rec_offset as usize;
+        }
+
         Self {
             index_header: idx_hdr,
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
-            infimum: Record::new(buffer.slice(56..69)),
+            infimum: inf,
             supremum: Record::new(buffer.slice(69..82)),
+            user_records: urecs,
             dir_slots: slots,
         }
     }

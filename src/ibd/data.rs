@@ -2,6 +2,9 @@ use bytes::Bytes;
 
 use enum_display::EnumDisplay;
 
+pub const PAGE_ADDR_INF: usize = 99;
+pub const PAGE_ADDR_SUP: usize = 112;
+
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
@@ -28,11 +31,11 @@ impl From<u8> for RecordStatus {
 
 #[derive(Debug)]
 pub struct RecordHeader {
-    info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
-    n_owned: u8,              // 4 bits
-    heap_no: u16,             // 13 bits
-    rec_status: RecordStatus, // 3 bits, see rec.h
-    next_rec_offset: u16,     // next record offset
+    pub info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
+    pub n_owned: u8,              // 4 bits
+    pub heap_no: u16,             // 13 bits
+    pub rec_status: RecordStatus, // 3 bits, see rec.h
+    pub next_rec_offset: u16,     // next record offset
 }
 
 impl RecordHeader {
@@ -73,8 +76,8 @@ impl RecordHeader {
 
 #[derive(Debug)]
 pub struct Record {
-    rec_hdr: RecordHeader, // record header
-    row_data: Bytes,       // row data
+    pub rec_hdr: RecordHeader, // record header
+    pub row_data: Bytes,       // row data
 }
 
 impl Record {

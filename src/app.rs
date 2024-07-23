@@ -181,7 +181,7 @@ mod tests {
     fn it_works() {
         init();
         let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::View { page: 3 }).is_ok());
+        assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
