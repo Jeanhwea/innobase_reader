@@ -155,7 +155,7 @@ impl App {
                             println!("Indexes:");
                             for i in &idxs {
                                 println!(
-                                    "{:>3}: name={}, hidden={}, type={}, algorithm={}",
+                                    "{:>3}: name={}, hidden={}, idx_type={}, algorithm={}",
                                     i.ordinal_position,
                                     i.name.magenta(),
                                     i.hidden.to_string().yellow(),
