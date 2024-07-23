@@ -726,7 +726,7 @@ pub struct SdiIndexPage {
 
 impl fmt::Debug for SdiIndexPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let trunc = cmp::min(self.sdi_str.len(), 220);
+        let trunc = cmp::min(self.sdi_str.len(), 520);
         f.debug_struct("SdiIndexPage")
             .field("index", &self.index)
             .field("sdi_hdr", &self.sdi_hdr)
