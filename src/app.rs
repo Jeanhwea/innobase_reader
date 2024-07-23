@@ -150,7 +150,8 @@ impl App {
                             "ord={}, {}, col_type={}, {:?}",
                             c.ordinal_position.to_string().yellow(),
                             c.name.magenta(),
-                            c.col_type,
+                            // c.col_type.to_string().blue(),
+                            c.column_type_utf8.green(),
                             c,
                         );
                     }
