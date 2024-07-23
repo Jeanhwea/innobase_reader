@@ -128,7 +128,7 @@ impl App {
                     let pg = PageFactory::new(buf);
                     let sdi_page: BasePage<SdiIndexPage> = pg.build();
                     println!("{}", sdi_page.body.get_sdi_data());
-                    return Ok(())
+                    return Ok(());
                 }
                 _ => {}
             }

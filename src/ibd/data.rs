@@ -124,6 +124,7 @@ pub struct SdiDDObject {
     pub hidden: u8,
     pub options: String,
     pub columns: Vec<Column>,
+    pub indexes: Vec<Index>,
 }
 
 // see sql/dd/types/column.h
@@ -235,7 +236,7 @@ impl From<u8> for HiddenTypes {
             2 => HiddenTypes::HT_HIDDEN_SE,
             3 => HiddenTypes::HT_HIDDEN_SQL,
             4 => HiddenTypes::HT_HIDDEN_USER,
-            _ => Self::HT_UNKNOWN,
+            _ => HiddenTypes::HT_UNKNOWN,
         }
     }
 }
@@ -261,7 +262,7 @@ impl From<u8> for ColumnKeys {
             2 => ColumnKeys::CK_PRIMARY,
             3 => ColumnKeys::CK_UNIQUE,
             4 => ColumnKeys::CK_MULTIPLE,
-            _ => Self::CK_UNKNOWN,
+            _ => ColumnKeys::CK_UNKNOWN,
         }
     }
 }
@@ -316,4 +317,81 @@ pub struct Column {
 
     pub collation_id: u32,
     pub is_explicit_collation: bool,
+}
+
+// see sql/dd/types/index.h
+//     enum class enum_index_type
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+pub enum IndexTypes {
+    IT_PRIMARY = 1,
+    IT_UNIQUE = 2,
+    IT_MULTIPLE = 3,
+    IT_FULLTEXT = 4,
+    IT_SPATIAL = 5,
+    IT_UNKNOWN = 0,
+}
+
+impl From<u8> for IndexTypes {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => IndexTypes::IT_PRIMARY,
+            2 => IndexTypes::IT_UNIQUE,
+            3 => IndexTypes::IT_MULTIPLE,
+            4 => IndexTypes::IT_FULLTEXT,
+            5 => IndexTypes::IT_SPATIAL,
+            _ => IndexTypes::IT_UNKNOWN,
+        }
+    }
+}
+
+// see sql/dd/types/index.h
+//     enum class enum_index_algorithm
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay)]
+pub enum IndexAlgorithm {
+    IA_SE_SPECIFIC = 1,
+    IA_BTREE = 2,
+    IA_RTREE = 3,
+    IA_HASH = 4,
+    IA_FULLTEXT = 5,
+    IA_UNKNOWN = 0,
+}
+
+impl From<u8> for IndexAlgorithm {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => IndexAlgorithm::IA_SE_SPECIFIC,
+            2 => IndexAlgorithm::IA_BTREE,
+            3 => IndexAlgorithm::IA_RTREE,
+            4 => IndexAlgorithm::IA_HASH,
+            5 => IndexAlgorithm::IA_FULLTEXT,
+            _ => IndexAlgorithm::IA_UNKNOWN,
+        }
+    }
+}
+
+// see sql/dd/impl/types/index_impl.h
+//    class Index_impl : public Entity_object_impl, public Index {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Index {
+    pub name: String,
+    pub hidden: bool,
+    pub is_generated: bool,
+    pub ordinal_position: u32,
+    pub comment: String,
+    pub options: String,
+    #[serde(rename = "type")]
+    pub dd_type: IndexTypes,
+    pub algorithm: IndexAlgorithm,
+    pub is_algorithm_explicit: bool,
+    pub is_visible: bool,
+    pub engine: String,
+    pub engine_attribute: String,
+    pub secondary_engine_attribute: String,
+    pub tablespace_ref: String,
 }
