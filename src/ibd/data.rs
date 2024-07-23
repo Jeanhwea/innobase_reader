@@ -2,6 +2,7 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
 use enum_display::EnumDisplay;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub const PAGE_ADDR_INF: usize = 99;
 pub const PAGE_ADDR_SUP: usize = 112;
@@ -125,12 +126,98 @@ pub struct SdiDDObject {
     pub columns: Vec<Column>,
 }
 
+// see field_types.h
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, EnumDisplay, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ColumnTypes {
+    MYSQL_TYPE_DECIMAL,
+    MYSQL_TYPE_TINY,
+    MYSQL_TYPE_SHORT,
+    MYSQL_TYPE_LONG,
+    MYSQL_TYPE_FLOAT,
+    MYSQL_TYPE_DOUBLE,
+    MYSQL_TYPE_NULL,
+    MYSQL_TYPE_TIMESTAMP,
+    MYSQL_TYPE_LONGLONG,
+    MYSQL_TYPE_INT24,
+    MYSQL_TYPE_DATE,
+    MYSQL_TYPE_TIME,
+    MYSQL_TYPE_DATETIME,
+    MYSQL_TYPE_YEAR,
+    MYSQL_TYPE_NEWDATE,
+    MYSQL_TYPE_VARCHAR,
+    MYSQL_TYPE_BIT,
+    MYSQL_TYPE_TIMESTAMP2,
+    MYSQL_TYPE_DATETIME2,
+    MYSQL_TYPE_TIME2,
+    MYSQL_TYPE_TYPED_ARRAY,
+    MYSQL_TYPE_CHAR = 29,
+    MYSQL_TYPE_MARKED = 200,
+    MYSQL_TYPE_INVALID = 243,
+    MYSQL_TYPE_BOOL = 244,
+    MYSQL_TYPE_JSON = 245,
+    MYSQL_TYPE_NEWDECIMAL = 246,
+    MYSQL_TYPE_ENUM = 247,
+    MYSQL_TYPE_SET = 248,
+    MYSQL_TYPE_TINY_BLOB = 249,
+    MYSQL_TYPE_MEDIUM_BLOB = 250,
+    MYSQL_TYPE_LONG_BLOB = 251,
+    MYSQL_TYPE_BLOB = 252,
+    MYSQL_TYPE_VAR_STRING = 253,
+    MYSQL_TYPE_STRING = 254,
+    MYSQL_TYPE_GEOMETRY = 255,
+}
+
+impl From<u8> for ColumnTypes {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => ColumnTypes::MYSQL_TYPE_DECIMAL,
+            1 => ColumnTypes::MYSQL_TYPE_TINY,
+            2 => ColumnTypes::MYSQL_TYPE_SHORT,
+            3 => ColumnTypes::MYSQL_TYPE_LONG,
+            4 => ColumnTypes::MYSQL_TYPE_FLOAT,
+            5 => ColumnTypes::MYSQL_TYPE_DOUBLE,
+            6 => ColumnTypes::MYSQL_TYPE_NULL,
+            7 => ColumnTypes::MYSQL_TYPE_TIMESTAMP,
+            8 => ColumnTypes::MYSQL_TYPE_LONGLONG,
+            9 => ColumnTypes::MYSQL_TYPE_INT24,
+            10 => ColumnTypes::MYSQL_TYPE_DATE,
+            11 => ColumnTypes::MYSQL_TYPE_TIME,
+            12 => ColumnTypes::MYSQL_TYPE_DATETIME,
+            13 => ColumnTypes::MYSQL_TYPE_YEAR,
+            14 => ColumnTypes::MYSQL_TYPE_NEWDATE,
+            15 => ColumnTypes::MYSQL_TYPE_VARCHAR,
+            16 => ColumnTypes::MYSQL_TYPE_BIT,
+            17 => ColumnTypes::MYSQL_TYPE_TIMESTAMP2,
+            18 => ColumnTypes::MYSQL_TYPE_DATETIME2,
+            19 => ColumnTypes::MYSQL_TYPE_TIME2,
+            20 => ColumnTypes::MYSQL_TYPE_TYPED_ARRAY,
+            243 => ColumnTypes::MYSQL_TYPE_INVALID,
+            244 => ColumnTypes::MYSQL_TYPE_BOOL,
+            245 => ColumnTypes::MYSQL_TYPE_JSON,
+            246 => ColumnTypes::MYSQL_TYPE_NEWDECIMAL,
+            247 => ColumnTypes::MYSQL_TYPE_ENUM,
+            248 => ColumnTypes::MYSQL_TYPE_SET,
+            249 => ColumnTypes::MYSQL_TYPE_TINY_BLOB,
+            250 => ColumnTypes::MYSQL_TYPE_MEDIUM_BLOB,
+            251 => ColumnTypes::MYSQL_TYPE_LONG_BLOB,
+            252 => ColumnTypes::MYSQL_TYPE_BLOB,
+            253 => ColumnTypes::MYSQL_TYPE_VAR_STRING,
+            254 => ColumnTypes::MYSQL_TYPE_STRING,
+            255 => ColumnTypes::MYSQL_TYPE_GEOMETRY,
+            _ => ColumnTypes::MYSQL_TYPE_MARKED,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Column {
     pub ordinal_position: u32,
     pub name: String,
     #[serde(rename = "type")]
-    pub col_type: u32,
+    pub col_type: ColumnTypes,
     pub is_nullable: bool,
     pub is_zerofill: bool,
     pub is_unsigned: bool,

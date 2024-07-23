@@ -147,10 +147,11 @@ impl App {
                     cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
                     for c in &cols {
                         println!(
-                            "ord={}, {}, col_type={}",
+                            "ord={}, {}, col_type={}, {:?}",
                             c.ordinal_position.to_string().yellow(),
-                            c.name,
+                            c.name.magenta(),
                             c.col_type,
+                            c,
                         );
                     }
                 }

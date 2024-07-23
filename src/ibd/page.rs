@@ -752,7 +752,7 @@ impl SdiIndexPage {
     }
 
     pub fn get_sdi_object(&self) -> Option<SdiObject> {
-        serde_json::from_str(&self.sdi_str).unwrap_or(None)
+        serde_json::from_str(&self.sdi_str).expect("ERR_SDI_STRING")
     }
 }
 
