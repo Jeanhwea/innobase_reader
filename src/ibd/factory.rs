@@ -1,10 +1,11 @@
 use crate::ibd::page::SdiIndexPage;
 
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
+    FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::record::SdiObject;
-use super::tabspace::{Datafile, TableDef};
+use super::record::{ColumnTypes, SdiObject};
+use super::tabspace::{ColumnDef, Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::info;
@@ -53,7 +54,7 @@ pub struct DatafileFactory {
     file: Option<File>,                           // Tablespace file descriptor
     filesize: usize,                              // File size
     datafile: Option<Datafile>,                   // Datafile Information
-    first: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
+    page0: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
     sdiobj: Option<SdiObject>,                    // SDI
     tabdef: Option<TableDef>,                     // Table Definition
 }
@@ -110,14 +111,14 @@ impl DatafileFactory {
 
         fsp_page.page_body.parse_sdi_meta();
 
-        self.first = Some(fsp_page);
+        self.page0 = Some(fsp_page);
 
         Ok(())
     }
 
     pub fn do_load_sdi_page(&mut self) -> Result<(), Error> {
         if let Some(ref sdi_info) = self
-            .first
+            .page0
             .as_ref()
             .expect("ERR_NO_FIRST_FSP_PAGE")
             .page_body
@@ -129,6 +130,33 @@ impl DatafileFactory {
             self.sdiobj = sdi_page.page_body.get_sdi_object();
         }
 
+        Ok(())
+    }
+
+    pub fn do_load_table_def(&mut self) -> Result<(), Error> {
+        if let Some(sdiobj) = &self.sdiobj {
+            let tabobj = &sdiobj.dd_object;
+
+            self.tabdef = Some(TableDef {
+                tab_name: tabobj.name.clone(),
+                col_defs: tabobj
+                    .columns
+                    .iter()
+                    .map(|e| ColumnDef {
+                        ord_pos: e.ordinal_position,
+                        col_name: e.col_name.clone(),
+                        byte_len: e.char_length,
+                        is_nullable: e.is_nullable,
+                        is_varlen: matches!(
+                            e.dd_type,
+                            ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING
+                        ),
+                        dd_type: e.dd_type.clone(),
+                        utf8_type: e.column_type_utf8.clone(),
+                    })
+                    .collect(),
+            })
+        }
         Ok(())
     }
 
@@ -174,12 +202,13 @@ mod factory_tests {
     }
 
     #[test]
-    fn it_works() {
+    fn parse_table_definition() {
         setup();
         let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
         assert!(factory.init().is_ok());
         assert!(factory.do_load_first_page().is_ok());
         assert!(factory.do_load_sdi_page().is_ok());
+        assert!(factory.do_load_table_def().is_ok());
         info!("factory = {:#?}", factory);
     }
 }

@@ -1,4 +1,4 @@
-use super::page::FilePageHeader;
+use super::{page::FilePageHeader, record::ColumnTypes};
 
 #[derive(Debug, Clone)]
 pub struct Datafile {
@@ -19,7 +19,7 @@ impl Datafile {
 
 #[derive(Debug, Clone)]
 pub struct TableDef {
-    pub table_name: String,
+    pub tab_name: String,
     pub col_defs: Vec<ColumnDef>,
 }
 
@@ -27,6 +27,9 @@ pub struct TableDef {
 pub struct ColumnDef {
     pub ord_pos: u32,
     pub col_name: String,
-    pub char_len: u32,
-    pub nullable: bool,
+    pub byte_len: u32,
+    pub is_nullable: bool,
+    pub is_varlen: bool,
+    pub dd_type: ColumnTypes,
+    pub utf8_type: String,
 }

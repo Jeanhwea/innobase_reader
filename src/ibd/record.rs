@@ -123,7 +123,7 @@ pub struct DataDictObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Debug, Display, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
