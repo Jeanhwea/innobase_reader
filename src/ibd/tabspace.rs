@@ -19,12 +19,12 @@ impl Datafile {
 
 #[derive(Debug, Clone)]
 pub struct TableDef {
-    pub tab_name: String,                    // table name
-    pub varfield_size: usize,                // variadic field size
-    pub nullflag_size: usize,                // nullable flag size
-    pub vfldinfo: Vec<(u32, String, usize)>, // variadic field info
-    pub nullinfo: Vec<(u32, String)>,        // nullable flag info
-    pub col_defs: Vec<ColumnDef>,            // column infomation
+    pub tab_name: String,                      // table name
+    pub varfield_size: usize,                  // variadic field size
+    pub nullflag_size: usize,                  // nullable flag size
+    pub vfldinfo: Vec<(usize, String, usize)>, // variadic field info (ord, name, size)
+    pub nullinfo: Vec<(usize, String)>,        // nullable flag info  (ord, name)
+    pub col_defs: Vec<ColumnDef>,              // column infomation
 }
 
 #[derive(Debug, Clone)]

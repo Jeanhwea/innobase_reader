@@ -1,7 +1,8 @@
-use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
+use crate::ibd::record::{RecordHeader, Row, RowInfo, PAGE_ADDR_INF, PAGE_ADDR_SUP};
 use crate::util;
 use anyhow::{Error, Result};
 use bytes::Bytes;
+use colored::Colorize;
 use log::{debug, info};
 use num_enum::FromPrimitive;
 use std::fmt::Formatter;
@@ -568,19 +569,44 @@ impl BasePageOperation for IndexPage {
 }
 
 impl IndexPage {
-    pub fn parse_records(&mut self, _tabdef: &TableDef) -> Result<(), Error> {
+    pub fn parse_records(&mut self, tabdef: &TableDef) -> Result<(), Error> {
         let inf = &self.infimum;
         let urecs = &mut self.records;
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
         addr += inf.rec_hdr.next_rec_offset;
-        for _nrec in 0..self.index_header.page_n_recs {
-            let end = addr as usize;
+
+        for _ in 0..self.index_header.page_n_recs {
+            let mut end = addr as usize;
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
             addr += rec_hdr.next_rec_offset;
-            urecs.push(Record::from(rec_hdr));
+
+            end -= 5;
+            let mut nbuf = self.buf.slice(end - tabdef.nullflag_size..end).to_vec();
+            nbuf.reverse();
+            end -= tabdef.nullflag_size;
+            let mut vbuf = self.buf.slice(end - tabdef.varfield_size..end).to_vec();
+            vbuf.reverse();
+            let rowinfo = RowInfo::new(vbuf, nbuf, tabdef.clone());
+
+            end = addr as usize;
+            // TODO
+            let rowsize = rowinfo.rowsize();
+            info!("rowsize = {}", rowsize.to_string().yellow());
+            let rbuf = self.buf.slice(end..end + rowsize);
+            let row = Row::new(rbuf);
+
+            let urec = Record::new(rec_hdr, Some(rowinfo), Some(row));
+            info!("urec = {:#?}", urec);
+
+            urecs.push(urec);
         }
+        assert_eq!(addr as usize, PAGE_ADDR_SUP - FIL_HEADER_SIZE);
 
         Ok(())
+    }
+
+    pub fn records(&self) -> &Vec<Record> {
+        &self.records
     }
 }
 

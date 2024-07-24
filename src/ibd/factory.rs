@@ -159,14 +159,14 @@ impl DatafileFactory {
             for c in &coldefs {
                 if c.is_varfield {
                     vfldinfo.push((
-                        c.ord_pos,
+                        c.ord_pos as usize,
                         c.col_name.clone(),
                         // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
                         if c.data_len > 255 { 2 } else { 1 },
                     ));
                 }
                 if c.is_nullable {
-                    nullinfo.push((c.ord_pos, c.col_name.clone()));
+                    nullinfo.push((c.ord_pos as usize, c.col_name.clone()));
                 }
             }
             debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);

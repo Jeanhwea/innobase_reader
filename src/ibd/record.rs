@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
+use crate::ibd::tabspace::TableDef;
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -71,15 +72,93 @@ impl RecordHeader {
 
 #[derive(Debug)]
 pub struct RowInfo {
-    vfld_buffer: Bytes,
-    null_buffer: Bytes,
+    pub vfld_buffer: Vec<u8>, // in reversed order
+    pub null_buffer: Vec<u8>, // in reversed order
+    tabdef: TableDef,
+}
+
+impl RowInfo {
+    pub fn new(vbuf: Vec<u8>, nbuf: Vec<u8>, tabdef: TableDef) -> Self {
+        Self {
+            vfld_buffer: vbuf,
+            null_buffer: nbuf,
+            tabdef,
+        }
+    }
+
+    pub fn isnull(&self, ord: usize) -> bool {
+        let c = &self.tabdef.col_defs[ord - 1];
+
+        if !c.is_nullable {
+            return false;
+        }
+
+        let mut nullflag = false;
+        for (offset, tuple) in self.tabdef.nullinfo.iter().enumerate() {
+            if tuple.0 == ord {
+                let idx = offset % 8;
+                let mask = 1 << (offset & 0xff);
+                nullflag = (self.null_buffer[idx] & mask) > 0;
+                break;
+            }
+        }
+
+        nullflag
+    }
+
+    pub fn varlen(&self, ord: usize) -> usize {
+        let c = &self.tabdef.col_defs[ord - 1];
+
+        if !c.is_varfield {
+            return c.data_len as usize;
+        }
+
+        let mut beg = 0usize;
+        for (i, _, s) in &self.tabdef.vfldinfo {
+            if *i != ord {
+                beg += *s;
+                continue;
+            }
+            if *s == 1 {
+                return self.vfld_buffer[beg] as usize;
+            } else if *s == 2 {
+                return u16::from_be_bytes(self.vfld_buffer[beg..beg + 2].try_into().unwrap())
+                    as usize;
+            } else {
+                panic!("invalid variadic field size");
+            }
+        }
+
+        0
+    }
+
+    pub fn rowsize(&self) -> usize {
+        let mut total = 0usize;
+        for c in &self.tabdef.col_defs {
+            if self.isnull(c.ord_pos as usize) {
+                continue;
+            }
+            if !c.is_varfield {
+                total += c.data_len as usize;
+            }
+            total += self.varlen(c.ord_pos as usize);
+        }
+        total
+    }
 }
 
 #[derive(Debug)]
 pub struct Row {
-    pub row_id: u64,   // 6 bytes
-    pub trx_id: u64,   // 6 bytes
-    pub roll_ptr: u64, // 7 bytes
+    // pub row_id: u64,   // 6 bytes
+    // pub trx_id: u64,   // 6 bytes
+    // pub roll_ptr: u64, // 7 bytes
+    row_buffer: Bytes,
+}
+
+impl Row {
+    pub fn new(rbuf: Bytes) -> Self {
+        Self { row_buffer: rbuf }
+    }
 }
 
 #[derive(Debug)]
