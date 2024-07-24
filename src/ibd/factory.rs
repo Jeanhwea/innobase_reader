@@ -1,7 +1,9 @@
+use crate::ibd::page::SdiIndexPage;
+
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
-    SdiMetaInfo, FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
+use super::record::SdiObject;
 use super::tabspace::{Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -47,13 +49,13 @@ impl PageFactory {
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    target: PathBuf,                                 // Target innobase data file (*.idb)
-    file: Option<File>,                              // Tablespace file descriptor
-    filesize: usize,                                 // File size
-    datafile: Option<Datafile>,                      // Datafile Information
-    fsp_page: Option<BasePage<FileSpaceHeaderPage>>, // first page
-    sdidata: Option<SdiMetaInfo>,                    // SDI
-    tabdef: Option<TableDef>,                        // Table Definition
+    target: PathBuf,                              // Target innobase data file (*.idb)
+    file: Option<File>,                           // Tablespace file descriptor
+    filesize: usize,                              // File size
+    datafile: Option<Datafile>,                   // Datafile Information
+    first: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
+    sdiobj: Option<SdiObject>,                    // SDI
+    tabdef: Option<TableDef>,                     // Table Definition
 }
 
 impl DatafileFactory {
@@ -103,10 +105,29 @@ impl DatafileFactory {
         }
 
         let buffer = self.do_read_bytes(0)?;
-        let mut fsp_page = PageFactory::new(buffer).parse();
+        let mut fsp_page: BasePage<FileSpaceHeaderPage> = PageFactory::new(buffer).parse();
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
 
-        self.fsp_page = Some(fsp_page);
+        fsp_page.page_body.parse_sdi_meta();
+
+        self.first = Some(fsp_page);
+
+        Ok(())
+    }
+
+    pub fn do_load_sdi_page(&mut self) -> Result<(), Error> {
+        if let Some(ref sdi_info) = self
+            .first
+            .as_ref()
+            .expect("ERR_NO_FIRST_FSP_PAGE")
+            .page_body
+            .sdi_info
+        {
+            let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
+            let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
+            assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
+            self.sdiobj = sdi_page.page_body.get_sdi_object();
+        }
 
         Ok(())
     }
@@ -157,6 +178,8 @@ mod factory_tests {
         setup();
         let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
         assert!(factory.init().is_ok());
+        assert!(factory.do_load_first_page().is_ok());
+        assert!(factory.do_load_sdi_page().is_ok());
         info!("factory = {:#?}", factory);
     }
 }

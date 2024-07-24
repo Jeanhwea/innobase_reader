@@ -405,8 +405,8 @@ impl XDesEntry {
 
 #[derive(Debug)]
 pub struct SdiMetaInfo {
-    sdi_version: u32, // SDI Version
-    sdi_page_no: u32, // SDI Page Number
+    pub sdi_version: u32, // SDI Version
+    pub sdi_page_no: u32, // SDI Page Number
 }
 
 impl SdiMetaInfo {
