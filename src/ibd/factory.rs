@@ -2,7 +2,7 @@ use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
     FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::tabspace::Datafile;
+use super::tabspace::{Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::info;
@@ -50,7 +50,8 @@ pub struct DatafileFactory {
     target: PathBuf,            // Target innobase data file (*.idb)
     file: Option<File>,         // Tablespace file descriptor
     size: usize,                // File size
-    datafile: Option<Datafile>, // version
+    datafile: Option<Datafile>, // Datafile Information
+    tabdef: Option<TableDef>,   // Table Definition
 }
 
 impl DatafileFactory {

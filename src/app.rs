@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
 
 use colored::Colorize;
 use std::path::PathBuf;
@@ -12,55 +13,45 @@ use crate::Commands;
 use anyhow::{Error, Result};
 use log::{debug, error, info, warn};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
-    pub input: PathBuf,
-    pub factory: Option<DatafileFactory>,
+    pub timer: Instant,
+    pub factory: DatafileFactory,
 }
 
 impl App {
     pub fn new(input: PathBuf) -> Self {
         Self {
-            input,
-            ..Self::default()
+            timer: Instant::now(),
+            factory: DatafileFactory::new(input),
         }
     }
 
-    pub fn init(&mut self) -> Result<()> {
-        let mut df = DatafileFactory::new(self.input.clone());
-        df.init()?;
-        self.factory = Some(df);
-        Ok(())
+    pub fn time_costs(&self) -> Duration {
+        self.timer.elapsed()
     }
 
     pub fn run(&mut self, command: Commands) -> Result<()> {
         debug!("{:?}, {:?}", command, self);
-        self.init()?;
-        if let Some(ref mut data_factory) = self.factory {
-            info!("datafile = {:?}", data_factory.datafile());
-            match command {
-                Commands::Info => Self::do_info(data_factory)?,
-                Commands::List => Self::do_list(data_factory)?,
-                Commands::Desc => Self::do_desc(data_factory)?,
-                Commands::Sdi => Self::do_print_sdi_json(data_factory)?,
-                Commands::Dump { page: page_no } => {
-                    if page_no >= data_factory.page_count() {
-                        return Err(Error::msg("Page number out of range"));
-                    }
-                    Self::do_dump(data_factory, page_no)?
-                }
-                Commands::View { page: page_no } => {
-                    if page_no >= data_factory.page_count() {
-                        return Err(Error::msg("Page number out of range"));
-                    }
-                    Self::do_view(data_factory, page_no)?
-                }
-            }
+        self.factory.init()?;
+
+        let datafile = self.factory.datafile();
+        info!("datafile = {:?}", datafile);
+
+        match command {
+            Commands::Info => self.do_info()?,
+            Commands::List => self.do_list()?,
+            Commands::Desc => self.do_desc()?,
+            Commands::Sdi => self.do_print_sdi_json()?,
+            Commands::Dump { page: page_no } => self.do_dump(page_no)?,
+            Commands::View { page: page_no } => self.do_view(page_no)?,
         }
+
         Ok(())
     }
 
-    fn do_info(factory: &DatafileFactory) -> Result<()> {
+    fn do_info(&self) -> Result<()> {
+        let factory = &self.factory;
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..factory.page_count() {
             let hdr = factory.parse_fil_hdr(page_no)?;
@@ -102,7 +93,8 @@ impl App {
         Ok(())
     }
 
-    fn do_list(factory: &DatafileFactory) -> Result<()> {
+    fn do_list(&self) -> Result<()> {
+        let factory = &self.factory;
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             let pt = &fil_hdr.page_type;
@@ -126,7 +118,8 @@ impl App {
         Ok(())
     }
 
-    fn do_desc(factory: &DatafileFactory) -> Result<()> {
+    fn do_desc(&self) -> Result<()> {
+        let factory = &self.factory;
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
@@ -179,7 +172,8 @@ impl App {
         Ok(())
     }
 
-    fn do_print_sdi_json(factory: &DatafileFactory) -> Result<()> {
+    fn do_print_sdi_json(&self) -> Result<()> {
+        let factory = &self.factory;
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
@@ -193,7 +187,12 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
+    fn do_dump(&self, page_no: usize) -> Result<(), Error> {
+        let factory = &self.factory;
+        if page_no >= factory.page_count() {
+            return Err(Error::msg("Page number out of range"));
+        }
+
         let fil_hdr = factory.parse_fil_hdr(page_no)?;
         if fil_hdr.page_type != PageTypes::INDEX {
             return Err(Error::msg(format!(
@@ -208,7 +207,12 @@ impl App {
         Ok(())
     }
 
-    fn do_view(factory: &DatafileFactory, page_no: usize) -> Result<(), Error> {
+    fn do_view(&self, page_no: usize) -> Result<(), Error> {
+        let factory = &self.factory;
+        if page_no >= factory.page_count() {
+            return Err(Error::msg("Page number out of range"));
+        }
+
         let buffer = factory.read_page(page_no)?;
         let pg_fact = PageFactory::new(buffer);
         let fil_hdr = pg_fact.fil_hdr();

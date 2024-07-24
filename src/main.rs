@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 // #![allow(unused_imports)]
 
-use std::{path::PathBuf, time::Instant};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -53,9 +53,8 @@ fn main() -> Result<()> {
     let args = Args::parse();
     let mut app = app::App::new(args.input);
 
-    let start = Instant::now();
     app.run(args.command)?;
 
-    info!("done in {:?}", start.elapsed());
+    info!("time costs {:?}", app.time_costs());
     Ok(())
 }

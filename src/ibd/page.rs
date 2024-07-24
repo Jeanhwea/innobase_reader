@@ -412,8 +412,8 @@ pub struct SdiMetaInfo {
 impl SdiMetaInfo {
     pub fn new(buffer: Bytes) -> Self {
         Self {
-            sdi_version: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()).into(),
-            sdi_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()).into(),
+            sdi_version: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
+            sdi_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
         }
     }
 }
