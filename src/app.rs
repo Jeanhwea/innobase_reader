@@ -204,6 +204,7 @@ impl App {
         let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
 
         let tabdef = factory.load_tabdef()?;
+        info!("tabdef = {:?}", &tabdef);
 
         index_page.page_body.parse_records(&tabdef)?;
 

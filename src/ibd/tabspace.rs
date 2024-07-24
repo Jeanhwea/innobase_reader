@@ -19,17 +19,21 @@ impl Datafile {
 
 #[derive(Debug, Clone)]
 pub struct TableDef {
-    pub tab_name: String,
-    pub col_defs: Vec<ColumnDef>,
+    pub tab_name: String,                    // table name
+    pub varfield_size: usize,                // variadic field size
+    pub nullflag_size: usize,                // nullable flag size
+    pub vfldinfo: Vec<(u32, String, usize)>, // variadic field info
+    pub nullinfo: Vec<(u32, String)>,        // nullable flag info
+    pub col_defs: Vec<ColumnDef>,            // column infomation
 }
 
 #[derive(Debug, Clone)]
 pub struct ColumnDef {
-    pub ord_pos: u32,
-    pub col_name: String,
-    pub byte_len: u32,
-    pub is_nullable: bool,
-    pub is_varlen: bool,
-    pub dd_type: ColumnTypes,
-    pub utf8_type: String,
+    pub ord_pos: u32,         // ordinal position
+    pub col_name: String,     // column name
+    pub data_len: u32,        // data lenght in bytes
+    pub is_nullable: bool,    // is nullable
+    pub is_varfield: bool,    // is variadic field
+    pub dd_type: ColumnTypes, // data dictionary type
+    pub utf8_type: String,    // utf8 column definition
 }

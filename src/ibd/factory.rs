@@ -1,4 +1,5 @@
 use crate::ibd::page::SdiIndexPage;
+use crate::util;
 
 use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
@@ -8,7 +9,7 @@ use super::record::{ColumnTypes, SdiObject};
 use super::tabspace::{ColumnDef, Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use log::info;
+use log::{debug, info};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -136,26 +137,48 @@ impl DatafileFactory {
     fn do_load_table_def(&mut self) -> Result<(), Error> {
         if let Some(sdiobj) = &self.sdiobj {
             let tabobj = &sdiobj.dd_object;
+            let coldefs = tabobj
+                .columns
+                .iter()
+                .map(|e| ColumnDef {
+                    ord_pos: e.ordinal_position,
+                    col_name: e.col_name.clone(),
+                    data_len: e.char_length,
+                    is_nullable: e.is_nullable,
+                    is_varfield: matches!(
+                        e.dd_type,
+                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING
+                    ),
+                    dd_type: e.dd_type.clone(),
+                    utf8_type: e.column_type_utf8.clone(),
+                })
+                .collect::<Vec<_>>();
+
+            let mut vfldinfo = Vec::new();
+            let mut nullinfo = Vec::new();
+            for c in &coldefs {
+                if c.is_varfield {
+                    vfldinfo.push((
+                        c.ord_pos,
+                        c.col_name.clone(),
+                        // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
+                        if c.data_len > 255 { 2 } else { 1 },
+                    ));
+                }
+                if c.is_nullable {
+                    nullinfo.push((c.ord_pos, c.col_name.clone()));
+                }
+            }
+            debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
 
             self.tabdef = Some(TableDef {
                 tab_name: tabobj.name.clone(),
-                col_defs: tabobj
-                    .columns
-                    .iter()
-                    .map(|e| ColumnDef {
-                        ord_pos: e.ordinal_position,
-                        col_name: e.col_name.clone(),
-                        byte_len: e.char_length,
-                        is_nullable: e.is_nullable,
-                        is_varlen: matches!(
-                            e.dd_type,
-                            ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING
-                        ),
-                        dd_type: e.dd_type.clone(),
-                        utf8_type: e.column_type_utf8.clone(),
-                    })
-                    .collect(),
-            })
+                varfield_size: vfldinfo.iter().map(|e| e.2).sum(),
+                nullflag_size: util::align(nullinfo.len()),
+                vfldinfo,
+                nullinfo,
+                col_defs: coldefs,
+            });
         }
         Ok(())
     }

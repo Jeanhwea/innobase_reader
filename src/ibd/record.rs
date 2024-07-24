@@ -30,7 +30,7 @@ pub struct RecordHeader {
     pub n_owned: u8,              // 4 bits
     pub heap_no: u16,             // 13 bits
     pub rec_status: RecordStatus, // 3 bits, see rec.h
-    pub next_rec_offset: u16,     // next record offset
+    pub next_rec_offset: i16,     // next record offset
 }
 
 impl RecordHeader {
@@ -42,7 +42,7 @@ impl RecordHeader {
             n_owned: (buffer[0] & 0x0f),
             heap_no: (b1 & 0xfff8) >> 3,
             rec_status: status.into(),
-            next_rec_offset: u16::from_be_bytes(buffer.as_ref()[3..5].try_into().unwrap()),
+            next_rec_offset: i16::from_be_bytes(buffer.as_ref()[3..5].try_into().unwrap()),
         }
     }
 
