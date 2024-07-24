@@ -123,9 +123,10 @@ impl DatafileFactory {
 }
 
 mod factory_tests {
-
+    use super::*;
+    use log::info;
     use crate::util;
-    use std::env::set_var;
+    use std::{env::set_var, path::PathBuf};
 
     const IBD_FILE: &str = "data/departments.ibd";
 
@@ -137,6 +138,8 @@ mod factory_tests {
     #[test]
     fn it_works() {
         setup();
-        assert!(false);
+        let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
+        assert!(factory.init().is_ok());
+        info!("factory = {:#?}", factory);
     }
 }
