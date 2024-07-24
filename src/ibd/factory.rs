@@ -100,7 +100,7 @@ impl DatafileFactory {
         Ok(Bytes::from(buf))
     }
 
-    pub fn do_load_first_page(&mut self) -> Result<(), Error> {
+    fn do_load_first_page(&mut self) -> Result<(), Error> {
         if self.filesize < PAGE_SIZE {
             return Err(Error::msg("datafile size less than one page"));
         }
@@ -116,7 +116,7 @@ impl DatafileFactory {
         Ok(())
     }
 
-    pub fn do_load_sdi_page(&mut self) -> Result<(), Error> {
+    fn do_load_sdi_page(&mut self) -> Result<(), Error> {
         if let Some(ref sdi_info) = self
             .page0
             .as_ref()
@@ -133,7 +133,7 @@ impl DatafileFactory {
         Ok(())
     }
 
-    pub fn do_load_table_def(&mut self) -> Result<(), Error> {
+    fn do_load_table_def(&mut self) -> Result<(), Error> {
         if let Some(sdiobj) = &self.sdiobj {
             let tabobj = &sdiobj.dd_object;
 
@@ -158,6 +158,13 @@ impl DatafileFactory {
             })
         }
         Ok(())
+    }
+
+    pub fn load_tabdef(&mut self) -> Result<&TableDef, Error> {
+        self.do_load_first_page()?;
+        self.do_load_sdi_page()?;
+        self.do_load_table_def()?;
+        Ok(self.tabdef.as_ref().expect("ERR_LOAD_TABLE_DEFINITION"))
     }
 
     pub fn page_count(&self) -> usize {
@@ -210,5 +217,14 @@ mod factory_tests {
         assert!(factory.do_load_sdi_page().is_ok());
         assert!(factory.do_load_table_def().is_ok());
         info!("factory = {:#?}", factory);
+    }
+
+    #[test]
+    fn load_table_definition() {
+        setup();
+        let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
+        assert!(factory.init().is_ok());
+        assert!(factory.load_tabdef().is_ok());
+        info!("tabdef = {:#?}", factory.tabdef);
     }
 }

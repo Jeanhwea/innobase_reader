@@ -1,5 +1,6 @@
 use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
+use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
 use num_enum::FromPrimitive;
@@ -8,6 +9,7 @@ use std::{cmp, fmt};
 use strum::{Display, EnumString};
 
 use super::record::{Record, SdiObject};
+use super::tabspace::TableDef;
 
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -566,7 +568,7 @@ impl BasePageOperation for IndexPage {
 }
 
 impl IndexPage {
-    pub fn parse_records(&mut self) {
+    pub fn parse_records(&mut self, tabdef: &TableDef) -> Result<(), Error> {
         let inf = &self.infimum;
         let urecs = &mut self.records;
         let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
@@ -579,6 +581,21 @@ impl IndexPage {
             addr += rec_hdr.next_rec_offset as usize;
             urecs.push(Record::new(rec_hdr));
         }
+
+        let mut varg_size = 0usize;
+        let mut null_count = 0usize;
+        for c in &tabdef.col_defs {
+            if c.is_varlen {
+                varg_size += if c.byte_len > 256 { 2 } else { 1 };
+            }
+            if c.is_nullable {
+                null_count += 1;
+            }
+        }
+        let null_size = util::align(null_count);
+        info!("varg_size = {}, null_size = {}", varg_size, null_size);
+
+        Ok(())
     }
 }
 

@@ -187,8 +187,8 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(&self, page_no: usize) -> Result<(), Error> {
-        let factory = &self.factory;
+    fn do_dump(&mut self, page_no: usize) -> Result<(), Error> {
+        let factory = &mut self.factory;
         if page_no >= factory.page_count() {
             return Err(Error::msg("Page number out of range"));
         }
@@ -202,8 +202,11 @@ impl App {
         }
         let buffer = factory.read_page(page_no)?;
         let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
-        index_page.page_body.parse_records();
-        info!("{:#?}", index_page);
+
+        let tabdef = factory.load_tabdef()?;
+
+        index_page.page_body.parse_records(&tabdef)?;
+
         Ok(())
     }
 
