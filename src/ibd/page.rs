@@ -285,7 +285,7 @@ impl FileSpaceHeader {
 #[derive(Debug)]
 pub struct BasePage<P> {
     pub fil_hdr: FilePageHeader,
-    pub body: P,
+    pub page_body: P,
     pub fil_trl: FilePageTrailer,
 }
 
@@ -300,7 +300,7 @@ where
     pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
         Self {
             fil_hdr: header,
-            body: BasePageOperation::new(buffer),
+            page_body: BasePageOperation::new(buffer),
             fil_trl: trailer,
         }
     }
