@@ -36,24 +36,24 @@ impl App {
     pub fn run(&mut self, command: Commands) -> Result<()> {
         debug!("{:?}, {:?}", command, self);
         self.init()?;
-        if let Some(ref mut df) = self.factory {
-            info!("datafile = {:?}", df.datafile());
+        if let Some(ref mut data_factory) = self.factory {
+            info!("datafile = {:?}", data_factory.datafile());
             match command {
-                Commands::Info => Self::do_info(df)?,
-                Commands::List => Self::do_list(df)?,
-                Commands::Desc => Self::do_desc(df)?,
-                Commands::Sdi => Self::do_print_sdi_json(df)?,
+                Commands::Info => Self::do_info(data_factory)?,
+                Commands::List => Self::do_list(data_factory)?,
+                Commands::Desc => Self::do_desc(data_factory)?,
+                Commands::Sdi => Self::do_print_sdi_json(data_factory)?,
                 Commands::Dump { page: page_no } => {
-                    if page_no >= df.page_count() {
+                    if page_no >= data_factory.page_count() {
                         return Err(Error::msg("Page number out of range"));
                     }
-                    Self::do_dump(df, page_no)?
+                    Self::do_dump(data_factory, page_no)?
                 }
                 Commands::View { page: page_no } => {
-                    if page_no >= df.page_count() {
+                    if page_no >= data_factory.page_count() {
                         return Err(Error::msg("Page number out of range"));
                     }
-                    Self::do_view(df, page_no)?
+                    Self::do_view(data_factory, page_no)?
                 }
             }
         }
