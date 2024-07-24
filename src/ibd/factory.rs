@@ -177,7 +177,7 @@ impl DatafileFactory {
             self.tabdef = Some(TableDef {
                 tab_name: tabobj.name.clone(),
                 varfield_size: vfldinfo.iter().map(|e| e.2).sum(),
-                nullflag_size: util::align(nullinfo.len()),
+                nullflag_size: util::align8(nullinfo.len()),
                 vfldinfo,
                 nullinfo,
                 col_defs: coldefs,

@@ -4,6 +4,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
+
 use std::sync::Once;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
@@ -33,8 +34,8 @@ pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     Ok(output)
 }
 
-pub fn align(num: usize) -> usize {
-    (num as f64 / 8.0).ceil() as usize
+pub fn align8(num: usize) -> usize {
+    (num >> 3) + if (num & 0x7) > 0 { 1 } else { 0 }
 }
 
 #[cfg(test)]
@@ -52,11 +53,11 @@ mod util_tests {
     #[test]
     fn test_align_count() {
         setup();
-        assert_eq!(align(0), 0);
-        assert_eq!(align(1), 1);
-        assert_eq!(align(8), 1);
-        assert_eq!(align(9), 2);
-        assert_eq!(align(254), 32);
-        assert_eq!(align(255), 32);
+        assert_eq!(align8(0), 0);
+        assert_eq!(align8(1), 1);
+        assert_eq!(align8(8), 1);
+        assert_eq!(align8(9), 2);
+        assert_eq!(align8(254), 32);
+        assert_eq!(align8(255), 32);
     }
 }
