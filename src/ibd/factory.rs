@@ -122,10 +122,11 @@ impl DatafileFactory {
     }
 }
 
+#[cfg(test)]
 mod factory_tests {
     use super::*;
-    use log::info;
     use crate::util;
+    use log::info;
     use std::{env::set_var, path::PathBuf};
 
     const IBD_FILE: &str = "data/departments.ibd";
