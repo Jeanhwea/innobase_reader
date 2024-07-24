@@ -583,17 +583,24 @@ impl IndexPage {
         }
 
         let mut varg_size = 0usize;
+        let mut varg_ords = Vec::new();
         let mut null_num = 0usize;
+        let mut null_ords = Vec::new();
         for c in &tabdef.col_defs {
             if c.is_varlen {
                 varg_size += if c.byte_len > 256 { 2 } else { 1 };
+                varg_ords.push((c.ord_pos, c.col_name.clone()));
             }
             if c.is_nullable {
                 null_num += 1;
+                null_ords.push((c.ord_pos, c.col_name.clone()));
             }
         }
         let null_size = util::align(null_num);
-        info!("varg_size = {}, null_size = {}", varg_size, null_size);
+        info!(
+            "varg={}: {:?}, null={}: {:?}",
+            varg_size, varg_ords, null_size, null_ords
+        );
 
         Ok(())
     }
