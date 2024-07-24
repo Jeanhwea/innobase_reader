@@ -11,7 +11,7 @@ test:
 	$(ENVS) $(CARGO) test -- --nocapture --show-output
 
 t0:
-	$(ENVS) $(CARGO) test tests::it_works -- --nocapture --show-output
+	$(ENVS) $(CARGO) test app_tests::it_works -- --nocapture --show-output
 
 doc:
 	$(ENVS) $(CARGO) doc $(CFLAG)

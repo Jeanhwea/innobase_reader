@@ -4,20 +4,25 @@ use anyhow::Result;
 use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
+use std::sync::Once;
 
-pub fn init_logger() {
-    env_logger::builder()
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "[{} {:<5} {}] {}",
-                Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.level(),
-                record.module_path().unwrap(),
-                record.args()
-            )
-        })
-        .init();
+static INIT_LOGGER_ONCE: Once = Once::new();
+
+pub fn init() {
+    INIT_LOGGER_ONCE.call_once(|| {
+        env_logger::builder()
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "[{} {:<5} {}] {}",
+                    Local::now().format("%Y-%m-%d %H:%M:%S"),
+                    record.level(),
+                    record.module_path().unwrap(),
+                    record.args()
+                )
+            })
+            .init();
+    })
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {

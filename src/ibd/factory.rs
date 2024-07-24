@@ -13,6 +13,39 @@ use std::path::PathBuf;
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 
 #[derive(Debug, Default)]
+pub struct PageFactory {
+    buffer: Bytes,
+    buflen: usize,
+    page_no: usize,
+}
+
+impl PageFactory {
+    pub fn new(buffer: Bytes) -> PageFactory {
+        Self {
+            buflen: buffer.len(),
+            buffer,
+            ..PageFactory::default()
+        }
+    }
+
+    pub fn fil_hdr(&self) -> FilePageHeader {
+        FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE))
+    }
+
+    pub fn build<P>(&self) -> BasePage<P>
+    where
+        P: BasePageOperation,
+    {
+        BasePage::new(
+            FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE)),
+            self.buffer
+                .slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
+            FilePageTrailer::new(self.buffer.slice(self.buflen - FIL_TRAILER_SIZE..)),
+        )
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct DatafileFactory {
     target: PathBuf,            // Target innobase data file (*.idb)
     file: Option<File>,         // Tablespace file descriptor
@@ -88,35 +121,21 @@ impl DatafileFactory {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct PageFactory {
-    buffer: Bytes,
-    buflen: usize,
-    page_no: usize,
-}
+mod factory_tests {
 
-impl PageFactory {
-    pub fn new(buffer: Bytes) -> PageFactory {
-        Self {
-            buflen: buffer.len(),
-            buffer,
-            ..PageFactory::default()
-        }
+    use crate::util;
+    use std::env::set_var;
+
+    const IBD_FILE: &str = "data/departments.ibd";
+
+    fn setup() {
+        set_var("RUST_LOG", "info");
+        util::init();
     }
 
-    pub fn fil_hdr(&self) -> FilePageHeader {
-        FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE))
-    }
-
-    pub fn build<P>(&self) -> BasePage<P>
-    where
-        P: BasePageOperation,
-    {
-        BasePage::new(
-            FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE)),
-            self.buffer
-                .slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
-            FilePageTrailer::new(self.buffer.slice(self.buflen - FIL_TRAILER_SIZE..)),
-        )
+    #[test]
+    fn it_works() {
+        setup();
+        assert!(false);
     }
 }

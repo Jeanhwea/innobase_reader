@@ -248,7 +248,7 @@ impl App {
 }
 
 #[cfg(test)]
-mod tests {
+mod app_tests {
     use super::*;
     use crate::util;
     use std::env::set_var;
@@ -257,58 +257,58 @@ mod tests {
     const IBD_FILE: &str = "data/departments.ibd";
     static INIT_ONCE: Once = Once::new();
 
-    fn init() {
+    fn setup() {
         INIT_ONCE.call_once(|| {
             set_var("RUST_LOG", "info");
-            util::init_logger();
+            util::init();
         });
     }
 
     #[test]
     fn info_datafile() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::Info).is_ok());
     }
 
     #[test]
     fn list_pages() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::List).is_ok());
     }
 
     #[test]
     fn view_first_fsp_hdr_page() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 0 }).is_ok());
     }
 
     #[test]
     fn view_first_inode_page() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 
     #[test]
     fn view_first_index_page() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
     fn view_first_sdi_page() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::View { page: 3 }).is_ok());
     }
 
     #[test]
     fn it_works() {
-        init();
+        setup();
         let mut app = App::new(PathBuf::from(IBD_FILE));
         assert!(app.run(Commands::Dump { page: 4 }).is_ok());
     }
