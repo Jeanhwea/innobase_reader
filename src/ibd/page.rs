@@ -583,16 +583,16 @@ impl IndexPage {
         }
 
         let mut varg_size = 0usize;
-        let mut null_count = 0usize;
+        let mut null_num = 0usize;
         for c in &tabdef.col_defs {
             if c.is_varlen {
                 varg_size += if c.byte_len > 256 { 2 } else { 1 };
             }
             if c.is_nullable {
-                null_count += 1;
+                null_num += 1;
             }
         }
-        let null_size = util::align(null_count);
+        let null_size = util::align(null_num);
         info!("varg_size = {}, null_size = {}", varg_size, null_size);
 
         Ok(())
