@@ -569,19 +569,9 @@ impl BasePageOperation for IndexPage {
 
 impl IndexPage {
     pub fn parse_records(&mut self, tabdef: &TableDef) -> Result<(), Error> {
-        let inf = &self.infimum;
-        let urecs = &mut self.records;
-        let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
-        for nrec in 0..self.index_header.page_n_recs {
-            debug!("Parse Record, nrec = {}", nrec);
-            if addr > self.buf.len() {
-                break;
-            }
-            let rec_hdr = RecordHeader::new(self.buf.slice(addr - 5..addr));
-            addr += rec_hdr.next_rec_offset as usize;
-            urecs.push(Record::new(rec_hdr));
-        }
-
+        // 计算 RecordHeader 前置信息
+        //   1. varg: 变长参数长度列表
+        //   2. null: 非空字段标志位
         let mut varg_size = 0usize;
         let mut varg_ords = Vec::new();
         let mut null_num = 0usize;
@@ -601,6 +591,19 @@ impl IndexPage {
             "varg={}: {:?}, null={}: {:?}",
             varg_size, varg_ords, null_size, null_ords
         );
+
+        let inf = &self.infimum;
+        let urecs = &mut self.records;
+        let mut addr = PAGE_ADDR_INF + (inf.rec_hdr.next_rec_offset as usize) - FIL_HEADER_SIZE;
+        for nrec in 0..self.index_header.page_n_recs {
+            info!("Parse Record, nrec = {}", nrec);
+            if addr > self.buf.len() {
+                break;
+            }
+            let rec_hdr = RecordHeader::new(self.buf.slice(addr - 5..addr));
+            addr += rec_hdr.next_rec_offset as usize;
+            urecs.push(Record::new(rec_hdr));
+        }
 
         Ok(())
     }
