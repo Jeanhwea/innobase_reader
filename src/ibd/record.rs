@@ -132,7 +132,7 @@ impl RowInfo {
         0
     }
 
-    pub fn rowsize(&self) -> usize {
+    pub fn calc_rowsize(&self) -> usize {
         let mut total = 0usize;
         for c in &self.tabdef.col_defs {
             if self.isnull(c.ord_pos as usize) {
@@ -140,6 +140,7 @@ impl RowInfo {
             }
             if !c.is_varfield {
                 total += c.data_len as usize;
+                continue;
             }
             total += self.varlen(c.ord_pos as usize);
         }

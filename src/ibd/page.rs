@@ -575,10 +575,9 @@ impl IndexPage {
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
         addr += inf.rec_hdr.next_rec_offset;
 
-        for _ in 0..self.index_header.page_n_recs {
+        for nrec in 0..self.index_header.page_n_recs {
             let mut end = addr as usize;
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
-            addr += rec_hdr.next_rec_offset;
 
             end -= 5;
             let mut nbuf = self.buf.slice(end - tabdef.nullflag_size..end).to_vec();
@@ -590,13 +589,20 @@ impl IndexPage {
 
             end = addr as usize;
             // TODO
-            let rowsize = rowinfo.rowsize();
-            info!("rowsize = {}", rowsize.to_string().yellow());
+            let rowsize = rowinfo.calc_rowsize();
             let rbuf = self.buf.slice(end..end + rowsize);
+            info!(
+                "nrec={}, addr = @{}, rowsize={}, rbuf={:?}",
+                nrec.to_string().yellow(),
+                (addr as usize + FIL_HEADER_SIZE).to_string().red(),
+                rowsize.to_string().yellow(),
+                rbuf
+            );
             let row = Row::new(rbuf);
 
+            addr += rec_hdr.next_rec_offset;
             let urec = Record::new(rec_hdr, Some(rowinfo), Some(row));
-            info!("urec = {:#?}", urec);
+            info!("urec = {:?}", urec);
 
             urecs.push(urec);
         }

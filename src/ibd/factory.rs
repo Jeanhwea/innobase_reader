@@ -5,7 +5,7 @@ use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
     FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::record::{ColumnTypes, SdiObject};
+use super::record::{ColumnTypes, HiddenTypes, SdiObject};
 use super::tabspace::{ColumnDef, Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -143,11 +143,14 @@ impl DatafileFactory {
                 .map(|e| ColumnDef {
                     ord_pos: e.ordinal_position,
                     col_name: e.col_name.clone(),
-                    data_len: e.char_length,
+                    data_len: match e.hidden {
+                        HiddenTypes::HT_HIDDEN_SE => e.char_length,
+                        _ => e.char_length / 4,
+                    },
                     is_nullable: e.is_nullable,
                     is_varfield: matches!(
                         e.dd_type,
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING
+                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
                     ),
                     dd_type: e.dd_type.clone(),
                     utf8_type: e.column_type_utf8.clone(),
