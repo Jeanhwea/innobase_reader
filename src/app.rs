@@ -124,7 +124,7 @@ impl App {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
                 let buffer = factory.read_page(page_no)?;
-                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).build();
+                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
 
                 if let Some(obj) = sdi_page.page_body.get_sdi_object() {
                     debug!("sdi_obj = {:#?}", obj);
@@ -178,7 +178,7 @@ impl App {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
                 let buffer = factory.read_page(page_no)?;
-                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).build();
+                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
                 let sdi_data = sdi_page.page_body.get_sdi_data();
                 println!("{}", sdi_data);
                 break;
@@ -201,7 +201,7 @@ impl App {
             )));
         }
         let buffer = factory.read_page(page_no)?;
-        let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).build();
+        let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
         index_page.page_body.parse_records();
         info!("{:#?}", index_page);
         Ok(())
@@ -222,22 +222,22 @@ impl App {
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
-                let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.build();
+                let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.parse();
                 if factory.datafile().server_version > SDI_META_INFO_MIN_VER {
                     fsp_page.page_body.parse_sdi_meta();
                 }
                 println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {
-                let inode_page: BasePage<INodePage> = pg_fact.build();
+                let inode_page: BasePage<INodePage> = pg_fact.parse();
                 println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {
-                let index_page: BasePage<IndexPage> = pg_fact.build();
+                let index_page: BasePage<IndexPage> = pg_fact.parse();
                 println!("{:#?}", index_page);
             }
             PageTypes::SDI => {
-                let sdi_page: BasePage<SdiIndexPage> = pg_fact.build();
+                let sdi_page: BasePage<SdiIndexPage> = pg_fact.parse();
                 println!("{:#?}", sdi_page);
             }
             PageTypes::UNDEF => {

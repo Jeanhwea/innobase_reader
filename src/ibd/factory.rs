@@ -1,6 +1,6 @@
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FIL_HEADER_SIZE,
-    FIL_TRAILER_SIZE, PAGE_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
+    SdiMetaInfo, FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
 use super::tabspace::{Datafile, TableDef};
 use anyhow::{Error, Result};
@@ -32,7 +32,7 @@ impl PageFactory {
         FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE))
     }
 
-    pub fn build<P>(&self) -> BasePage<P>
+    pub fn parse<P>(&self) -> BasePage<P>
     where
         P: BasePageOperation,
     {
@@ -47,11 +47,13 @@ impl PageFactory {
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    target: PathBuf,            // Target innobase data file (*.idb)
-    file: Option<File>,         // Tablespace file descriptor
-    size: usize,                // File size
-    datafile: Option<Datafile>, // Datafile Information
-    tabdef: Option<TableDef>,   // Table Definition
+    target: PathBuf,                                 // Target innobase data file (*.idb)
+    file: Option<File>,                              // Tablespace file descriptor
+    filesize: usize,                                 // File size
+    datafile: Option<Datafile>,                      // Datafile Information
+    fsp_page: Option<BasePage<FileSpaceHeaderPage>>, // first page
+    sdidata: Option<SdiMetaInfo>,                    // SDI
+    tabdef: Option<TableDef>,                        // Table Definition
 }
 
 impl DatafileFactory {
@@ -82,7 +84,7 @@ impl DatafileFactory {
         info!("load {:?}, size = {}", file, size);
 
         self.file = Some(file);
-        self.size = size;
+        self.filesize = size;
 
         Ok(())
     }
@@ -95,12 +97,26 @@ impl DatafileFactory {
         Ok(Bytes::from(buf))
     }
 
+    pub fn do_load_first_page(&mut self) -> Result<(), Error> {
+        if self.filesize < PAGE_SIZE {
+            return Err(Error::msg("datafile size less than one page"));
+        }
+
+        let buffer = self.do_read_bytes(0)?;
+        let mut fsp_page = PageFactory::new(buffer).parse();
+        assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
+
+        self.fsp_page = Some(fsp_page);
+
+        Ok(())
+    }
+
     pub fn page_count(&self) -> usize {
-        self.size / PAGE_SIZE
+        self.filesize / PAGE_SIZE
     }
 
     pub fn file_size(&self) -> usize {
-        self.size
+        self.filesize
     }
 
     pub fn read_page(&self, page_no: usize) -> Result<Bytes> {
