@@ -551,8 +551,8 @@ impl BasePageOperation for IndexPage {
         }
 
         // Parse System Records
-        let inf = Record::new(RecordHeader::new(buffer.slice(56..69)));
-        let sup = Record::new(RecordHeader::new(buffer.slice(69..82)));
+        let inf = Record::from(RecordHeader::new(buffer.slice(56..69)));
+        let sup = Record::from(RecordHeader::new(buffer.slice(69..82)));
 
         // Parse User Records
         Self {
@@ -577,7 +577,7 @@ impl IndexPage {
             let end = addr as usize;
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
             addr += rec_hdr.next_rec_offset;
-            urecs.push(Record::new(rec_hdr));
+            urecs.push(Record::from(rec_hdr));
         }
 
         Ok(())

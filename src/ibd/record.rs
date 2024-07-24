@@ -70,9 +70,9 @@ impl RecordHeader {
 }
 
 #[derive(Debug)]
-pub struct RecordInfo {
-    // nullable list
-    // vary field list
+pub struct RowInfo {
+    vfld_buffer: Bytes,
+    null_buffer: Bytes,
 }
 
 #[derive(Debug)]
@@ -84,18 +84,22 @@ pub struct Row {
 
 #[derive(Debug)]
 pub struct Record {
-    pub rec_pre: Option<RecordInfo>, // record prefix information
-    pub rec_hdr: RecordHeader,       // record header
-    pub row: Option<Row>,            // row data
+    pub row_info: Option<RowInfo>, // row information
+    pub rec_hdr: RecordHeader,     // record header
+    pub row: Option<Row>,          // row data
 }
 
 impl Record {
-    pub fn new(hdr: RecordHeader) -> Self {
+    pub fn new(hdr: RecordHeader, rowinfo: Option<RowInfo>, row: Option<Row>) -> Self {
         Self {
             rec_hdr: hdr,
-            rec_pre: None,
-            row: None,
+            row_info: rowinfo,
+            row: row,
         }
+    }
+
+    pub fn from(hdr: RecordHeader) -> Self {
+        Self::new(hdr, None, None)
     }
 }
 
