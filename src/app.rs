@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::ibd::factory::{DatafileFactory, PageFactory};
+use crate::ibd::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
 use crate::ibd::page::{
     BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage,
 };
@@ -218,7 +218,10 @@ impl App {
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
-                let fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.build();
+                let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.build();
+                if factory.datafile().server_version > SDI_META_INFO_MIN_VER {
+                    fsp_page.body.parse_sdi_meta();
+                }
                 println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {

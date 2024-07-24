@@ -10,6 +10,8 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
+pub const SDI_META_INFO_MIN_VER: u32 = 80000;
+
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
     target: PathBuf,            // Target innobase data file (*.idb)

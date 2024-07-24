@@ -1,7 +1,6 @@
-use bytes::Bytes;
-
 use crate::ibd::record::{RecordHeader, PAGE_ADDR_INF};
 use crate::util;
+use bytes::Bytes;
 use log::{debug, info};
 use num_enum::FromPrimitive;
 use std::fmt::Formatter;
@@ -16,9 +15,10 @@ pub const FIL_HEADER_SIZE: usize = 38;
 pub const FIL_TRAILER_SIZE: usize = 8;
 pub const FSP_HEADER_SIZE: usize = 112;
 pub const XDES_ENTRY_SIZE: usize = 40;
+pub const XDES_ENTRY_MAX_COUNT: usize = 256;
 pub const INODE_FLST_NODE_SIZE: usize = 12;
 pub const INODE_ENTRY_SIZE: usize = 192;
-pub const INODE_ENTRY_COUNT: usize = 85;
+pub const INODE_ENTRY_MAX_COUNT: usize = 85;
 pub const INODE_ENTRY_ARR_COUNT: usize = 32;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
@@ -307,29 +307,63 @@ where
 }
 
 // File Space Header Page
-#[derive(Debug)]
 pub struct FileSpaceHeaderPage {
     pub fsp_hdr: FileSpaceHeader,
     pub xdes_ent_list: Vec<XDesEntry>,
+    pub sdi_info: Option<SdiMetaInfo>,
+    buf: Bytes,
+}
+
+impl fmt::Debug for FileSpaceHeaderPage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSpaceHeaderPage")
+            .field("fsp_hdr", &self.fsp_hdr)
+            .field("xdes_ent_list", &self.xdes_ent_list)
+            .field("sdi_info", &self.sdi_info)
+            .finish()
+    }
+}
+impl FileSpaceHeaderPage {
+    // INFO_SIZE = 3 + 4 + 32*2 + 36 + 4 = 111
+    // static constexpr size_t INFO_SIZE =
+    //     (MAGIC_SIZE + sizeof(uint32) + (KEY_LEN * 2) + SERVER_UUID_LEN +
+    //      sizeof(uint32));
+    // INFO_MAX_SIZE = 111 + 4 = 115
+    // static constexpr size_t INFO_MAX_SIZE = INFO_SIZE + sizeof(uint32);
+    const INFO_MAX_SIZE: usize = 115;
+
+    pub fn parse_sdi_meta(&mut self) {
+        // sdi_addr, page offset = 10505
+        let sdi_addr =
+            FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
+
+        // info!("len = {}, sdi_addr = {}", len, sdi_addr);
+        let sdi_meta = SdiMetaInfo::new(self.buf.slice(sdi_addr..sdi_addr + 8));
+
+        self.sdi_info = Some(sdi_meta);
+    }
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
     fn new(buffer: Bytes) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
         let mut entries = Vec::new();
-        let len = hdr.fsp_free.len
+        let len: usize = (hdr.fsp_free.len
             + hdr.free_frag.len
             + hdr.full_frag.len
             + hdr.inodes_free.len
-            + hdr.inodes_full.len;
-        for offset in 0..len as usize {
+            + hdr.inodes_full.len) as usize;
+        for offset in 0..len {
             let beg = FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
             let end = beg + XDES_ENTRY_SIZE;
             entries.push(XDesEntry::new(buffer.slice(beg..end)));
         }
+
         Self {
             fsp_hdr: hdr,
             xdes_ent_list: entries,
+            sdi_info: None,
+            buf: buffer,
         }
     }
 }
@@ -369,6 +403,21 @@ impl XDesEntry {
     }
 }
 
+#[derive(Debug)]
+pub struct SdiMetaInfo {
+    sdi_version: u32, // SDI Version
+    sdi_page_no: u32, // SDI Page Number
+}
+
+impl SdiMetaInfo {
+    pub fn new(buffer: Bytes) -> Self {
+        Self {
+            sdi_version: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()).into(),
+            sdi_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()).into(),
+        }
+    }
+}
+
 // File Segment Inode, see fsp0fsp.h
 #[derive(Debug)]
 pub struct INodePage {
@@ -379,7 +428,7 @@ pub struct INodePage {
 impl BasePageOperation for INodePage {
     fn new(buffer: Bytes) -> Self {
         let mut entries = Vec::new();
-        for offset in 0..INODE_ENTRY_COUNT {
+        for offset in 0..INODE_ENTRY_MAX_COUNT {
             let beg = INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
             let end = beg + INODE_ENTRY_SIZE;
             let entry = INodeEntry::new(buffer.slice(beg..end));
