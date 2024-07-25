@@ -1,10 +1,11 @@
+use log::info;
 use num_enum::FromPrimitive;
 use std::collections::HashMap;
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-use crate::ibd::tabspace::TableDef;
+use crate::{ibd::tabspace::TableDef, util};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -96,9 +97,14 @@ impl RowInfo {
         let mut nullflag = false;
         for (offset, tuple) in self.tabdef.nullinfo.iter().enumerate() {
             if tuple.0 == ord {
-                let idx = offset % 8;
-                let mask = 1 << (offset & 0xff);
-                nullflag = (self.null_buffer[idx] & mask) > 0;
+                let noff = util::numoff(offset);
+                let nidx = util::numidx(offset);
+                let mask = 1 << noff;
+                info!(
+                    "offset={}, noff={}, nidx={}, mask=0b{:08b}",
+                    offset, noff, nidx, mask
+                );
+                nullflag = (self.null_buffer[nidx] & mask) > 0;
                 break;
             }
         }

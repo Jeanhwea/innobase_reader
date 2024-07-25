@@ -145,7 +145,16 @@ impl DatafileFactory {
                     col_name: e.col_name.clone(),
                     data_len: match e.hidden {
                         HiddenTypes::HT_HIDDEN_SE => e.char_length,
-                        _ => e.char_length / 4,
+                        HiddenTypes::HT_VISIBLE => match e.dd_type {
+                            ColumnTypes::TINY => 1,
+                            ColumnTypes::SHORT => 2,
+                            ColumnTypes::LONG => 4,
+                            ColumnTypes::VARCHAR
+                            | ColumnTypes::VAR_STRING
+                            | ColumnTypes::STRING => e.char_length / 4,
+                            _ => todo!("Unsupported ColumType::{}", e.dd_type),
+                        },
+                        _ => todo!("Unsupported HiddenTypes::{}", e.hidden),
                     },
                     is_nullable: e.is_nullable,
                     is_varfield: matches!(

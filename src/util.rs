@@ -38,6 +38,14 @@ pub fn align8(num: usize) -> usize {
     (num >> 3) + if (num & 0x7) > 0 { 1 } else { 0 }
 }
 
+pub fn numoff(num: usize) -> usize {
+    num & 0x7
+}
+
+pub fn numidx(num: usize) -> usize {
+    (num & (!0x7)) >> 3
+}
+
 #[cfg(test)]
 mod util_tests {
 
@@ -59,5 +67,25 @@ mod util_tests {
         assert_eq!(align8(9), 2);
         assert_eq!(align8(254), 32);
         assert_eq!(align8(255), 32);
+    }
+
+    #[test]
+    fn test_calc_number_offset() {
+        setup();
+        assert_eq!(numoff(0), 0);
+        assert_eq!(numoff(1), 1);
+        assert_eq!(numoff(7), 7);
+        assert_eq!(numoff(8), 0);
+    }
+
+    #[test]
+    fn test_calc_number_index() {
+        setup();
+        assert_eq!(numidx(0), 0);
+        assert_eq!(numidx(1), 0);
+        assert_eq!(numidx(7), 0);
+        assert_eq!(numidx(8), 1);
+        assert_eq!(numidx(15), 1);
+        assert_eq!(numidx(16), 2);
     }
 }
