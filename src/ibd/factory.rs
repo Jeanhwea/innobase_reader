@@ -152,7 +152,7 @@ impl DatafileFactory {
                             ColumnTypes::VARCHAR
                             | ColumnTypes::VAR_STRING
                             | ColumnTypes::STRING => e.char_length,
-                            _ => todo!("Unsupported ColumType::{}", e.dd_type),
+                            _ => todo!("Unsupported ColumType::{}, utf8_def={}", e.dd_type, e.column_type_utf8),
                         },
                         _ => todo!("Unsupported HiddenTypes::{}", e.hidden),
                     },
