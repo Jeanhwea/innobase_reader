@@ -35,5 +35,5 @@ pub struct ColumnDef {
     pub is_nullable: bool,    // is nullable
     pub is_varfield: bool,    // is variadic field
     pub dd_type: ColumnTypes, // data dictionary type
-    pub utf8_type: String,    // utf8 column definition
+    pub utf8_def: String,     // utf8 column definition
 }

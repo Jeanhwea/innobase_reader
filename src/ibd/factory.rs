@@ -152,7 +152,11 @@ impl DatafileFactory {
                             ColumnTypes::VARCHAR
                             | ColumnTypes::VAR_STRING
                             | ColumnTypes::STRING => e.char_length,
-                            _ => todo!("Unsupported ColumType::{}, utf8_def={}", e.dd_type, e.column_type_utf8),
+                            _ => todo!(
+                                "Unsupported ColumType::{}, utf8_def={}",
+                                e.dd_type,
+                                e.column_type_utf8
+                            ),
                         },
                         _ => todo!("Unsupported HiddenTypes::{}", e.hidden),
                     },
@@ -162,7 +166,7 @@ impl DatafileFactory {
                         ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
                     ),
                     dd_type: e.dd_type.clone(),
-                    utf8_type: e.column_type_utf8.clone(),
+                    utf8_def: e.column_type_utf8.clone(),
                 })
                 .collect::<Vec<_>>();
 
