@@ -118,18 +118,18 @@ impl RowInfo {
     }
 
     pub fn calc_rowsize(&self) -> usize {
-        let mut total = 0usize;
+        let mut rowsize = 0usize;
         for c in &self.tabdef.col_defs {
             if self.isnull(c) {
                 continue;
             }
             if !c.is_varfield {
-                total += c.data_len as usize;
+                rowsize += c.data_len as usize;
                 continue;
             }
-            total += self.varlen(c);
+            rowsize += self.varlen(c);
         }
-        total
+        rowsize
     }
 }
 
