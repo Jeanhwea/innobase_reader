@@ -35,7 +35,7 @@ impl App {
         debug!("{:?}, {:?}", command, self);
         self.factory.init()?;
 
-        let datafile = self.factory.datafile();
+        let datafile = self.factory.datafile.as_ref().unwrap();
         info!("datafile = {:?}", datafile);
 
         match command {
@@ -58,7 +58,7 @@ impl App {
             *stats.entry(hdr.page_type).or_insert(0) += 1;
         }
 
-        let df = factory.datafile();
+        let df = factory.datafile.as_ref().expect("ERR_NO_DATAFILE");
         println!("Meta Information:");
         println!(
             "{:>12} => server({}), space({})",
@@ -198,7 +198,7 @@ impl App {
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
                 let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.parse();
-                if factory.datafile().server_version > SDI_META_INFO_MIN_VER {
+                if factory.datafile.as_ref().unwrap().server_version > SDI_META_INFO_MIN_VER {
                     fsp_page.page_body.parse_sdi_meta();
                 }
                 println!("{:#?}", fsp_page);

@@ -250,10 +250,6 @@ impl DatafileFactory {
         let buffer = self.do_read_bytes(0)?;
         Ok(PageFactory::new(buffer).fil_hdr())
     }
-
-    pub fn datafile(&self) -> Datafile {
-        self.datafile.clone().unwrap()
-    }
 }
 
 #[cfg(test)]
