@@ -124,7 +124,7 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, null_offset={}, vfld_offset={}, vfld_bytes={}, comment={}",
+                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, null_offset={}, vfld_offset={}, vfld_bytes={}",
                 c.ord_pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
@@ -132,11 +132,9 @@ impl App {
                 c.is_nullable.to_string().yellow(),
                 c.data_len.to_string().yellow(),
                 c.hidden.to_string().cyan(),
-
                 c.null_offset.to_string().green(),
                 c.vfld_offset.to_string().green(),
                 c.vfld_bytes.to_string().green(),
-                c.comment,
             );
             info!("{:#?}", c);
         }
