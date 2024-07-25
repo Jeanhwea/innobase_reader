@@ -121,11 +121,6 @@ impl App {
     fn do_desc(&mut self, verbose: bool) -> Result<()> {
         let factory = &mut self.factory;
 
-        if verbose {
-            let tabdef = factory.load_tabdef()?;
-            println!("{:#?}", tabdef);
-        }
-
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
@@ -175,6 +170,16 @@ impl App {
                 break;
             }
         }
+
+        if verbose {
+            let tabdef = factory.load_tabdef()?;
+            println!("Columns:");
+            println!(
+                "vfldinfo={:?}, nullinfo={:?}",
+                tabdef.vfldinfo, tabdef.nullinfo
+            );
+        }
+
         Ok(())
     }
 
