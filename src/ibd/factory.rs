@@ -125,10 +125,12 @@ impl DatafileFactory {
             .page_body
             .sdi_info
         {
-            let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
-            let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-            assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
-            self.sdiobj = sdi_page.page_body.get_sdi_object();
+            if sdi_info.sdi_page_no > 0 {
+                let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
+                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
+                assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
+                self.sdiobj = sdi_page.page_body.get_sdi_object();
+            }
         }
 
         Ok(())

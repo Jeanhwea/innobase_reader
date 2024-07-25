@@ -41,7 +41,7 @@ impl App {
         match command {
             Commands::Info => self.do_info()?,
             Commands::List => self.do_list()?,
-            Commands::Desc => self.do_desc()?,
+            Commands::Desc { verbose } => self.do_desc(verbose)?,
             Commands::Sdi => self.do_print_sdi_json()?,
             Commands::Dump { page: page_no } => self.do_dump(page_no)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
@@ -118,8 +118,14 @@ impl App {
         Ok(())
     }
 
-    fn do_desc(&self) -> Result<()> {
-        let factory = &self.factory;
+    fn do_desc(&mut self, verbose: bool) -> Result<()> {
+        let factory = &mut self.factory;
+
+        if verbose {
+            let tabdef = factory.load_tabdef()?;
+            println!("{:#?}", tabdef);
+        }
+
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {

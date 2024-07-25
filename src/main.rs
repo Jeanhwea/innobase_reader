@@ -15,7 +15,7 @@ mod util;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// input *.ibd file
+    /// Input data file. such as *.ibd
     input: PathBuf,
 
     #[command(subcommand)]
@@ -29,19 +29,21 @@ enum Commands {
     /// List all page. page_type, page_number and more
     List,
     /// Describe Datafile Information by SDI page
-    Desc,
+    Desc {
+        /// Display more information
+        #[arg(short, long)]
+        verbose: bool,
+    },
     /// Print SDI Json
     Sdi,
     /// Dump Index Page User Records
     Dump {
         /// Which page number, which starts from zero. [0, 1, ...]
-        #[arg(short, long)]
         page: usize,
     },
     /// View page data with given page_number.
     View {
         /// Which page number, which starts from zero. [0, 1, ...]
-        #[arg(short, long)]
         page: usize,
     },
 }
