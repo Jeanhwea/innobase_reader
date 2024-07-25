@@ -109,7 +109,7 @@ impl RowInfo {
             return c.data_len as usize;
         }
 
-        let off = c.null_offset;
+        let off = c.vfld_offset;
         match c.vfld_bytes {
             1 => self.vfld_buffer[off] as usize,
             2 => u16::from_be_bytes(self.vfld_buffer[off..off + 2].try_into().unwrap()) as usize,
