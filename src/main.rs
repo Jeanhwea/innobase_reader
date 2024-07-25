@@ -16,8 +16,7 @@ mod util;
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// input *.ibd file
-    #[arg(short, long)]
-    pub input: PathBuf,
+    input: PathBuf,
 
     #[command(subcommand)]
     command: Commands,
