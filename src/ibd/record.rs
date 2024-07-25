@@ -109,11 +109,10 @@ impl RowInfo {
             return c.data_len as usize;
         }
 
-        let offset = c.null_offset;
+        let off = c.null_offset;
         match c.vfld_bytes {
-            1 => self.vfld_buffer[offset] as usize,
-            2 => u16::from_be_bytes(self.vfld_buffer[offset..offset + 2].try_into().unwrap())
-                as usize,
+            1 => self.vfld_buffer[off] as usize,
+            2 => u16::from_be_bytes(self.vfld_buffer[off..off + 2].try_into().unwrap()) as usize,
             _ => 0,
         }
     }
@@ -257,7 +256,9 @@ pub enum HiddenTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(
+    Debug, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone,
+)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,

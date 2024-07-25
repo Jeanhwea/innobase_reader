@@ -1,4 +1,7 @@
-use super::{page::FilePageHeader, record::ColumnTypes};
+use super::{
+    page::FilePageHeader,
+    record::{ColumnKeys, ColumnTypes},
+};
 use crate::ibd::record::HiddenTypes;
 
 #[derive(Debug, Clone)]
@@ -35,6 +38,7 @@ pub struct ColumnDef {
     pub is_varfield: bool,    // is variadic field
     pub dd_type: ColumnTypes, // data dictionary type
     pub hidden: HiddenTypes,  // hidden type
+    pub col_key: ColumnKeys,  // column key type
     pub utf8_def: String,     // utf8 column definition
     pub comment: String,      // Comment
     pub null_offset: usize,   // nullable offset

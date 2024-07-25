@@ -1,4 +1,5 @@
 use crate::ibd::page::SdiIndexPage;
+use crate::ibd::record::ColumnKeys;
 use crate::util;
 
 use super::page::{
@@ -146,6 +147,7 @@ impl DatafileFactory {
                 .map(|e| ColumnDef {
                     ord_pos: e.ordinal_position,
                     col_name: e.col_name.clone(),
+                    col_key: e.column_key.clone(),
                     data_len: match e.hidden {
                         HiddenTypes::HT_HIDDEN_SE => e.char_length,
                         HiddenTypes::HT_VISIBLE => match e.dd_type {
@@ -155,6 +157,8 @@ impl DatafileFactory {
                             ColumnTypes::VARCHAR
                             | ColumnTypes::VAR_STRING
                             | ColumnTypes::STRING => e.char_length,
+                            ColumnTypes::NEWDATE => 3,
+                            ColumnTypes::ENUM => e.char_length,
                             _ => todo!(
                                 "Unsupported ColumType::{}, utf8_def={}",
                                 e.dd_type,
@@ -164,10 +168,12 @@ impl DatafileFactory {
                         _ => todo!("Unsupported HiddenTypes::{}", e.hidden),
                     },
                     is_nullable: e.is_nullable,
-                    is_varfield: matches!(
-                        e.dd_type,
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
-                    ),
+                    is_varfield: match &e.dd_type {
+                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                            true
+                        }
+                        _ => e.ordinal_position == 1 && e.column_key == ColumnKeys::CK_PRIMARY,
+                    },
                     dd_type: e.dd_type.clone(),
                     comment: e.comment.clone(),
                     hidden: e.hidden.clone(),
