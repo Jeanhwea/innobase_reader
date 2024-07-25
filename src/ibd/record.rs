@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
+use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -87,68 +88,47 @@ impl RowInfo {
         }
     }
 
-    pub fn isnull(&self, ord: usize) -> bool {
-        let c = &self.tabdef.col_defs[ord - 1];
-
+    pub fn isnull(&self, c: &ColumnDef) -> bool {
         if !c.is_nullable {
             return false;
         }
 
-        let mut nullflag = false;
-        for (offset, tuple) in self.tabdef.nullinfo.iter().enumerate() {
-            if tuple.0 == ord {
-                let noff = util::numoff(offset);
-                let nidx = util::numidx(offset);
-                let mask = 1 << noff;
-                info!(
-                    "offset={}, noff={}, nidx={}, mask=0b{:08b}",
-                    offset, noff, nidx, mask
-                );
-                nullflag = (self.null_buffer[nidx] & mask) > 0;
-                break;
-            }
-        }
-
-        nullflag
+        let offset = c.null_offset;
+        let noff = util::numoff(offset);
+        let nidx = util::numidx(offset);
+        let mask = 1 << noff;
+        info!(
+            "offset={}, noff={}, nidx={}, mask=0b{:08b}",
+            offset, noff, nidx, mask
+        );
+        (self.null_buffer[nidx] & mask) > 0
     }
 
-    pub fn varlen(&self, ord: usize) -> usize {
-        let c = &self.tabdef.col_defs[ord - 1];
-
+    pub fn varlen(&self, c: &ColumnDef) -> usize {
         if !c.is_varfield {
             return c.data_len as usize;
         }
 
-        let mut beg = 0usize;
-        for (i, _, s) in &self.tabdef.vfldinfo {
-            if *i != ord {
-                beg += *s;
-                continue;
-            }
-            if *s == 1 {
-                return self.vfld_buffer[beg] as usize;
-            } else if *s == 2 {
-                return u16::from_be_bytes(self.vfld_buffer[beg..beg + 2].try_into().unwrap())
-                    as usize;
-            } else {
-                panic!("invalid variadic field size");
-            }
+        let offset = c.null_offset;
+        match c.vfld_bytes {
+            1 => self.vfld_buffer[offset] as usize,
+            2 => u16::from_be_bytes(self.vfld_buffer[offset..offset + 2].try_into().unwrap())
+                as usize,
+            _ => 0,
         }
-
-        0
     }
 
     pub fn calc_rowsize(&self) -> usize {
         let mut total = 0usize;
         for c in &self.tabdef.col_defs {
-            if self.isnull(c.ord_pos as usize) {
+            if self.isnull(c) {
                 continue;
             }
             if !c.is_varfield {
                 total += c.data_len as usize;
                 continue;
             }
-            total += self.varlen(c.ord_pos as usize);
+            total += self.varlen(c);
         }
         total
     }
@@ -255,7 +235,7 @@ pub enum ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,

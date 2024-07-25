@@ -29,11 +29,7 @@ enum Commands {
     /// List all page. page_type, page_number and more
     List,
     /// Describe Datafile Information by SDI page
-    Desc {
-        /// Display more information
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Desc,
     /// Print SDI Json
     Sdi,
     /// Dump Index Page User Records

@@ -41,7 +41,7 @@ impl App {
         match command {
             Commands::Info => self.do_info()?,
             Commands::List => self.do_list()?,
-            Commands::Desc { verbose } => self.do_desc(verbose)?,
+            Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_print_sdi_json()?,
             Commands::Dump { page: page_no } => self.do_dump(page_no)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
@@ -118,66 +118,27 @@ impl App {
         Ok(())
     }
 
-    fn do_desc(&mut self, verbose: bool) -> Result<()> {
+    fn do_desc(&mut self) -> Result<()> {
         let factory = &mut self.factory;
+        let tabdef = factory.load_tabdef()?;
 
-        for page_no in 0..factory.page_count() {
-            let fil_hdr = factory.parse_fil_hdr(page_no)?;
-            if fil_hdr.page_type == PageTypes::SDI {
-                let buffer = factory.read_page(page_no)?;
-                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-
-                if let Some(obj) = sdi_page.page_body.get_sdi_object() {
-                    debug!("sdi_obj = {:#?}", obj);
-                    let mut cols = obj.dd_object.columns;
-                    if !cols.is_empty() {
-                        cols.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
-                        println!("Columns:");
-                        for c in &cols {
-                            println!(
-                                    "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, comment={}",
-                                    c.ordinal_position,
-                                    c.col_name.magenta(),
-                                    c.dd_type.to_string().blue(),
-                                    c.column_type_utf8.green(),
-                                    c.is_nullable.to_string().yellow(),
-                                    c.char_length.to_string().yellow(),
-                                    c.hidden.to_string().cyan(),
-                                    c.comment,
-                                );
-                            info!("{:#?}", c);
-                        }
-                    }
-
-                    let mut idxs = obj.dd_object.indexes;
-                    if !idxs.is_empty() {
-                        idxs.sort_by(|a, b| a.ordinal_position.cmp(&b.ordinal_position));
-                        println!("Indexes:");
-                        for i in &idxs {
-                            println!(
-                                "{:>3}: name={}, idx_type={}, algorithm={}, hidden={}, comment={}",
-                                i.ordinal_position,
-                                i.name.magenta(),
-                                i.idx_type.to_string().cyan(),
-                                i.algorithm.to_string().green(),
-                                i.hidden.to_string().yellow(),
-                                i.comment,
-                            );
-                            info!("{:#?}", i);
-                        }
-                    }
-                }
-                break;
-            }
-        }
-
-        if verbose {
-            let tabdef = factory.load_tabdef()?;
-            println!("Columns:");
+        for c in &tabdef.col_defs {
             println!(
-                "vfldinfo={:?}, nullinfo={:?}",
-                tabdef.vfldinfo, tabdef.nullinfo
+                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}, null_offset={}, vfld_offset={}, vfld_bytes={}, comment={}",
+                c.ord_pos,
+                c.col_name.magenta(),
+                c.dd_type.to_string().blue(),
+                c.utf8_def.green(),
+                c.is_nullable.to_string().yellow(),
+                c.data_len.to_string().yellow(),
+                c.hidden.to_string().cyan(),
+
+                c.null_offset.to_string().green(),
+                c.vfld_offset.to_string().green(),
+                c.vfld_bytes.to_string().green(),
+                c.comment,
             );
+            info!("{:#?}", c);
         }
 
         Ok(())

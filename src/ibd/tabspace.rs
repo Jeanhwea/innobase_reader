@@ -1,4 +1,5 @@
 use super::{page::FilePageHeader, record::ColumnTypes};
+use crate::ibd::record::HiddenTypes;
 
 #[derive(Debug, Clone)]
 pub struct Datafile {
@@ -19,12 +20,10 @@ impl Datafile {
 
 #[derive(Debug, Clone)]
 pub struct TableDef {
-    pub tab_name: String,                      // table name
-    pub varfield_size: usize,                  // variadic field size
-    pub nullflag_size: usize,                  // nullable flag size
-    pub vfldinfo: Vec<(usize, String, usize)>, // variadic field info (ord, name, size)
-    pub nullinfo: Vec<(usize, String)>,        // nullable flag info  (ord, name)
-    pub col_defs: Vec<ColumnDef>,              // column infomation
+    pub tab_name: String,         // table name
+    pub varfield_size: usize,     // variadic field size
+    pub nullflag_size: usize,     // nullable flag size
+    pub col_defs: Vec<ColumnDef>, // column infomation
 }
 
 #[derive(Debug, Clone)]
@@ -35,5 +34,10 @@ pub struct ColumnDef {
     pub is_nullable: bool,    // is nullable
     pub is_varfield: bool,    // is variadic field
     pub dd_type: ColumnTypes, // data dictionary type
+    pub hidden: HiddenTypes,  // hidden type
     pub utf8_def: String,     // utf8 column definition
+    pub comment: String,      // Comment
+    pub null_offset: usize,   // nullable offset
+    pub vfld_offset: usize,   // variadic field offset
+    pub vfld_bytes: usize,    // variadic field size
 }

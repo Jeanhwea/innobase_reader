@@ -5,7 +5,7 @@ use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
     FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::record::{ColumnTypes, HiddenTypes, SdiObject};
+use super::record::{ColumnTypes, HiddenTypes};
 use super::tabspace::{ColumnDef, Datafile, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -51,13 +51,13 @@ impl PageFactory {
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    target: PathBuf,                              // Target innobase data file (*.idb)
-    file: Option<File>,                           // Tablespace file descriptor
-    filesize: usize,                              // File size
-    datafile: Option<Datafile>,                   // Datafile Information
-    page0: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
-    sdiobj: Option<SdiObject>,                    // SDI
-    tabdef: Option<TableDef>,                     // Table Definition
+    target: PathBuf,                                // Target innobase data file (*.idb)
+    file: Option<File>,                             // Tablespace file descriptor
+    filesize: usize,                                // File size
+    datafile: Option<Datafile>,                     // Datafile Information
+    fsppage: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
+    sdipage: Option<BasePage<SdiIndexPage>>,        // SDI
+    tabdef: Option<TableDef>,                       // Table Definition
 }
 
 impl DatafileFactory {
@@ -101,7 +101,7 @@ impl DatafileFactory {
         Ok(Bytes::from(buf))
     }
 
-    fn do_load_first_page(&mut self) -> Result<(), Error> {
+    fn do_load_fsp_page(&mut self) -> Result<(), Error> {
         if self.filesize < PAGE_SIZE {
             return Err(Error::msg("datafile size less than one page"));
         }
@@ -112,34 +112,35 @@ impl DatafileFactory {
 
         fsp_page.page_body.parse_sdi_meta();
 
-        self.page0 = Some(fsp_page);
+        self.fsppage = Some(fsp_page);
 
         Ok(())
     }
 
     fn do_load_sdi_page(&mut self) -> Result<(), Error> {
         if let Some(ref sdi_info) = self
-            .page0
+            .fsppage
             .as_ref()
             .expect("ERR_NO_FIRST_FSP_PAGE")
             .page_body
             .sdi_info
         {
-            if sdi_info.sdi_page_no > 0 {
-                let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
-                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-                assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
-                self.sdiobj = sdi_page.page_body.get_sdi_object();
+            if sdi_info.sdi_page_no < 1 {
+                return Ok(());
             }
+            let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
+            let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
+            assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
+            self.sdipage = Some(sdi_page);
         }
 
         Ok(())
     }
 
     fn do_load_table_def(&mut self) -> Result<(), Error> {
-        if let Some(sdiobj) = &self.sdiobj {
-            let tabobj = &sdiobj.dd_object;
-            let coldefs = tabobj
+        if let Some(sdipage) = &self.sdipage {
+            let tabobj = sdipage.page_body.get_sdi_object().unwrap().dd_object;
+            let mut coldefs = tabobj
                 .columns
                 .iter()
                 .map(|e| ColumnDef {
@@ -168,7 +169,12 @@ impl DatafileFactory {
                         ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
                     ),
                     dd_type: e.dd_type.clone(),
+                    comment: e.comment.clone(),
+                    hidden: e.hidden.clone(),
                     utf8_def: e.column_type_utf8.clone(),
+                    null_offset: 0,
+                    vfld_offset: 0,
+                    vfld_bytes: 0,
                 })
                 .collect::<Vec<_>>();
 
@@ -189,12 +195,22 @@ impl DatafileFactory {
             }
             debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
 
+            for (off, ent) in nullinfo.iter().enumerate() {
+                coldefs[ent.0 - 1].null_offset = off;
+            }
+            let nullflag_size = util::align8(nullinfo.len());
+
+            let mut vfld_offset = nullflag_size;
+            for ent in &vfldinfo {
+                coldefs[ent.0 - 1].vfld_offset = vfld_offset;
+                coldefs[ent.0 - 1].vfld_bytes = ent.2;
+                vfld_offset += ent.2;
+            }
+
             self.tabdef = Some(TableDef {
                 tab_name: tabobj.name.clone(),
-                varfield_size: vfldinfo.iter().map(|e| e.2).sum(),
-                nullflag_size: util::align8(nullinfo.len()),
-                vfldinfo,
-                nullinfo,
+                varfield_size: vfld_offset,
+                nullflag_size,
                 col_defs: coldefs,
             });
         }
@@ -202,7 +218,7 @@ impl DatafileFactory {
     }
 
     pub fn load_tabdef(&mut self) -> Result<&TableDef, Error> {
-        self.do_load_first_page()?;
+        self.do_load_fsp_page()?;
         self.do_load_sdi_page()?;
         self.do_load_table_def()?;
         Ok(self.tabdef.as_ref().expect("ERR_LOAD_TABLE_DEFINITION"))
@@ -254,7 +270,7 @@ mod factory_tests {
         setup();
         let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
         assert!(factory.init().is_ok());
-        assert!(factory.do_load_first_page().is_ok());
+        assert!(factory.do_load_fsp_page().is_ok());
         assert!(factory.do_load_sdi_page().is_ok());
         assert!(factory.do_load_table_def().is_ok());
         info!("factory = {:#?}", factory);
