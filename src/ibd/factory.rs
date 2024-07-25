@@ -190,27 +190,26 @@ impl DatafileFactory {
                 if c.is_varfield {
                     vfldinfo.push((
                         c.ord_pos as usize,
-                        c.col_name.clone(),
                         // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
                         if c.data_len > 255 { 2 } else { 1 },
                     ));
                 }
                 if c.is_nullable {
-                    nullinfo.push((c.ord_pos as usize, c.col_name.clone()));
+                    nullinfo.push(c.ord_pos as usize);
                 }
             }
             debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
 
-            for (off, ent) in nullinfo.iter().enumerate() {
-                coldefs[ent.0 - 1].null_offset = off;
+            for (off, ord) in nullinfo.iter().enumerate() {
+                coldefs[ord - 1].null_offset = off;
             }
             let nullflag_size = util::align8(nullinfo.len());
 
             let mut vfld_offset = nullflag_size;
             for ent in &vfldinfo {
                 coldefs[ent.0 - 1].vfld_offset = vfld_offset;
-                coldefs[ent.0 - 1].vfld_bytes = ent.2;
-                vfld_offset += ent.2;
+                coldefs[ent.0 - 1].vfld_bytes = ent.1;
+                vfld_offset += ent.1;
             }
 
             self.tabdef = Some(TableDef {
