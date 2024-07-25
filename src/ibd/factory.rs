@@ -52,13 +52,13 @@ impl PageFactory {
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    target: PathBuf,                                // Target innobase data file (*.idb)
-    file: Option<File>,                             // Tablespace file descriptor
-    filesize: usize,                                // File size
-    datafile: Option<Datafile>,                     // Datafile Information
-    fsppage: Option<BasePage<FileSpaceHeaderPage>>, // first FSP_HDR page
-    sdipage: Option<BasePage<SdiIndexPage>>,        // SDI
-    tabdef: Option<TableDef>,                       // Table Definition
+    pub target: PathBuf,                                // Target datafile
+    pub file: Option<File>,                             // Tablespace file descriptor
+    pub filesize: usize,                                // File size
+    pub datafile: Option<Datafile>,                     // Datafile Information
+    pub fsppage: Option<BasePage<FileSpaceHeaderPage>>, // FSP page
+    pub sdipage: Option<BasePage<SdiIndexPage>>,        // SDI
+    pub tabdef: Option<TableDef>,                       // Table Definition
 }
 
 impl DatafileFactory {
