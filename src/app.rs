@@ -178,9 +178,9 @@ impl App {
 
         index_page.page_body.parse_records(&tabdef)?;
 
-        // for rec in index_page.page_body.records() {
-        //     info!("rec = {:?}", rec);
-        // }
+        for rec in index_page.page_body.records() {
+            println!("rec = {:?}", rec);
+        }
 
         Ok(())
     }
