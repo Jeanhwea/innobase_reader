@@ -176,7 +176,7 @@ impl App {
         index_page.page_body.parse_records(&tabdef)?;
 
         for rec in index_page.page_body.records() {
-            println!("rec = {:?}", rec);
+            println!("row = {:?}", rec.row.as_ref().unwrap());
         }
 
         Ok(())
