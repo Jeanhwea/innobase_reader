@@ -1,7 +1,7 @@
 use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
 use bytes::Bytes;
-use log::info;
+use log::debug;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -101,13 +101,13 @@ impl RowInfo {
             return false;
         }
 
-        let offset = c.null_offset;
-        let noff = util::numoff(offset);
-        let nidx = util::numidx(offset);
+        let off = c.null_offset;
+        let noff = util::numoff(off);
+        let nidx = util::numidx(off);
         let mask = 1 << noff;
-        info!(
+        debug!(
             "offset={}, noff={}, nidx={}, mask=0b{:08b}",
-            offset, noff, nidx, mask
+            off, noff, nidx, mask
         );
         (self.null_arr[nidx] & mask) > 0
     }
