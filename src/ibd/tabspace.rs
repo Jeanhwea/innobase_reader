@@ -20,6 +20,13 @@ impl MetaDataManager {
         }
     }
 
+    pub fn raw_sdi_str(&self) -> Option<String> {
+        match &self.sdi {
+            Some(pg) => Some(pg.page_body.uncomp_data.clone()),
+            None => None,
+        }
+    }
+
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
         let ddobj = self
             .sdi

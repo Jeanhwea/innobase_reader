@@ -126,17 +126,10 @@ impl App {
 
     fn do_pretty_print_sdi_json(&self) -> Result<()> {
         let df_fact = &self.factory;
-        for page_no in 0..df_fact.page_count() {
-            let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
-            if fil_hdr.page_type == PageTypes::SDI {
-                let buffer = df_fact.read_page(page_no)?;
-                let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-                let json_str = sdi_page.page_body.uncomp_data;
-                let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
-                println!("{}", sdi_data);
-                break;
-            }
-        }
+        let mgr = df_fact.init_meta_mgr()?;
+        let json_str = mgr.raw_sdi_str().unwrap();
+        let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
+        println!("{}", sdi_data);
         Ok(())
     }
 
