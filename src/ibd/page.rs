@@ -507,8 +507,8 @@ pub struct IndexPage {
     fseg_header: FSegHeader, // FSEG Header
 
     /// System Record
-    infimum: Record, // infimum_extra[], see page0page.h
-    supremum: Record, // supremum_extra_data[], see page0page.h
+    infimum: RecordHeader, // infimum_extra[], see page0page.h
+    supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
     /// User Records, grow down
     records: Vec<Record>, // User Record List
@@ -550,16 +550,11 @@ impl BasePageOperation for IndexPage {
             *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
         }
 
-        // Parse System Records
-        let inf = Record::from(RecordHeader::new(buffer.slice(56..69)));
-        let sup = Record::from(RecordHeader::new(buffer.slice(69..82)));
-
-        // Parse User Records
         Self {
             index_header: idx_hdr,
             fseg_header: FSegHeader::new(buffer.slice(36..56)),
-            infimum: inf,
-            supremum: sup,
+            infimum: RecordHeader::new(buffer.slice(56..69)),
+            supremum: RecordHeader::new(buffer.slice(69..82)),
             records: Vec::new(),
             dir_slots: slots,
             buf: buffer,
@@ -572,7 +567,7 @@ impl IndexPage {
         let inf = &self.infimum;
         let urecs = &mut self.records;
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
-        addr += inf.rec_hdr.next_rec_offset;
+        addr += inf.next_rec_offset;
 
         for nrec in 0..self.index_header.page_n_recs {
             let mut end = addr as usize;
@@ -600,7 +595,7 @@ impl IndexPage {
             let row = Row::new(rbuf);
 
             addr += rec_hdr.next_rec_offset;
-            let urec = Record::new(rec_hdr, Some(rowinfo), Some(row));
+            let urec = Record::new(rec_hdr, rowinfo, row);
             info!("urec = {:?}", urec);
 
             urecs.push(urec);
@@ -746,7 +741,7 @@ impl fmt::Debug for SdiIndexPage {
 impl BasePageOperation for SdiIndexPage {
     fn new(buffer: Bytes) -> Self {
         let index = IndexPage::new(buffer.clone());
-        let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.rec_hdr.next_rec_offset as usize;
+        let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
         let hdr = SdiDataHeader::new(buffer.slice(beg..end));
         debug!("beg={}, end={}, comp_len={}", beg, end, hdr.comp_len);

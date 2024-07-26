@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
+use std::fmt;
 use std::fmt::Formatter;
-use std::{fmt};
 use strum::{Display, EnumString};
 
 pub const PAGE_ADDR_INF: usize = 99;
@@ -157,22 +157,18 @@ impl Row {
 
 #[derive(Debug)]
 pub struct Record {
-    pub row_info: Option<RowInfo>, // row information
-    pub rec_hdr: RecordHeader,     // record header
-    pub row: Option<Row>,          // row data
+    pub row_info: RowInfo,     // row information
+    pub rec_hdr: RecordHeader, // record header
+    pub row: Row,              // row data
 }
 
 impl Record {
-    pub fn new(hdr: RecordHeader, rowinfo: Option<RowInfo>, row: Option<Row>) -> Self {
+    pub fn new(hdr: RecordHeader, rowinfo: RowInfo, row: Row) -> Self {
         Self {
             rec_hdr: hdr,
             row_info: rowinfo,
             row: row,
         }
-    }
-
-    pub fn from(hdr: RecordHeader) -> Self {
-        Self::new(hdr, None, None)
     }
 }
 
