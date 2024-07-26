@@ -549,13 +549,13 @@ impl BasePageOperation for IndexPage {
 }
 
 impl IndexPage {
-    pub fn parse_records(&mut self, tabdef: Arc<TableDef>, limit: usize) -> Result<(), Error> {
+    pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let inf = &self.infimum;
         let urecs = &mut self.records;
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
         addr += inf.next_rec_offset;
 
-        for nrec in 0..self.index_header.page_n_recs {
+        for _nrec in 0..self.index_header.page_n_recs {
             let mut end = addr as usize;
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
 
@@ -570,17 +570,7 @@ impl IndexPage {
             end = addr as usize;
             let rowsize = rowinfo.rowsize();
             let rbuf = self.buf.slice(end..end + rowsize);
-            if (nrec as usize) < limit {
-                info!(
-                    "nrec={}, addr = @{}, rowsize={}, rowinfo={:?}, rbuf={:?}`",
-                    nrec.to_string().yellow(),
-                    (end + FIL_HEADER_SIZE).to_string().red(),
-                    rowsize.to_string().yellow(),
-                    &rowinfo,
-                    rbuf
-                );
-            }
-            let row = Row::new(rbuf, tabdef.clone());
+            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone());
 
             addr += rec_hdr.next_rec_offset;
             let mut urec = Record::new(rec_hdr, rowinfo, row);

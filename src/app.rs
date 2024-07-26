@@ -144,13 +144,13 @@ impl App {
         let tabdef = Arc::new(mgr.load_tabdef()?);
         info!("tabdef = {:#?}", &tabdef);
 
-        index_page.page_body.parse_records(tabdef, limit)?;
+        index_page.page_body.parse_records(tabdef)?;
 
         for (cur, urec) in index_page.page_body.records().iter().enumerate() {
             if cur >= limit {
                 break;
             }
-            println!("row {} = {:?}", cur, &urec.row);
+            println!("row {} = {:?}", cur + 1, &urec.row);
         }
 
         Ok(())

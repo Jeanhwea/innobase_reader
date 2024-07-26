@@ -142,6 +142,7 @@ impl RowInfo {
 
 #[derive(Default)]
 pub struct Row {
+    pub addr: usize,                           // row address, the offset to the top of this page
     pub row_id: u64,                           // Row id, 6 bytes
     pub trx_id: u64,                           // transaction id, 6 bytes
     pub roll_ptr: u64,                         // rollback pointer, 7 bytes
@@ -153,6 +154,7 @@ pub struct Row {
 impl fmt::Debug for Row {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Row")
+            .field("addr", &self.addr)
             .field("row_id", &self.row_id)
             .field("trx_id", &self.trx_id)
             .field("roll_ptr", &self.roll_ptr)
@@ -162,8 +164,9 @@ impl fmt::Debug for Row {
 }
 
 impl Row {
-    pub fn new(rbuf: Bytes, tabdef: Arc<TableDef>) -> Self {
+    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>) -> Self {
         Self {
+            addr,
             row_buffer: rbuf,
             table_def: tabdef,
             ..Row::default()
