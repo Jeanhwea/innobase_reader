@@ -153,7 +153,7 @@ impl App {
         let tabdef = mgr.load_tabdef()?;
         info!("tabdef = {:?}", &tabdef);
 
-        index_page.page_body.parse_records(&tabdef)?;
+        index_page.page_body.parse_records(tabdef)?;
 
         for rec in index_page.page_body.records() {
             println!("row = {:?}", &rec.row);
