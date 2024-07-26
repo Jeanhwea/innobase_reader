@@ -210,11 +210,8 @@ impl App {
                 let sdi_page: BasePage<SdiIndexPage> = pg_fact.parse();
                 println!("{:#?}", sdi_page);
             }
-            PageTypes::UNDEF => {
-                warn!("page_no = {}, hdr = {:?}", page_no, fil_hdr);
-            }
-            _ => {
-                error!("unsupported page type, hdr = {:#?}", fil_hdr);
+            PageTypes::UNDEF | _ => {
+                error!("Bad PageType, hdr = {:#?}", fil_hdr);
             }
         }
         Ok(())
