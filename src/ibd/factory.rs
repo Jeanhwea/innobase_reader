@@ -7,7 +7,7 @@ use super::page::{
     FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
 use super::record::{ColumnTypes, HiddenTypes};
-use super::tabspace::{ColumnDef, Datafile, TableDef};
+use super::tabspace::{ColumnDef, TableDef};
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
@@ -55,7 +55,9 @@ pub struct DatafileFactory {
     pub target: PathBuf,                                // Target datafile
     pub file: Option<File>,                             // Tablespace file descriptor
     pub filesize: usize,                                // File size
-    pub datafile: Option<Datafile>,                     // Datafile Information
+    pub server_version: u32,                            // on page 0, FIL_PAGE_SRV_VERSION
+    pub space_version: u32,                             // on page 0, FIL_PAGE_SPACE_VERSION
+    pub space_id: u32,                                  // Space Id
     pub fsppage: Option<BasePage<FileSpaceHeaderPage>>, // FSP page
     pub sdipage: Option<BasePage<SdiIndexPage>>,        // SDI
     pub tabdef: Option<TableDef>,                       // Table Definition
@@ -77,7 +79,11 @@ impl DatafileFactory {
         self.do_open_file()?;
 
         let hdr0 = self.first_fil_hdr()?;
-        self.datafile = Some(Datafile::new(hdr0));
+        debug!("hdr0 = {:?}", hdr0);
+
+        self.server_version = hdr0.prev_page;
+        self.space_version = hdr0.next_page;
+        self.space_id = hdr0.space_id;
 
         Ok(())
     }

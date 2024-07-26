@@ -35,9 +35,6 @@ impl App {
         debug!("{:?}, {:?}", command, self);
         self.factory.init()?;
 
-        let datafile = self.factory.datafile.as_ref().unwrap();
-        info!("datafile = {:?}", datafile);
-
         match command {
             Commands::Info => self.do_info()?,
             Commands::List => self.do_list()?,
@@ -51,35 +48,34 @@ impl App {
     }
 
     fn do_info(&self) -> Result<()> {
-        let factory = &self.factory;
+        let df_fact = &self.factory;
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
-        for page_no in 0..factory.page_count() {
-            let hdr = factory.parse_fil_hdr(page_no)?;
+        for page_no in 0..df_fact.page_count() {
+            let hdr = df_fact.parse_fil_hdr(page_no)?;
             *stats.entry(hdr.page_type).or_insert(0) += 1;
         }
 
-        let df = factory.datafile.as_ref().expect("ERR_NO_DATAFILE");
         println!("Meta Information:");
         println!(
             "{:>12} => server({}), space({})",
             "version".green(),
-            df.server_version.to_string().blue(),
-            df.space_version.to_string().blue()
+            &df_fact.server_version.to_string().blue(),
+            &df_fact.space_version.to_string().blue()
         );
         println!(
             "{:>12} => {}",
             "space_id".green(),
-            df.space_id.to_string().blue()
+            &df_fact.space_id.to_string().blue()
         );
         println!(
             "{:>12} => {}",
             "page_count".green(),
-            factory.page_count().to_string().blue()
+            &df_fact.page_count().to_string().blue()
         );
         println!(
             "{:>12} => {}",
             "file_size".green(),
-            factory.file_size().to_string().blue()
+            df_fact.file_size().to_string().blue()
         );
 
         println!("PageTypes Statistics:");
@@ -94,9 +90,9 @@ impl App {
     }
 
     fn do_list(&self) -> Result<()> {
-        let factory = &self.factory;
-        for page_no in 0..factory.page_count() {
-            let fil_hdr = factory.parse_fil_hdr(page_no)?;
+        let df_fact = &self.factory;
+        for page_no in 0..df_fact.page_count() {
+            let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
             let page_type = &fil_hdr.page_type;
             println!(
                 "page_no={}, page_type={}, space_id={}, lsn={}",
@@ -119,8 +115,8 @@ impl App {
     }
 
     fn do_desc(&mut self) -> Result<()> {
-        let factory = &mut self.factory;
-        let tabdef = factory.load_tabdef()?;
+        let df_fact = &mut self.factory;
+        let tabdef = df_fact.load_tabdef()?;
 
         for c in &tabdef.col_defs {
             println!(
@@ -139,11 +135,11 @@ impl App {
     }
 
     fn do_print_sdi_json(&self) -> Result<()> {
-        let factory = &self.factory;
-        for page_no in 0..factory.page_count() {
-            let fil_hdr = factory.parse_fil_hdr(page_no)?;
+        let df_fact = &self.factory;
+        for page_no in 0..df_fact.page_count() {
+            let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
             if fil_hdr.page_type == PageTypes::SDI {
-                let buffer = factory.read_page(page_no)?;
+                let buffer = df_fact.read_page(page_no)?;
                 let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
                 let sdi_data = sdi_page.page_body.get_sdi_data();
                 println!("{}", sdi_data);
@@ -154,22 +150,22 @@ impl App {
     }
 
     fn do_dump(&mut self, page_no: usize) -> Result<(), Error> {
-        let factory = &mut self.factory;
-        if page_no >= factory.page_count() {
+        let df_fact = &mut self.factory;
+        if page_no >= df_fact.page_count() {
             return Err(Error::msg("Page number out of range"));
         }
 
-        let fil_hdr = factory.parse_fil_hdr(page_no)?;
+        let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
         if fil_hdr.page_type != PageTypes::INDEX {
             return Err(Error::msg(format!(
                 "Only support dump INDEX page, but found {:?}",
                 fil_hdr.page_type
             )));
         }
-        let buffer = factory.read_page(page_no)?;
+        let buffer = df_fact.read_page(page_no)?;
         let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
 
-        let tabdef = factory.load_tabdef()?;
+        let tabdef = df_fact.load_tabdef()?;
         info!("tabdef = {:?}", &tabdef);
 
         index_page.page_body.parse_records(&tabdef)?;
@@ -182,12 +178,12 @@ impl App {
     }
 
     fn do_view(&self, page_no: usize) -> Result<(), Error> {
-        let factory = &self.factory;
-        if page_no >= factory.page_count() {
+        let df_fact = &self.factory;
+        if page_no >= df_fact.page_count() {
             return Err(Error::msg("Page number out of range"));
         }
 
-        let buffer = factory.read_page(page_no)?;
+        let buffer = df_fact.read_page(page_no)?;
         let pg_fact = PageFactory::new(buffer);
         let fil_hdr = pg_fact.fil_hdr();
         match fil_hdr.page_type {
@@ -197,7 +193,7 @@ impl App {
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
                 let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.parse();
-                if factory.datafile.as_ref().unwrap().server_version > SDI_META_INFO_MIN_VER {
+                if df_fact.server_version > SDI_META_INFO_MIN_VER {
                     fsp_page.page_body.parse_sdi_meta();
                 }
                 println!("{:#?}", fsp_page);
