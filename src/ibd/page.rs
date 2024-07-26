@@ -87,20 +87,11 @@ impl fmt::Debug for FilePageHeader {
         f.debug_struct("FilePageHeader")
             .field("check_sum", &format!("0x{:08x}", self.check_sum))
             .field("page_no", &self.page_no)
-            .field(
-                "prev_page",
-                &format!("0x{:08x} ({})", self.prev_page, self.prev_page),
-            )
-            .field(
-                "next_page",
-                &format!("0x{:08x} ({})", self.next_page, self.next_page),
-            )
+            .field("prev_page", &format!("0x{:08x} ({})", self.prev_page, self.prev_page))
+            .field("next_page", &format!("0x{:08x} ({})", self.next_page, self.next_page))
             .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
             .field("page_type", &self.page_type)
-            .field(
-                "flush_lsn",
-                &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn),
-            )
+            .field("flush_lsn", &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn))
             .field("space_id", &self.space_id)
             .finish()
     }
@@ -247,10 +238,7 @@ impl fmt::Debug for FileSpaceHeader {
             .field("notused", &self.notused)
             .field("fsp_size", &self.fsp_size)
             .field("free_limit", &self.free_limit)
-            .field(
-                "fsp_flags",
-                &format!("0x{:08x} ({})", self.fsp_flags, self.fsp_flags),
-            )
+            .field("fsp_flags", &format!("0x{:08x} ({})", self.fsp_flags, self.fsp_flags))
             .field("fsp_frag_n_used", &self.fsp_frag_n_used)
             .field("fsp_free", &self.fsp_free)
             .field("free_frag", &self.free_frag)
@@ -337,8 +325,7 @@ impl FileSpaceHeaderPage {
 
     pub fn parse_sdi_meta(&mut self) {
         // sdi_addr, page offset = 10505
-        let sdi_addr =
-            FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
+        let sdi_addr = FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
 
         // info!("len = {}, sdi_addr = {}", len, sdi_addr);
         let sdi_meta = SdiMetaInfo::new(self.buf.slice(sdi_addr..sdi_addr + 8));
@@ -351,11 +338,9 @@ impl BasePageOperation for FileSpaceHeaderPage {
     fn new(buffer: Bytes) -> Self {
         let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
         let mut entries = Vec::new();
-        let len: usize = (hdr.fsp_free.len
-            + hdr.free_frag.len
-            + hdr.full_frag.len
-            + hdr.inodes_free.len
-            + hdr.inodes_full.len) as usize;
+        let len: usize =
+            (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
+                as usize;
         for offset in 0..len {
             let beg = FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
             let end = beg + XDES_ENTRY_SIZE;
@@ -645,16 +630,14 @@ pub struct IndexHeader {
     page_n_dir_slots: u16,
     /// pointer to record heap top
     page_heap_top: u16,
-    /// number of records in the heap, bit 15=flag: new-style compact page
-    /// format
+    /// number of records in the heap, bit 15=flag: new-style compact page format
     page_format: PageFormats,
     page_n_heap: u16,
     /// pointer to start of page free record list
     page_free: u16,
     /// number of bytes in deleted records
     page_garbage: u16,
-    /// pointer to the last inserted record, or NULL if this info has been reset
-    /// by a delete, for example
+    /// pointer to the last inserted record, or NULL if this info has been reset by a deletion
     page_last_insert: u16,
     /// last insert direction: PAGE_LEFT, ...
     page_direction: PageDirections,
@@ -662,15 +645,13 @@ pub struct IndexHeader {
     page_n_direction: u16,
     /// number of user records on the page
     page_n_recs: u16,
-    /// highest id of a trx which may have modified a record on the page;
-    /// trx_id_t; defined only in secondary indexes and in the insert buffer
-    /// tree
+    /// highest id of a trx which may have modified a record on the page; trx_id_t;
+    /// defined only in secondary indexes and in the insert buffer tree
     page_max_trx_id: u64,
     /// level of the node in an index tree; the leaf level is the level 0. This
     /// field should not be written to after page creation.
     page_level: u16,
-    /// index id where the page belongs. This field should not be written to
-    /// after page creation.
+    /// index id where the page belongs. This field should not be written to after page creation.
     page_index_id: u64,
 }
 

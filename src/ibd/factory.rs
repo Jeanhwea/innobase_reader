@@ -1,6 +1,6 @@
 use super::page::{
-    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
-    FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
+    BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_HEADER_SIZE,
+    FIL_TRAILER_SIZE, PAGE_SIZE,
 };
 use super::tabspace::MetaDataManager;
 use crate::ibd::page::SdiIndexPage;
@@ -39,8 +39,7 @@ impl PageFactory {
     {
         BasePage::new(
             FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE)),
-            self.buffer
-                .slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
+            self.buffer.slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
             FilePageTrailer::new(self.buffer.slice(self.buflen - FIL_TRAILER_SIZE..)),
         )
     }

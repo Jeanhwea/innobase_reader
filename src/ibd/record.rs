@@ -107,10 +107,7 @@ impl RowInfo {
         let noff = util::numoff(off);
         let nidx = util::numidx(off);
         let mask = 1 << noff;
-        debug!(
-            "offset={}, noff={}, nidx={}, mask=0b{:08b}",
-            off, noff, nidx, mask
-        );
+        debug!("offset={}, noff={}, nidx={}, mask=0b{:08b}", off, noff, nidx, mask);
         (self.null_arr[nidx] & mask) > 0
     }
 
@@ -280,9 +277,7 @@ pub struct DataDictObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(
-    Debug, Display, Default, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive,
-)]
+#[derive(Debug, Display, Default, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
@@ -324,17 +319,7 @@ pub enum ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(
-    Debug,
-    Display,
-    Default,
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Clone,
-    PartialEq,
-)]
+#[derive(Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone, PartialEq)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -356,17 +341,7 @@ pub enum HiddenTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(
-    Debug,
-    Default,
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Eq,
-    PartialEq,
-    Clone,
-)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,

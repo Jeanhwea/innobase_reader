@@ -1,7 +1,5 @@
 use crate::ibd::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
-use crate::ibd::page::{
-    BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage,
-};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage};
 use crate::Commands;
 use anyhow::{Error, Result};
 use colored::Colorize;
@@ -38,10 +36,7 @@ impl App {
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_pretty_print_sdi_json()?,
-            Commands::Dump {
-                page: page_no,
-                limit,
-            } => self.do_dump(page_no, limit)?,
+            Commands::Dump { page: page_no, limit } => self.do_dump(page_no, limit)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
         }
 
@@ -63,11 +58,7 @@ impl App {
             &df_fact.server_version.to_string().blue(),
             &df_fact.space_version.to_string().blue()
         );
-        println!(
-            "{:>12} => {}",
-            "space_id".green(),
-            &df_fact.space_id.to_string().blue()
-        );
+        println!("{:>12} => {}", "space_id".green(), &df_fact.space_id.to_string().blue());
         println!(
             "{:>12} => {}",
             "page_count".green(),
@@ -81,11 +72,7 @@ impl App {
 
         println!("PageTypes Statistics:");
         for entry in &stats {
-            println!(
-                "{:>12} => {}",
-                entry.0.to_string().yellow(),
-                entry.1.to_string().blue()
-            );
+            println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
         }
         Ok(())
     }

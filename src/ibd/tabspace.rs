@@ -16,9 +16,7 @@ pub struct MetaDataManager {
 
 impl MetaDataManager {
     pub fn new(sdi_page: BasePage<SdiIndexPage>) -> Self {
-        Self {
-            sdi: Some(sdi_page),
-        }
+        Self { sdi: Some(sdi_page) }
     }
 
     pub fn raw_sdi_str(&self) -> Option<String> {
@@ -26,20 +24,10 @@ impl MetaDataManager {
     }
 
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
-        let ddobj = self
-            .sdi
-            .as_ref()
-            .unwrap()
-            .page_body
-            .get_sdi_object()
-            .dd_object;
+        let ddobj = self.sdi.as_ref().unwrap().page_body.get_sdi_object().dd_object;
         info!("ddobj = {:?}", &ddobj);
 
-        let mut coldefs = ddobj
-            .columns
-            .iter()
-            .map(ColumnDef::from)
-            .collect::<Vec<_>>();
+        let mut coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
 
         let mut vfldinfo = Vec::new();
         let mut nullinfo = Vec::new();
@@ -119,12 +107,8 @@ impl ColumnDef {
             data_len: match ddc.hidden {
                 HiddenTypes::HT_HIDDEN_SE => ddc.char_length,
                 HiddenTypes::HT_VISIBLE => match ddc.dd_type {
-                    ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => {
-                        ddc.char_length
-                    }
-                    ColumnTypes::VARCHAR => {
-                        ddc.char_length + (if ddc.char_length < 256 { 1 } else { 2 })
-                    }
+                    ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => ddc.char_length,
+                    ColumnTypes::VARCHAR => ddc.char_length + (if ddc.char_length < 256 { 1 } else { 2 }),
                     ColumnTypes::YEAR | ColumnTypes::TINY => 1,
                     ColumnTypes::SHORT => 2,
                     ColumnTypes::INT24 | ColumnTypes::NEWDATE | ColumnTypes::TIME => 3,
