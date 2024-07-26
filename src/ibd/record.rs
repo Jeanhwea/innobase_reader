@@ -192,11 +192,11 @@ impl Record {
 
     pub fn unpack(&mut self) {
         let tabdef = self.row.table_def.clone();
-        let col_defs = &tabdef.col_defs;
+        let cols = &tabdef.col_defs;
         let rbuf = &self.row.row_buffer;
         let mut end = 0usize;
 
-        for col in col_defs {
+        for col in cols {
             if col.col_key != ColumnKeys::CK_PRIMARY {
                 continue;
             }
@@ -206,7 +206,7 @@ impl Record {
             end += vlen;
         }
 
-        for col in col_defs {
+        for col in cols {
             if col.hidden != HT_HIDDEN_SE {
                 continue;
             }
@@ -216,7 +216,7 @@ impl Record {
             end += vlen;
         }
 
-        for col in col_defs {
+        for col in cols {
             if col.col_key == ColumnKeys::CK_PRIMARY {
                 continue;
             }
@@ -236,7 +236,7 @@ impl Record {
         }
 
         for datum in &self.row.row_data {
-            let col = &col_defs[datum.0 - 1];
+            let col = &cols[datum.0 - 1];
             if col.hidden != HT_HIDDEN_SE {
                 continue;
             }
