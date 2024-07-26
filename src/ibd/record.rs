@@ -307,13 +307,13 @@ pub struct DataDictColumn {
     pub comment: String,
     pub column_key: ColumnKeys,
     pub column_type_utf8: String,
-    pub elements: Vec<DataDictColumnEelement>,
+    pub elements: Vec<DataDictColumnElement>,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct DataDictColumnEelement {
+pub struct DataDictColumnElement {
     pub index: u32,
     pub name: String,
 }
