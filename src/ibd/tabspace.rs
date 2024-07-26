@@ -134,9 +134,12 @@ impl ColumnDef {
                 _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
             },
             is_nullable: ddc.is_nullable,
-            is_varfield: match &ddc.dd_type {
-                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => true,
-                _ => ddc.ordinal_position == 1 && ddc.column_key == ColumnKeys::CK_PRIMARY,
+            is_varfield: match &ddc.column_key {
+                ColumnKeys::CK_PRIMARY => true,
+                _ => matches!(
+                    &ddc.dd_type,
+                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
+                ),
             },
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
