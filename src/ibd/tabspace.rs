@@ -114,16 +114,26 @@ impl ColumnDef {
             data_len: match ddc.hidden {
                 HiddenTypes::HT_HIDDEN_SE => ddc.char_length,
                 HiddenTypes::HT_VISIBLE => match ddc.dd_type {
-                    ColumnTypes::TINY => 1,
-                    ColumnTypes::SHORT => 2,
-                    ColumnTypes::LONG => 4,
-                    ColumnTypes::LONGLONG => 8,
-                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                    ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => {
                         ddc.char_length
                     }
-                    ColumnTypes::NEWDATE => 3,
-                    ColumnTypes::TIMESTAMP2 => 4,
-                    ColumnTypes::ENUM => ddc.char_length,
+                    ColumnTypes::VARCHAR => {
+                        ddc.char_length + (if ddc.char_length < 256 { 1 } else { 2 })
+                    }
+                    ColumnTypes::YEAR | ColumnTypes::TINY => 1,
+                    ColumnTypes::SHORT => 2,
+                    ColumnTypes::INT24 | ColumnTypes::NEWDATE | ColumnTypes::TIME => 3,
+                    ColumnTypes::LONG => 4,
+                    ColumnTypes::LONGLONG => 8,
+                    ColumnTypes::DATE | ColumnTypes::TIMESTAMP | ColumnTypes::TIMESTAMP2 => 4,
+                    ColumnTypes::DATETIME => 8,
+                    ColumnTypes::ENUM => {
+                        if ddc.elements.len() < 256 {
+                            1
+                        } else {
+                            2
+                        }
+                    }
                     _ => todo!(
                         "Unsupported data_len type: ColumType::{}, utf8_def={}",
                         ddc.dd_type,

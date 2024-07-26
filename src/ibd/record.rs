@@ -307,8 +307,15 @@ pub struct DataDictColumn {
     pub comment: String,
     pub column_key: ColumnKeys,
     pub column_type_utf8: String,
+    pub elements: Vec<DataDictColumnEelement>,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct DataDictColumnEelement {
+    pub index: u32,
+    pub name: String,
 }
 
 // see sql/dd/types/index.h
