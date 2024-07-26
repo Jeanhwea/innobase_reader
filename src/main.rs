@@ -13,7 +13,7 @@ mod ibd;
 mod util;
 
 #[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about = "The innobase datafile(*.ibd) reader", long_about = None)]
 pub struct Args {
     /// Input data file. such as *.ibd
     input: PathBuf,
