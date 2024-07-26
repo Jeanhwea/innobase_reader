@@ -217,7 +217,8 @@ mod app_tests {
     use std::env::set_var;
     use std::sync::Once;
 
-    const IBD_FILE: &str = "data/departments.ibd";
+    const IBD_01: &str = "data/departments.ibd";
+    const IBD_02: &str = "data/dept_manager.ibd";
     static INIT_ONCE: Once = Once::new();
 
     fn setup() {
@@ -230,49 +231,56 @@ mod app_tests {
     #[test]
     fn info_datafile() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::Info).is_ok());
     }
 
     #[test]
     fn list_pages() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::List).is_ok());
     }
 
     #[test]
     fn view_first_fsp_hdr_page() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 0 }).is_ok());
     }
 
     #[test]
     fn view_first_inode_page() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 
     #[test]
     fn view_first_index_page() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
     fn view_first_sdi_page() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
+        let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 3 }).is_ok());
+    }
+
+    #[test]
+    fn view_dump_simple_page() {
+        setup();
+        let mut app = App::new(PathBuf::from(IBD_01));
+        assert!(app.run(Commands::Dump { page: 4, limit: 10 }).is_ok());
     }
 
     #[test]
     fn it_works() {
         setup();
-        let mut app = App::new(PathBuf::from(IBD_FILE));
-        assert!(app.run(Commands::Dump { page: 4 }).is_ok());
+        let mut app = App::new(PathBuf::from(IBD_02));
+        assert!(app.run(Commands::Dump { page: 4, limit: 10 }).is_ok());
     }
 }
