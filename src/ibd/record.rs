@@ -23,7 +23,7 @@ pub enum RecordStatus {
     REC_STATUS_NODE_PTR = 1,
     REC_STATUS_INFIMUM = 2,
     REC_STATUS_SUPREMUM = 3,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -319,7 +319,7 @@ pub enum IndexTypes {
     IT_MULTIPLE = 3,
     IT_FULLTEXT = 4,
     IT_SPATIAL = 5,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -328,14 +328,14 @@ pub enum IndexTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,
     IA_RTREE = 3,
     IA_HASH = 4,
     IA_FULLTEXT = 5,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 

@@ -64,7 +64,7 @@ pub enum PageTypes {
     SDI = 17853,                   // Tablespace SDI Index page
     RTREE = 17854,                 // R-tree node
     INDEX = 17855,                 // B-tree node
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -381,7 +381,7 @@ pub enum XDesStates {
     XDES_FULL_FRAG = 3,  // extent is in full fragment list of space
     XDES_FSEG = 4,       // extent belongs to a segment
     XDES_FSEG_FRAG = 5,  // fragment extent leased to segment
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -617,7 +617,7 @@ impl IndexPage {
 pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -631,7 +631,7 @@ pub enum PageDirections {
     PAGE_SAME_REC = 3,
     PAGE_SAME_PAGE = 4,
     PAGE_NO_DIRECTION = 5,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
