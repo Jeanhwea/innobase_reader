@@ -1,3 +1,4 @@
+use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
 use bytes::Bytes;
@@ -9,6 +10,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use std::sync::Arc;
 use strum::{Display, EnumString};
 
 pub const PAGE_ADDR_INF: usize = 99;
@@ -75,7 +77,7 @@ impl RecordHeader {
 pub struct RowInfo {
     pub vfld_arr: Vec<u8>, // variadic field array in reversed order
     pub null_arr: Vec<u8>, // nullable flag array in reversed order
-    tabdef: TableDef,
+    table_def: Arc<TableDef>,
 }
 
 impl fmt::Debug for RowInfo {
@@ -88,11 +90,11 @@ impl fmt::Debug for RowInfo {
 }
 
 impl RowInfo {
-    pub fn new(varr: Vec<u8>, narr: Vec<u8>, tabdef: TableDef) -> Self {
+    pub fn new(varr: Vec<u8>, narr: Vec<u8>, tabdef: Arc<TableDef>) -> Self {
         Self {
             vfld_arr: varr,
             null_arr: narr,
-            tabdef,
+            table_def: tabdef.clone(),
         }
     }
 
@@ -127,7 +129,7 @@ impl RowInfo {
 
     pub fn rowsize(&self) -> usize {
         let mut total = 0usize;
-        for c in &self.tabdef.col_defs {
+        for c in &self.table_def.col_defs {
             if self.isnull(c) {
                 continue;
             }
@@ -141,19 +143,32 @@ impl RowInfo {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Row {
-    pub row_id: u64,                       // Row id, 6 bytes
-    pub trx_id: u64,                       // transaction id, 6 bytes
-    pub roll_ptr: u64,                     // rollback pointer, 7 bytes
-    row_buffer: Bytes,                     // row buffer
-    row_data: Vec<(usize, Option<Bytes>)>, // row data list, (ord, buf)
+    pub row_id: u64,                           // Row id, 6 bytes
+    pub trx_id: u64,                           // transaction id, 6 bytes
+    pub roll_ptr: u64,                         // rollback pointer, 7 bytes
+    pub row_data: Vec<(usize, Option<Bytes>)>, // row data list, (ord, buf)
+    row_buffer: Bytes,                         // row buffer
+    table_def: Arc<TableDef>,
+}
+
+impl fmt::Debug for Row {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Row")
+            .field("row_id", &self.row_id)
+            .field("trx_id", &self.trx_id)
+            .field("roll_ptr", &self.roll_ptr)
+            .field("row_data", &self.row_data)
+            .finish()
+    }
 }
 
 impl Row {
-    pub fn new(rbuf: Bytes) -> Self {
+    pub fn new(rbuf: Bytes, tabdef: Arc<TableDef>) -> Self {
         Self {
             row_buffer: rbuf,
+            table_def: tabdef,
             ..Row::default()
         }
     }
@@ -172,6 +187,65 @@ impl Record {
             rec_hdr: hdr,
             row_info: rowinfo,
             row: data,
+        }
+    }
+
+    pub fn unpack(&mut self) {
+        let tabdef = self.row.table_def.clone();
+        let col_defs = &tabdef.col_defs;
+        let rbuf = &self.row.row_buffer;
+        let mut end = 0usize;
+
+        for col in col_defs {
+            if col.col_key != ColumnKeys::CK_PRIMARY {
+                continue;
+            }
+            let vlen = self.row_info.varlen(col);
+            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            self.row.row_data.push(datum);
+            end += vlen;
+        }
+
+        for col in col_defs {
+            if col.hidden != HT_HIDDEN_SE {
+                continue;
+            }
+            let vlen = self.row_info.varlen(col);
+            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            self.row.row_data.push(datum);
+            end += vlen;
+        }
+
+        for col in col_defs {
+            if col.col_key == ColumnKeys::CK_PRIMARY {
+                continue;
+            }
+            if col.hidden == HT_HIDDEN_SE {
+                continue;
+            }
+            let vlen = self.row_info.varlen(col);
+            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            self.row.row_data.push(datum);
+            end += vlen;
+        }
+
+        for datum in &self.row.row_data {
+            let col = &col_defs[datum.0 - 1];
+            if col.hidden != HT_HIDDEN_SE {
+                continue;
+            }
+            match col.col_name.as_str() {
+                "DB_ROW_ID" => {
+                    self.row.row_id = util::from_bytes6(datum.1.as_ref().unwrap().clone());
+                }
+                "DB_TRX_ID" => {
+                    self.row.trx_id = util::from_bytes6(datum.1.as_ref().unwrap().clone());
+                }
+                "DB_ROLL_PTR" => {
+                    self.row.roll_ptr = util::from_bytes7(datum.1.as_ref().unwrap().clone());
+                }
+                _ => panic!("ERR_DB_META_COLUMN_NAME"),
+            }
         }
     }
 }

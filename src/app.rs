@@ -8,6 +8,7 @@ use colored::Colorize;
 use log::{debug, error, info};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -150,7 +151,7 @@ impl App {
         let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
 
         let mgr = df_fact.init_meta_mgr()?;
-        let tabdef = mgr.load_tabdef()?;
+        let tabdef = Arc::new(mgr.load_tabdef()?);
         info!("tabdef = {:?}", &tabdef);
 
         index_page.page_body.parse_records(tabdef)?;

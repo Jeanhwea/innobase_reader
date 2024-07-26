@@ -46,6 +46,18 @@ pub fn numidx(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
+pub fn from_bytes6(b: Bytes) -> u64 {
+    assert_eq!(b.len(), 6);
+    let arr = [b[0], b[1], b[2], b[3], b[4], b[5], 0u8, 0u8];
+    u64::from_be_bytes(arr)
+}
+
+pub fn from_bytes7(b: Bytes) -> u64 {
+    assert_eq!(b.len(), 7);
+    let arr = [b[0], b[1], b[2], b[3], b[4], b[5], b[6], 0u8];
+    u64::from_be_bytes(arr)
+}
+
 #[cfg(test)]
 mod util_tests {
 

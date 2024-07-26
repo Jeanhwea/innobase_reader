@@ -8,6 +8,7 @@ use colored::Colorize;
 use log::{debug, info};
 use num_enum::FromPrimitive;
 use std::fmt::Formatter;
+use std::sync::Arc;
 use std::{cmp, fmt};
 use strum::{Display, EnumString};
 
@@ -563,7 +564,7 @@ impl BasePageOperation for IndexPage {
 }
 
 impl IndexPage {
-    pub fn parse_records(&mut self, tabdef: TableDef) -> Result<(), Error> {
+    pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let inf = &self.infimum;
         let urecs = &mut self.records;
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
@@ -587,14 +588,15 @@ impl IndexPage {
             info!(
                 "nrec={}, addr = @{}, rowsize={}, rbuf={:?}`",
                 nrec.to_string().yellow(),
-                (addr as usize + FIL_HEADER_SIZE).to_string().red(),
+                (end + FIL_HEADER_SIZE).to_string().red(),
                 rowsize.to_string().yellow(),
                 rbuf
             );
-            let row = Row::new(rbuf);
+            let row = Row::new(rbuf, tabdef.clone());
 
             addr += rec_hdr.next_rec_offset;
-            let urec = Record::new(rec_hdr, rowinfo, row);
+            let mut urec = Record::new(rec_hdr, rowinfo, row);
+            urec.unpack();
             info!("urec = {:?}", urec);
 
             urecs.push(urec);
@@ -789,15 +791,11 @@ pub struct SdiDataHeader {
 
 impl SdiDataHeader {
     pub fn new(buffer: Bytes) -> Self {
-        let a = buffer.slice(12..18);
-        let trx_id_data = [a[0], a[1], a[2], a[3], a[4], a[5], 0u8, 0u8];
-        let b = buffer.slice(18..25);
-        let roll_ptr_data = [b[0], b[1], b[2], b[3], b[4], b[5], b[6], 0u8];
         Self {
             data_type: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
             data_id: u64::from_be_bytes(buffer.as_ref()[4..12].try_into().unwrap()),
-            trx_id: u64::from_be_bytes(trx_id_data),
-            roll_ptr: u64::from_be_bytes(roll_ptr_data),
+            trx_id: util::from_bytes6(buffer.slice(12..18)),
+            roll_ptr: util::from_bytes7(buffer.slice(18..25)),
             uncomp_len: u32::from_be_bytes(buffer.as_ref()[25..29].try_into().unwrap()),
             comp_len: u32::from_be_bytes(buffer.as_ref()[29..33].try_into().unwrap()),
         }
