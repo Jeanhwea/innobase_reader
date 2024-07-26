@@ -1,14 +1,14 @@
-use log::info;
-use num_enum::FromPrimitive;
-use std::collections::HashMap;
-
-use bytes::Bytes;
-use serde::{Deserialize, Serialize};
-
 use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
+use bytes::Bytes;
+use log::info;
+use num_enum::FromPrimitive;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::collections::HashMap;
+use std::fmt::Formatter;
+use std::{fmt};
 use strum::{Display, EnumString};
 
 pub const PAGE_ADDR_INF: usize = 99;
@@ -72,18 +72,26 @@ impl RecordHeader {
     }
 }
 
-#[derive(Debug)]
 pub struct RowInfo {
-    pub vfld_buffer: Vec<u8>, // in reversed order
-    pub null_buffer: Vec<u8>, // in reversed order
+    pub vfld_arr: Vec<u8>, // variadic field array in reversed order
+    pub null_arr: Vec<u8>, // nullable flag array in reversed order
     tabdef: TableDef,
 }
 
+impl fmt::Debug for RowInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RowInfo")
+            .field("vfld_arr", &self.vfld_arr)
+            .field("null_arr", &self.null_arr)
+            .finish()
+    }
+}
+
 impl RowInfo {
-    pub fn new(vbuf: Vec<u8>, nbuf: Vec<u8>, tabdef: TableDef) -> Self {
+    pub fn new(varr: Vec<u8>, narr: Vec<u8>, tabdef: TableDef) -> Self {
         Self {
-            vfld_buffer: vbuf,
-            null_buffer: nbuf,
+            vfld_arr: varr,
+            null_arr: narr,
             tabdef,
         }
     }
@@ -101,7 +109,7 @@ impl RowInfo {
             "offset={}, noff={}, nidx={}, mask=0b{:08b}",
             offset, noff, nidx, mask
         );
-        (self.null_buffer[nidx] & mask) > 0
+        (self.null_arr[nidx] & mask) > 0
     }
 
     pub fn varlen(&self, c: &ColumnDef) -> usize {
@@ -111,8 +119,8 @@ impl RowInfo {
 
         let off = c.vfld_offset;
         match c.vfld_bytes {
-            1 => self.vfld_buffer[off] as usize,
-            2 => u16::from_be_bytes(self.vfld_buffer[off..off + 2].try_into().unwrap()) as usize,
+            1 => self.vfld_arr[off] as usize,
+            2 => u16::from_be_bytes(self.vfld_arr[off..off + 2].try_into().unwrap()) as usize,
             _ => 0,
         }
     }

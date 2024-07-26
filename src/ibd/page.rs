@@ -1,3 +1,5 @@
+use super::record::{Record, SdiObject};
+use super::tabspace::TableDef;
 use crate::ibd::record::{RecordHeader, Row, RowInfo, PAGE_ADDR_INF, PAGE_ADDR_SUP};
 use crate::util;
 use anyhow::{Error, Result};
@@ -8,9 +10,6 @@ use num_enum::FromPrimitive;
 use std::fmt::Formatter;
 use std::{cmp, fmt};
 use strum::{Display, EnumString};
-
-use super::record::{Record, SdiObject};
-use super::tabspace::TableDef;
 
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -580,12 +579,12 @@ impl IndexPage {
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
 
             end -= 5;
-            let mut nbuf = self.buf.slice(end - tabdef.nullflag_size..end).to_vec();
-            nbuf.reverse();
+            let mut narr = self.buf.slice(end - tabdef.nullflag_size..end).to_vec();
+            narr.reverse();
             end -= tabdef.nullflag_size;
-            let mut vbuf = self.buf.slice(end - tabdef.varfield_size..end).to_vec();
-            vbuf.reverse();
-            let rowinfo = RowInfo::new(vbuf, nbuf, tabdef.clone());
+            let mut varr = self.buf.slice(end - tabdef.varfield_size..end).to_vec();
+            varr.reverse();
+            let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
 
             end = addr as usize;
             // TODO
