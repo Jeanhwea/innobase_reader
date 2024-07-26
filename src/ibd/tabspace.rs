@@ -117,6 +117,7 @@ impl ColumnDef {
                     ColumnTypes::TINY => 1,
                     ColumnTypes::SHORT => 2,
                     ColumnTypes::LONG => 4,
+                    ColumnTypes::LONGLONG => 8,
                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                         ddc.char_length
                     }
