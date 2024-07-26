@@ -2,11 +2,11 @@ use anyhow::{Error, Result};
 
 use super::{
     page::{BasePage, SdiIndexPage},
-    record::{ColumnKeys, ColumnTypes},
+    record::{ColumnKeys, ColumnTypes, DataDictColumn},
 };
 use crate::ibd::record::HiddenTypes;
 use crate::util;
-use log::debug;
+use log::{debug, info};
 
 #[derive(Debug, Default)]
 pub struct MetaDataManager {
@@ -28,46 +28,12 @@ impl MetaDataManager {
             .page_body
             .get_sdi_object()
             .dd_object;
+        info!("ddobj = {:?}", &ddobj);
 
         let mut coldefs = ddobj
             .columns
             .iter()
-            .map(|e| ColumnDef {
-                ord_pos: e.ordinal_position,
-                col_name: e.col_name.clone(),
-                col_key: e.column_key.clone(),
-                data_len: match e.hidden {
-                    HiddenTypes::HT_HIDDEN_SE => e.char_length,
-                    HiddenTypes::HT_VISIBLE => match e.dd_type {
-                        ColumnTypes::TINY => 1,
-                        ColumnTypes::SHORT => 2,
-                        ColumnTypes::LONG => 4,
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
-                            e.char_length
-                        }
-                        ColumnTypes::NEWDATE => 3,
-                        ColumnTypes::ENUM => e.char_length,
-                        _ => todo!(
-                            "Unsupported data_len type: ColumType::{}, utf8_def={}",
-                            e.dd_type,
-                            e.column_type_utf8
-                        ),
-                    },
-                    _ => todo!("Unsupported data_len type: HiddenTypes::{}", e.hidden),
-                },
-                is_nullable: e.is_nullable,
-                is_varfield: match &e.dd_type {
-                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => true,
-                    _ => e.ordinal_position == 1 && e.column_key == ColumnKeys::CK_PRIMARY,
-                },
-                dd_type: e.dd_type.clone(),
-                comment: e.comment.clone(),
-                hidden: e.hidden.clone(),
-                utf8_def: e.column_type_utf8.clone(),
-                null_offset: 0,
-                vfld_offset: 0,
-                vfld_bytes: 0,
-            })
+            .map(ColumnDef::from)
             .collect::<Vec<_>>();
 
         let mut vfldinfo = Vec::new();
@@ -130,4 +96,45 @@ pub struct ColumnDef {
     pub null_offset: usize,   // nullable offset
     pub vfld_offset: usize,   // variadic field offset
     pub vfld_bytes: usize,    // variadic field size
+}
+
+impl ColumnDef {
+    pub fn from(ddc: &DataDictColumn) -> Self {
+        Self {
+            ord_pos: ddc.ordinal_position,
+            col_name: ddc.col_name.clone(),
+            col_key: ddc.column_key.clone(),
+            data_len: match ddc.hidden {
+                HiddenTypes::HT_HIDDEN_SE => ddc.char_length,
+                HiddenTypes::HT_VISIBLE => match ddc.dd_type {
+                    ColumnTypes::TINY => 1,
+                    ColumnTypes::SHORT => 2,
+                    ColumnTypes::LONG => 4,
+                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                        ddc.char_length
+                    }
+                    ColumnTypes::NEWDATE => 3,
+                    ColumnTypes::ENUM => ddc.char_length,
+                    _ => todo!(
+                        "Unsupported data_len type: ColumType::{}, utf8_def={}",
+                        ddc.dd_type,
+                        ddc.column_type_utf8
+                    ),
+                },
+                _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
+            },
+            is_nullable: ddc.is_nullable,
+            is_varfield: match &ddc.dd_type {
+                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => true,
+                _ => ddc.ordinal_position == 1 && ddc.column_key == ColumnKeys::CK_PRIMARY,
+            },
+            dd_type: ddc.dd_type.clone(),
+            comment: ddc.comment.clone(),
+            hidden: ddc.hidden.clone(),
+            utf8_def: ddc.column_type_utf8.clone(),
+            null_offset: 0,
+            vfld_offset: 0,
+            vfld_bytes: 0,
+        }
+    }
 }
