@@ -587,10 +587,11 @@ impl IndexPage {
             let rbuf = self.buf.slice(end..end + rowsize);
             if (nrec as usize) < limit {
                 info!(
-                    "nrec={}, addr = @{}, rowsize={}, rbuf={:?}`",
+                    "nrec={}, addr = @{}, rowsize={}, rowinfo={:?}, rbuf={:?}`",
                     nrec.to_string().yellow(),
                     (end + FIL_HEADER_SIZE).to_string().red(),
                     rowsize.to_string().yellow(),
+                    &rowinfo,
                     rbuf
                 );
             }

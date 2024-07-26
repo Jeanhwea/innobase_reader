@@ -155,7 +155,7 @@ impl App {
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
-        info!("tabdef = {:?}", &tabdef);
+        info!("tabdef = {:#?}", &tabdef);
 
         index_page.page_body.parse_records(tabdef, limit)?;
 
