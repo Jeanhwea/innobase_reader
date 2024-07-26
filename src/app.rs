@@ -124,14 +124,13 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}, hidden={}",
+                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}",
                 c.ord_pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
                 c.utf8_def.green(),
                 c.is_nullable.to_string().yellow(),
                 c.data_len.to_string().cyan(),
-                c.hidden.to_string().red(),
             );
             info!("{:#?}", c);
         }
