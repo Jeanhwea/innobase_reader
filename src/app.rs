@@ -39,7 +39,7 @@ impl App {
             Commands::Info => self.do_info()?,
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
-            Commands::Sdi => self.do_print_sdi_json()?,
+            Commands::Sdi => self.do_pretty_print_sdi_json()?,
             Commands::Dump { page: page_no } => self.do_dump(page_no)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
         }
@@ -134,7 +134,7 @@ impl App {
         Ok(())
     }
 
-    fn do_print_sdi_json(&self) -> Result<()> {
+    fn do_pretty_print_sdi_json(&self) -> Result<()> {
         let df_fact = &self.factory;
         for page_no in 0..df_fact.page_count() {
             let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
