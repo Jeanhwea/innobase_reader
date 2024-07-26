@@ -21,10 +21,7 @@ impl MetaDataManager {
     }
 
     pub fn raw_sdi_str(&self) -> Option<String> {
-        match &self.sdi {
-            Some(pg) => Some(pg.page_body.uncomp_data.clone()),
-            None => None,
-        }
+        self.sdi.as_ref().map(|pg| pg.page_body.uncomp_data.clone())
     }
 
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
@@ -127,13 +124,7 @@ impl ColumnDef {
                     ColumnTypes::LONGLONG => 8,
                     ColumnTypes::DATE | ColumnTypes::TIMESTAMP | ColumnTypes::TIMESTAMP2 => 4,
                     ColumnTypes::DATETIME => 8,
-                    ColumnTypes::ENUM => {
-                        if ddc.elements.len() < 256 {
-                            1
-                        } else {
-                            2
-                        }
-                    }
+                    ColumnTypes::ENUM => (if ddc.elements.len() < 256 { 1 } else { 2 }) as u32,
                     _ => todo!(
                         "Unsupported data_len type: ColumType::{}, utf8_def={}",
                         ddc.dd_type,

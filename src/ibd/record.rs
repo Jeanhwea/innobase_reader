@@ -167,11 +167,11 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(hdr: RecordHeader, rowinfo: RowInfo, row: Row) -> Self {
+    pub fn new(hdr: RecordHeader, rowinfo: RowInfo, data: Row) -> Self {
         Self {
             rec_hdr: hdr,
             row_info: rowinfo,
-            row: row,
+            row: data,
         }
     }
 }
