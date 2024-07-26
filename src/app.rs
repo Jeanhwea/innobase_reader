@@ -131,7 +131,8 @@ impl App {
             if fil_hdr.page_type == PageTypes::SDI {
                 let buffer = df_fact.read_page(page_no)?;
                 let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-                let sdi_data = sdi_page.page_body.get_sdi_json_str();
+                let json_str = sdi_page.page_body.uncomp_data;
+                let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
                 println!("{}", sdi_data);
                 break;
             }

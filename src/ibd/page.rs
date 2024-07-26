@@ -722,9 +722,9 @@ impl FSegHeader {
 
 // SDI Index Page, see ibd2sdi.cc
 pub struct SdiIndexPage {
-    index: IndexPage,       // common Index Page
-    sdi_hdr: SdiDataHeader, // SDI Data Header
-    uncomp_data: String,    // unzipped SDI Data, a JSON string
+    index: IndexPage,        // common Index Page
+    sdi_hdr: SdiDataHeader,  // SDI Data Header
+    pub uncomp_data: String, // unzipped SDI Data, a JSON string
 }
 
 impl fmt::Debug for SdiIndexPage {
@@ -743,7 +743,13 @@ impl BasePageOperation for SdiIndexPage {
         let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
         let hdr = SdiDataHeader::new(buffer.slice(beg..end));
-        debug!("beg={}, end={}, comp_len={}", beg, end, hdr.comp_len);
+        debug!(
+            "beg={}, end={}, comp_len={}, umcomp_len={}",
+            beg.to_string().green(),
+            end.to_string().magenta(),
+            hdr.comp_len.to_string().yellow(),
+            hdr.uncomp_len.to_string().yellow()
+        );
 
         let comped_data = buffer.slice(end..end + (hdr.comp_len as usize));
         let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
@@ -758,19 +764,10 @@ impl BasePageOperation for SdiIndexPage {
 }
 
 impl SdiIndexPage {
-    pub fn get_sdi_json_str(&self) -> String {
-        if self.uncomp_data.is_empty() {
-            panic!("Bad SDI unzipped data is empty");
-        }
-
-        jsonxf::pretty_print(&self.uncomp_data).unwrap()
-    }
-
     pub fn get_sdi_object(&self) -> SdiObject {
         if self.uncomp_data.is_empty() {
-            panic!("Bad SDI unzipped data is empty");
+            panic!("ERR_SID_UNCOMP_STRING_EMPTY");
         }
-
         serde_json::from_str(&self.uncomp_data).expect("ERR_SDI_STRING")
     }
 }
