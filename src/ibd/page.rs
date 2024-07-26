@@ -724,16 +724,15 @@ impl FSegHeader {
 pub struct SdiIndexPage {
     index: IndexPage,       // common Index Page
     sdi_hdr: SdiDataHeader, // SDI Data Header
-    sdi_data: String,       // unzipped SDI Data as string, a JSON string
+    uncomp_data: String,    // unzipped SDI Data, a JSON string
 }
 
 impl fmt::Debug for SdiIndexPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let trunc = cmp::min(self.sdi_data.len(), 520);
+        let _trunc = cmp::min(self.uncomp_data.len(), 520);
         f.debug_struct("SdiIndexPage")
             .field("index", &self.index)
             .field("sdi_hdr", &self.sdi_hdr)
-            .field("sdi_str", &&self.sdi_data[0..trunc])
             .finish()
     }
 }
@@ -753,26 +752,26 @@ impl BasePageOperation for SdiIndexPage {
         Self {
             index,
             sdi_hdr: hdr,
-            sdi_data: uncomped_data,
+            uncomp_data: uncomped_data,
         }
     }
 }
 
 impl SdiIndexPage {
-    pub fn get_sdi_data(&self) -> String {
-        if !self.sdi_data.is_empty() {
-            jsonxf::pretty_print(&self.sdi_data).unwrap()
-        } else {
-            "".into()
+    pub fn get_sdi_json_str(&self) -> String {
+        if self.uncomp_data.is_empty() {
+            panic!("Bad SDI unzipped data is empty");
         }
+
+        jsonxf::pretty_print(&self.uncomp_data).unwrap()
     }
 
-    pub fn get_sdi_object(&self) -> Option<SdiObject> {
-        if !self.sdi_data.is_empty() {
-            serde_json::from_str(&self.sdi_data).expect("ERR_SDI_STRING")
-        } else {
-            None
+    pub fn get_sdi_object(&self) -> SdiObject {
+        if self.uncomp_data.is_empty() {
+            panic!("Bad SDI unzipped data is empty");
         }
+
+        serde_json::from_str(&self.uncomp_data).expect("ERR_SDI_STRING")
     }
 }
 

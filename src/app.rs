@@ -1,3 +1,4 @@
+
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
@@ -11,7 +12,7 @@ use crate::ibd::page::{
 
 use crate::Commands;
 use anyhow::{Error, Result};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 
 #[derive(Debug)]
 pub struct App {
@@ -79,11 +80,11 @@ impl App {
         );
 
         println!("PageTypes Statistics:");
-        for s in &stats {
+        for entry in &stats {
             println!(
                 "{:>12} => {}",
-                s.0.to_string().yellow(),
-                s.1.to_string().blue()
+                entry.0.to_string().yellow(),
+                entry.1.to_string().blue()
             );
         }
         Ok(())
@@ -101,22 +102,15 @@ impl App {
                 &fil_hdr.space_id.to_string().blue(),
                 &fil_hdr.lsn.to_string().green(),
             );
-            match page_type {
-                PageTypes::ALLOCATED => {}
-                PageTypes::UNDEF => {
-                    warn!("{:?} page_no = {}", page_type, page_no);
-                }
-                _ => {
-                    info!("fil_hdr = {:?}", fil_hdr);
-                }
-            }
         }
         Ok(())
     }
 
     fn do_desc(&mut self) -> Result<()> {
         let df_fact = &mut self.factory;
-        let tabdef = df_fact.load_tabdef()?;
+        let mgr = df_fact.init_meta_mgr()?;
+
+        let tabdef = mgr.load_tabdef()?;
 
         for c in &tabdef.col_defs {
             println!(
@@ -141,7 +135,7 @@ impl App {
             if fil_hdr.page_type == PageTypes::SDI {
                 let buffer = df_fact.read_page(page_no)?;
                 let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-                let sdi_data = sdi_page.page_body.get_sdi_data();
+                let sdi_data = sdi_page.page_body.get_sdi_json_str();
                 println!("{}", sdi_data);
                 break;
             }
@@ -165,7 +159,8 @@ impl App {
         let buffer = df_fact.read_page(page_no)?;
         let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
 
-        let tabdef = df_fact.load_tabdef()?;
+        let mgr = df_fact.init_meta_mgr()?;
+        let tabdef = mgr.load_tabdef()?;
         info!("tabdef = {:?}", &tabdef);
 
         index_page.page_body.parse_records(&tabdef)?;

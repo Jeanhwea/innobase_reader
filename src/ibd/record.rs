@@ -196,7 +196,9 @@ pub struct DataDictObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(
+    Debug, Display, Default, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive,
+)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
@@ -229,7 +231,7 @@ pub enum ColumnTypes {
     STRING = 29,
     GEOMETRY = 30,
     JSON = 31,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -238,7 +240,9 @@ pub enum ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone)]
+#[derive(
+    Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone,
+)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -251,7 +255,7 @@ pub enum HiddenTypes {
     /// attribute. Column is hidden from the user unless it is explicitly
     /// referenced in the statement. Column is visible to the server.
     HT_HIDDEN_USER = 4,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
@@ -261,20 +265,28 @@ pub enum HiddenTypes {
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 #[derive(
-    Debug, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone,
+    Debug,
+    Default,
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Clone,
 )]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,
     CK_UNIQUE = 3,
     CK_MULTIPLE = 4,
-    #[num_enum(default)]
+    #[default]
     UNDEF,
 }
 
 // see sql/dd/impl/types/column_impl.h
 //    class Column_impl : public Entity_object_impl, public Column {
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DataDictColumn {
     #[serde(rename = "name")]
     pub col_name: String,

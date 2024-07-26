@@ -1,27 +1,29 @@
+use anyhow::{Error, Result};
+
 use super::{
-    page::FilePageHeader,
+    page::{BasePage, SdiIndexPage},
     record::{ColumnKeys, ColumnTypes},
 };
 use crate::ibd::record::HiddenTypes;
 
-#[derive(Debug, Clone)]
-pub struct Datafile {
-    pub server_version: u32, // on page 0, FIL_PAGE_SRV_VERSION
-    pub space_version: u32,  // on page 0, FIL_PAGE_SPACE_VERSION
-    pub space_id: u32,       // Space Id
+#[derive(Debug, Default)]
+pub struct MetaDataManager {
+    pub sdi: Option<BasePage<SdiIndexPage>>, // SDI index page
 }
 
-impl Datafile {
-    pub fn new(fil_hdr: FilePageHeader) -> Self {
+impl MetaDataManager {
+    pub fn new(sdi_page: BasePage<SdiIndexPage>) -> Self {
         Self {
-            server_version: fil_hdr.prev_page,
-            space_version: fil_hdr.next_page,
-            space_id: fil_hdr.space_id,
+            sdi: Some(sdi_page),
         }
+    }
+
+    pub fn load_tabdef(&self) -> Result<TableDef, Error> {
+        Ok(TableDef::default())
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TableDef {
     pub tab_name: String,         // table name
     pub varfield_size: usize,     // variadic field size
@@ -29,7 +31,7 @@ pub struct TableDef {
     pub col_defs: Vec<ColumnDef>, // column infomation
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
     pub ord_pos: u32,         // ordinal position
     pub col_name: String,     // column name

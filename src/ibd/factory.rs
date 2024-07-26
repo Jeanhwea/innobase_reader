@@ -1,13 +1,13 @@
 use crate::ibd::page::SdiIndexPage;
-use crate::ibd::record::ColumnKeys;
-use crate::util;
+
+
 
 use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
     FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::record::{ColumnTypes, HiddenTypes};
-use super::tabspace::{ColumnDef, TableDef};
+
+use super::tabspace::{MetaDataManager};
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
@@ -52,15 +52,12 @@ impl PageFactory {
 
 #[derive(Debug, Default)]
 pub struct DatafileFactory {
-    pub target: PathBuf,                                // Target datafile
-    pub file: Option<File>,                             // Tablespace file descriptor
-    pub filesize: usize,                                // File size
-    pub server_version: u32,                            // on page 0, FIL_PAGE_SRV_VERSION
-    pub space_version: u32,                             // on page 0, FIL_PAGE_SPACE_VERSION
-    pub space_id: u32,                                  // Space Id
-    pub fsppage: Option<BasePage<FileSpaceHeaderPage>>, // FSP page
-    pub sdipage: Option<BasePage<SdiIndexPage>>,        // SDI
-    pub tabdef: Option<TableDef>,                       // Table Definition
+    pub target: PathBuf,     // Target datafile
+    pub file: Option<File>,  // Tablespace file descriptor
+    pub filesize: usize,     // File size
+    pub server_version: u32, // on page 0, FIL_PAGE_SRV_VERSION
+    pub space_version: u32,  // on page 0, FIL_PAGE_SPACE_VERSION
+    pub space_id: u32,       // Space Id
 }
 
 impl DatafileFactory {
@@ -108,132 +105,108 @@ impl DatafileFactory {
         Ok(Bytes::from(buf))
     }
 
-    fn do_load_fsp_page(&mut self) -> Result<(), Error> {
-        if self.filesize < PAGE_SIZE {
-            return Err(Error::msg("datafile size less than one page"));
-        }
-
+    pub fn init_meta_mgr(&self) -> Result<MetaDataManager, Error> {
         let buffer = self.do_read_bytes(0)?;
         let mut fsp_page: BasePage<FileSpaceHeaderPage> = PageFactory::new(buffer).parse();
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
 
         fsp_page.page_body.parse_sdi_meta();
+        let sdi_info = fsp_page.page_body.sdi_info.unwrap();
 
-        self.fsppage = Some(fsp_page);
+        let sdi_page_no = sdi_info.sdi_page_no as usize;
+        assert_ne!(sdi_page_no, 0);
+        info!("sdi_page_no = {}", sdi_page_no);
 
-        Ok(())
+        let buffer = self.do_read_bytes(sdi_page_no)?;
+        let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
+        assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
+
+        Ok(MetaDataManager::new(sdi_page))
     }
 
-    fn do_load_sdi_page(&mut self) -> Result<(), Error> {
-        if let Some(ref sdi_info) = self
-            .fsppage
-            .as_ref()
-            .expect("ERR_NO_FIRST_FSP_PAGE")
-            .page_body
-            .sdi_info
-        {
-            if sdi_info.sdi_page_no < 1 {
-                return Ok(());
-            }
-            let buffer = self.do_read_bytes(sdi_info.sdi_page_no as usize)?;
-            let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
-            assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
-            self.sdipage = Some(sdi_page);
-        }
+    // fn do_load_table_def(&mut self) -> Result<(), Error> {
+    //     if let Some(sdipage) = &self.sdipage {
+    //         let tabobj = sdipage.page_body.get_sdi_object().unwrap().dd_object;
+    //         let mut coldefs = tabobj
+    //             .columns
+    //             .iter()
+    //             .map(|e| ColumnDef {
+    //                 ord_pos: e.ordinal_position,
+    //                 col_name: e.col_name.clone(),
+    //                 col_key: e.column_key.clone(),
+    //                 data_len: match e.hidden {
+    //                     HiddenTypes::HT_HIDDEN_SE => e.char_length,
+    //                     HiddenTypes::HT_VISIBLE => match e.dd_type {
+    //                         ColumnTypes::TINY => 1,
+    //                         ColumnTypes::SHORT => 2,
+    //                         ColumnTypes::LONG => 4,
+    //                         ColumnTypes::VARCHAR
+    //                         | ColumnTypes::VAR_STRING
+    //                         | ColumnTypes::STRING => e.char_length,
+    //                         ColumnTypes::NEWDATE => 3,
+    //                         ColumnTypes::ENUM => e.char_length,
+    //                         _ => todo!(
+    //                             "Unsupported data_len type: ColumType::{}, utf8_def={}",
+    //                             e.dd_type,
+    //                             e.column_type_utf8
+    //                         ),
+    //                     },
+    //                     _ => todo!("Unsupported data_len type: HiddenTypes::{}", e.hidden),
+    //                 },
+    //                 is_nullable: e.is_nullable,
+    //                 is_varfield: match &e.dd_type {
+    //                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+    //                         true
+    //                     }
+    //                     _ => e.ordinal_position == 1 && e.column_key == ColumnKeys::CK_PRIMARY,
+    //                 },
+    //                 dd_type: e.dd_type.clone(),
+    //                 comment: e.comment.clone(),
+    //                 hidden: e.hidden.clone(),
+    //                 utf8_def: e.column_type_utf8.clone(),
+    //                 null_offset: 0,
+    //                 vfld_offset: 0,
+    //                 vfld_bytes: 0,
+    //             })
+    //             .collect::<Vec<_>>();
 
-        Ok(())
-    }
+    //         let mut vfldinfo = Vec::new();
+    //         let mut nullinfo = Vec::new();
+    //         for c in &coldefs {
+    //             if c.is_varfield {
+    //                 vfldinfo.push((
+    //                     c.ord_pos as usize,
+    //                     // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
+    //                     if c.data_len > 255 { 2 } else { 1 },
+    //                 ));
+    //             }
+    //             if c.is_nullable {
+    //                 nullinfo.push(c.ord_pos as usize);
+    //             }
+    //         }
+    //         debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
 
-    fn do_load_table_def(&mut self) -> Result<(), Error> {
-        if let Some(sdipage) = &self.sdipage {
-            let tabobj = sdipage.page_body.get_sdi_object().unwrap().dd_object;
-            let mut coldefs = tabobj
-                .columns
-                .iter()
-                .map(|e| ColumnDef {
-                    ord_pos: e.ordinal_position,
-                    col_name: e.col_name.clone(),
-                    col_key: e.column_key.clone(),
-                    data_len: match e.hidden {
-                        HiddenTypes::HT_HIDDEN_SE => e.char_length,
-                        HiddenTypes::HT_VISIBLE => match e.dd_type {
-                            ColumnTypes::TINY => 1,
-                            ColumnTypes::SHORT => 2,
-                            ColumnTypes::LONG => 4,
-                            ColumnTypes::VARCHAR
-                            | ColumnTypes::VAR_STRING
-                            | ColumnTypes::STRING => e.char_length,
-                            ColumnTypes::NEWDATE => 3,
-                            ColumnTypes::ENUM => e.char_length,
-                            _ => todo!(
-                                "Unsupported data_len type: ColumType::{}, utf8_def={}",
-                                e.dd_type,
-                                e.column_type_utf8
-                            ),
-                        },
-                        _ => todo!("Unsupported data_len type: HiddenTypes::{}", e.hidden),
-                    },
-                    is_nullable: e.is_nullable,
-                    is_varfield: match &e.dd_type {
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
-                            true
-                        }
-                        _ => e.ordinal_position == 1 && e.column_key == ColumnKeys::CK_PRIMARY,
-                    },
-                    dd_type: e.dd_type.clone(),
-                    comment: e.comment.clone(),
-                    hidden: e.hidden.clone(),
-                    utf8_def: e.column_type_utf8.clone(),
-                    null_offset: 0,
-                    vfld_offset: 0,
-                    vfld_bytes: 0,
-                })
-                .collect::<Vec<_>>();
+    //         for (off, ord) in nullinfo.iter().enumerate() {
+    //             coldefs[ord - 1].null_offset = off;
+    //         }
+    //         let nullflag_size = util::align8(nullinfo.len());
 
-            let mut vfldinfo = Vec::new();
-            let mut nullinfo = Vec::new();
-            for c in &coldefs {
-                if c.is_varfield {
-                    vfldinfo.push((
-                        c.ord_pos as usize,
-                        // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
-                        if c.data_len > 255 { 2 } else { 1 },
-                    ));
-                }
-                if c.is_nullable {
-                    nullinfo.push(c.ord_pos as usize);
-                }
-            }
-            debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
+    //         let mut vfld_offset = nullflag_size;
+    //         for ent in &vfldinfo {
+    //             coldefs[ent.0 - 1].vfld_offset = vfld_offset;
+    //             coldefs[ent.0 - 1].vfld_bytes = ent.1;
+    //             vfld_offset += ent.1;
+    //         }
 
-            for (off, ord) in nullinfo.iter().enumerate() {
-                coldefs[ord - 1].null_offset = off;
-            }
-            let nullflag_size = util::align8(nullinfo.len());
-
-            let mut vfld_offset = nullflag_size;
-            for ent in &vfldinfo {
-                coldefs[ent.0 - 1].vfld_offset = vfld_offset;
-                coldefs[ent.0 - 1].vfld_bytes = ent.1;
-                vfld_offset += ent.1;
-            }
-
-            self.tabdef = Some(TableDef {
-                tab_name: tabobj.name.clone(),
-                varfield_size: vfld_offset,
-                nullflag_size,
-                col_defs: coldefs,
-            });
-        }
-        Ok(())
-    }
-
-    pub fn load_tabdef(&mut self) -> Result<&TableDef, Error> {
-        self.do_load_fsp_page()?;
-        self.do_load_sdi_page()?;
-        self.do_load_table_def()?;
-        Ok(self.tabdef.as_ref().expect("ERR_LOAD_TABLE_DEFINITION"))
-    }
+    //         self.tabdef = Some(TableDef {
+    //             tab_name: tabobj.name.clone(),
+    //             varfield_size: vfld_offset,
+    //             nullflag_size,
+    //             col_defs: coldefs,
+    //         });
+    //     }
+    //     Ok(())
+    // }
 
     pub fn page_count(&self) -> usize {
         self.filesize / PAGE_SIZE
@@ -260,10 +233,10 @@ impl DatafileFactory {
 
 #[cfg(test)]
 mod factory_tests {
-    use super::*;
+    
     use crate::util;
-    use log::info;
-    use std::{env::set_var, path::PathBuf};
+    
+    use std::{env::set_var};
 
     const IBD_FILE: &str = "data/departments.ibd";
 
@@ -273,22 +246,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn parse_table_definition() {
-        setup();
-        let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
-        assert!(factory.init().is_ok());
-        assert!(factory.do_load_fsp_page().is_ok());
-        assert!(factory.do_load_sdi_page().is_ok());
-        assert!(factory.do_load_table_def().is_ok());
-        info!("factory = {:#?}", factory);
-    }
-
-    #[test]
     fn load_table_definition() {
         setup();
-        let mut factory = DatafileFactory::new(PathBuf::from(IBD_FILE));
-        assert!(factory.init().is_ok());
-        assert!(factory.load_tabdef().is_ok());
-        info!("tabdef = {:#?}", factory.tabdef);
     }
 }
