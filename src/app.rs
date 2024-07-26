@@ -124,7 +124,7 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "{:>3}: name={}, dd_type={}, utf8_type={}, nullable={}, char_length={}",
+                "{:>3}: name={}, dd_type={}, utf8_def={}, nullable={}, char_length={}",
                 c.ord_pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
