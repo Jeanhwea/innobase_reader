@@ -11,6 +11,8 @@ static INIT_LOGGER_ONCE: Once = Once::new();
 
 pub fn init() {
     INIT_LOGGER_ONCE.call_once(|| {
+        dotenv::dotenv().ok();
+
         env_logger::builder()
             .format(|buf, record| {
                 writeln!(

@@ -4,7 +4,7 @@ CFLAG =
 all: run
 
 run:
-	$(CARGO) run $(CFLAG) -- -i ./data/departments.ibd info
+	$(CARGO) run $(CFLAG) -- ./data/departments.ibd info
 
 test:
 	$(CARGO) test -- --nocapture --show-output
