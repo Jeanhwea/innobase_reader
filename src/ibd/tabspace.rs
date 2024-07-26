@@ -1,5 +1,3 @@
-use anyhow::{Error, Result};
-
 use super::{
     page::{BasePage, SdiIndexPage},
     record::{ColumnKeys, ColumnTypes, DataDictColumn},
@@ -7,6 +5,8 @@ use super::{
 use crate::ibd::record::HiddenTypes;
 use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::util;
+use anyhow::{Error, Result};
+use colored::Colorize;
 use log::{debug, info};
 
 #[derive(Debug, Default)]
@@ -69,10 +69,13 @@ impl MetaDataManager {
             vfld_offset += ent.1;
         }
 
+        let has_row_id = coldefs
+            .iter()
+            .any(|e| e.hidden == HT_HIDDEN_SE && e.col_name == "DB_ROW_ID");
+        info!("has_row_id = {}", has_row_id.to_string().magenta());
+
         Ok(TableDef {
-            has_row_id: coldefs
-                .iter()
-                .any(|e| e.hidden == HT_HIDDEN_SE && e.col_name == "DB_ROW_ID"),
+            has_row_id,
             tab_name: ddobj.name.clone(),
             vfld_size: vfld_offset - nullflag_size,
             null_size: nullflag_size,
