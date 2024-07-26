@@ -1,35 +1,34 @@
 CARGO = cargo
 CFLAG =
-ENVS  = RUST_LOG=info RUST_BACKTRACE=1
 
 all: run
 
 run:
-	$(ENVS) $(CARGO) run $(CFLAG) -- -i ./data/departments.ibd info
+	$(CARGO) run $(CFLAG) -- -i ./data/departments.ibd info
 
 test:
-	$(ENVS) $(CARGO) test -- --nocapture --show-output
+	$(CARGO) test -- --nocapture --show-output
 
 t0:
-	$(ENVS) $(CARGO) test app_tests::it_works -- --nocapture --show-output
+	$(CARGO) test app_tests::it_works -- --nocapture --show-output
 
 doc:
-	$(ENVS) $(CARGO) doc $(CFLAG)
+	$(CARGO) doc $(CFLAG)
 
 browse:
-	$(ENVS) $(CARGO) doc $(CFLAG) --no-deps --open
+	$(CARGO) doc $(CFLAG) --no-deps --open
 
 format:
-	$(ENVS) $(CARGO) fmt $(CFLAG)
+	$(CARGO) fmt $(CFLAG)
 
 lint: format
-	$(ENVS) $(CARGO) clippy $(CFLAG)
+	$(CARGO) clippy $(CFLAG)
 
 fix: format
-	$(ENVS) $(CARGO) fix $(CFLAG) --allow-dirty --allow-staged
+	$(CARGO) fix $(CFLAG) --allow-dirty --allow-staged
 
 install:
-	$(ENVS) $(CARGO) install $(CFLAG) --path .
+	$(CARGO) install $(CFLAG) --path .
 
 clean:
 	rm -rf target
