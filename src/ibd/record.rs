@@ -223,6 +223,12 @@ impl Record {
             if col.hidden == HT_HIDDEN_SE {
                 continue;
             }
+            if self.row_info.isnull(col) {
+                let datum = (col.ord_pos as usize, None);
+                self.row.row_data.push(datum);
+                continue;
+            }
+
             let vlen = self.row_info.varlen(col);
             let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);

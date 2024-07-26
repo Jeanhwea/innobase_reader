@@ -38,7 +38,10 @@ impl App {
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_pretty_print_sdi_json()?,
-            Commands::Dump { page: page_no } => self.do_dump(page_no)?,
+            Commands::Dump {
+                page: page_no,
+                limit,
+            } => self.do_dump(page_no, limit)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
         }
 
@@ -134,7 +137,7 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(&mut self, page_no: usize) -> Result<(), Error> {
+    fn do_dump(&mut self, page_no: usize, limit: usize) -> Result<(), Error> {
         let df_fact = &mut self.factory;
         if page_no >= df_fact.page_count() {
             return Err(Error::msg("Page number out of range"));
@@ -154,10 +157,13 @@ impl App {
         let tabdef = Arc::new(mgr.load_tabdef()?);
         info!("tabdef = {:?}", &tabdef);
 
-        index_page.page_body.parse_records(tabdef)?;
+        index_page.page_body.parse_records(tabdef, limit)?;
 
-        for rec in index_page.page_body.records() {
-            println!("row = {:?}", &rec.row);
+        for (cur, urec) in index_page.page_body.records().iter().enumerate() {
+            if cur >= limit {
+                break;
+            }
+            println!("row {} = {:?}", cur, &urec.row);
         }
 
         Ok(())

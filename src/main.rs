@@ -34,6 +34,9 @@ enum Commands {
     Dump {
         /// Which page number, which starts from zero. [0, 1, ...]
         page: usize,
+        /// Limit the total row in the dump
+        #[arg(short, long, default_value_t = 10)]
+        limit: usize,
     },
     /// View page data with given page_number.
     View {
