@@ -5,10 +5,9 @@ use super::{
     record::{ColumnKeys, ColumnTypes, DataDictColumn},
 };
 use crate::ibd::record::HiddenTypes;
+use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::util;
 use log::{debug, info};
-use crate::ibd::record::ColumnKeys::CK_PRIMARY;
-use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 
 #[derive(Debug, Default)]
 pub struct MetaDataManager {
@@ -71,8 +70,9 @@ impl MetaDataManager {
         }
 
         Ok(TableDef {
-            has_row_id: coldefs.iter().any(|e| e.hidden==
-                HT_HIDDEN_SE && e.col_name=="DB_ROW_ID"),
+            has_row_id: coldefs
+                .iter()
+                .any(|e| e.hidden == HT_HIDDEN_SE && e.col_name == "DB_ROW_ID"),
             tab_name: ddobj.name.clone(),
             vfld_size: vfld_offset - nullflag_size,
             null_size: nullflag_size,
@@ -83,7 +83,7 @@ impl MetaDataManager {
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
-    pub has_row_id: bool, // if has ROW_ID data
+    pub has_row_id: bool,         // if has ROW_ID data
     pub tab_name: String,         // table name
     pub vfld_size: usize,         // variadic field size
     pub null_size: usize,         // nullable flag size

@@ -245,7 +245,15 @@ pub enum ColumnTypes {
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 #[derive(
-    Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone,
+    Debug,
+    Display,
+    Default,
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Clone,
+    PartialEq,
 )]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
