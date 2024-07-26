@@ -97,18 +97,18 @@ impl App {
         let factory = &self.factory;
         for page_no in 0..factory.page_count() {
             let fil_hdr = factory.parse_fil_hdr(page_no)?;
-            let pt = &fil_hdr.page_type;
+            let page_type = &fil_hdr.page_type;
             println!(
-                "page_no={} => page_type={}, space_id={}, lsn={}",
+                "page_no={}, page_type={}, space_id={}, lsn={}",
                 &page_no.to_string().magenta(),
-                &pt.to_string().yellow(),
+                &page_type.to_string().yellow(),
                 &fil_hdr.space_id.to_string().blue(),
                 &fil_hdr.lsn.to_string().green(),
             );
-            match pt {
+            match page_type {
                 PageTypes::ALLOCATED => {}
                 PageTypes::UNDEF => {
-                    warn!("{:?} page_no = {}", pt, page_no);
+                    warn!("{:?} page_no = {}", page_type, page_no);
                 }
                 _ => {
                     info!("fil_hdr = {:?}", fil_hdr);
@@ -124,15 +124,15 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "{:>3}: name={}, dd_type={}, utf8_def={}, nullable={}, data_len={}",
+                "{:>3}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
                 c.ord_pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
-                c.utf8_def.green(),
                 c.is_nullable.to_string().yellow(),
                 c.data_len.to_string().cyan(),
+                c.utf8_def.green(),
             );
-            info!("{:#?}", c);
+            info!("{:?}", c);
         }
 
         Ok(())

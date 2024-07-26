@@ -160,12 +160,12 @@ impl DatafileFactory {
                             ColumnTypes::NEWDATE => 3,
                             ColumnTypes::ENUM => e.char_length,
                             _ => todo!(
-                                "Unsupported ColumType::{}, utf8_def={}",
+                                "Unsupported data_len type: ColumType::{}, utf8_def={}",
                                 e.dd_type,
                                 e.column_type_utf8
                             ),
                         },
-                        _ => todo!("Unsupported HiddenTypes::{}", e.hidden),
+                        _ => todo!("Unsupported data_len type: HiddenTypes::{}", e.hidden),
                     },
                     is_nullable: e.is_nullable,
                     is_varfield: match &e.dd_type {
