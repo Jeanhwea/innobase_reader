@@ -122,6 +122,7 @@ impl ColumnDef {
                         ddc.char_length
                     }
                     ColumnTypes::NEWDATE => 3,
+                    ColumnTypes::TIMESTAMP2 => 4,
                     ColumnTypes::ENUM => ddc.char_length,
                     _ => todo!(
                         "Unsupported data_len type: ColumType::{}, utf8_def={}",
