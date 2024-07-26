@@ -583,7 +583,7 @@ impl IndexPage {
 
             end = addr as usize;
             // TODO
-            let rowsize = rowinfo.calc_rowsize();
+            let rowsize = rowinfo.rowsize();
             let rbuf = self.buf.slice(end..end + rowsize);
             info!(
                 "nrec={}, addr = @{}, rowsize={}, rbuf={:?}`",

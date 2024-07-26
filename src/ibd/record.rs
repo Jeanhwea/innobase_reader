@@ -125,33 +125,37 @@ impl RowInfo {
         }
     }
 
-    pub fn calc_rowsize(&self) -> usize {
-        let mut rowsize = 0usize;
+    pub fn rowsize(&self) -> usize {
+        let mut total = 0usize;
         for c in &self.tabdef.col_defs {
             if self.isnull(c) {
                 continue;
             }
             if !c.is_varfield {
-                rowsize += c.data_len as usize;
+                total += c.data_len as usize;
                 continue;
             }
-            rowsize += self.varlen(c);
+            total += self.varlen(c);
         }
-        rowsize
+        total
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Row {
-    // pub row_id: u64,   // 6 bytes
-    // pub trx_id: u64,   // 6 bytes
-    // pub roll_ptr: u64, // 7 bytes
-    row_buffer: Bytes,
+    pub row_id: u64,                       // Row id, 6 bytes
+    pub trx_id: u64,                       // transaction id, 6 bytes
+    pub roll_ptr: u64,                     // rollback pointer, 7 bytes
+    row_buffer: Bytes,                     // row buffer
+    row_data: Vec<(usize, Option<Bytes>)>, // row data list, (ord, buf)
 }
 
 impl Row {
     pub fn new(rbuf: Bytes) -> Self {
-        Self { row_buffer: rbuf }
+        Self {
+            row_buffer: rbuf,
+            ..Row::default()
+        }
     }
 }
 
