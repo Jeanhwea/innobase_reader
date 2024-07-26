@@ -1,13 +1,9 @@
-use crate::ibd::page::SdiIndexPage;
-
-
-
 use super::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes,
     FIL_HEADER_SIZE, FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-
-use super::tabspace::{MetaDataManager};
+use super::tabspace::MetaDataManager;
+use crate::ibd::page::SdiIndexPage;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
@@ -109,17 +105,19 @@ impl DatafileFactory {
         let buffer = self.do_read_bytes(0)?;
         let mut fsp_page: BasePage<FileSpaceHeaderPage> = PageFactory::new(buffer).parse();
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
+        debug!("load fsg_page = {:?}", &fsp_page);
 
         fsp_page.page_body.parse_sdi_meta();
-        let sdi_info = fsp_page.page_body.sdi_info.unwrap();
+        let sdi_meta_data = fsp_page.page_body.sdi_meta_data.unwrap();
 
-        let sdi_page_no = sdi_info.sdi_page_no as usize;
+        let sdi_page_no = sdi_meta_data.sdi_page_no as usize;
         assert_ne!(sdi_page_no, 0);
         info!("sdi_page_no = {}", sdi_page_no);
 
         let buffer = self.do_read_bytes(sdi_page_no)?;
         let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
         assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
+        debug!("load sdi_page = {:?}", &sdi_page);
 
         Ok(MetaDataManager::new(sdi_page))
     }
@@ -233,10 +231,10 @@ impl DatafileFactory {
 
 #[cfg(test)]
 mod factory_tests {
-    
+
     use crate::util;
-    
-    use std::{env::set_var};
+
+    use std::env::set_var;
 
     const IBD_FILE: &str = "data/departments.ibd";
 

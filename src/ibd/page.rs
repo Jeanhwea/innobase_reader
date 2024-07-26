@@ -312,7 +312,7 @@ where
 pub struct FileSpaceHeaderPage {
     pub fsp_hdr: FileSpaceHeader,
     pub xdes_ent_list: Vec<XDesEntry>,
-    pub sdi_info: Option<SdiMetaInfo>,
+    pub sdi_meta_data: Option<SdiMetaInfo>,
     buf: Bytes,
 }
 
@@ -321,7 +321,7 @@ impl fmt::Debug for FileSpaceHeaderPage {
         f.debug_struct("FileSpaceHeaderPage")
             .field("fsp_hdr", &self.fsp_hdr)
             .field("xdes_ent_list", &self.xdes_ent_list)
-            .field("sdi_info", &self.sdi_info)
+            .field("sdi_info", &self.sdi_meta_data)
             .finish()
     }
 }
@@ -342,7 +342,7 @@ impl FileSpaceHeaderPage {
         // info!("len = {}, sdi_addr = {}", len, sdi_addr);
         let sdi_meta = SdiMetaInfo::new(self.buf.slice(sdi_addr..sdi_addr + 8));
 
-        self.sdi_info = Some(sdi_meta);
+        self.sdi_meta_data = Some(sdi_meta);
     }
 }
 
@@ -364,7 +364,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
         Self {
             fsp_hdr: hdr,
             xdes_ent_list: entries,
-            sdi_info: None,
+            sdi_meta_data: None,
             buf: buffer,
         }
     }
@@ -574,10 +574,10 @@ impl IndexPage {
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
 
             end -= 5;
-            let mut narr = self.buf.slice(end - tabdef.nullflag_size..end).to_vec();
+            let mut narr = self.buf.slice(end - tabdef.null_size..end).to_vec();
             narr.reverse();
-            end -= tabdef.nullflag_size;
-            let mut varr = self.buf.slice(end - tabdef.varfield_size..end).to_vec();
+            end -= tabdef.null_size;
+            let mut varr = self.buf.slice(end - tabdef.vfld_size..end).to_vec();
             varr.reverse();
             let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
 

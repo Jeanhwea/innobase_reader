@@ -1,18 +1,14 @@
-
-use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
-
-use colored::Colorize;
-use std::path::PathBuf;
-
 use crate::ibd::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
 use crate::ibd::page::{
     BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage,
 };
-
 use crate::Commands;
 use anyhow::{Error, Result};
+use colored::Colorize;
 use log::{debug, error, info};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 pub struct App {
@@ -205,7 +201,7 @@ impl App {
                 let sdi_page: BasePage<SdiIndexPage> = pg_fact.parse();
                 println!("{:#?}", sdi_page);
             }
-            PageTypes::UNDEF | _ => {
+            _ => {
                 error!("Bad PageType, hdr = {:#?}", fil_hdr);
             }
         }

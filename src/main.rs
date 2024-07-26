@@ -1,12 +1,10 @@
 #![allow(dead_code)]
 // #![allow(unused_imports)]
 
-use std::path::PathBuf;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-
 use log::info;
+use std::path::PathBuf;
 
 mod app;
 mod ibd;
