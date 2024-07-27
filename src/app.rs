@@ -176,9 +176,10 @@ impl App {
             if cur >= limit {
                 break;
             }
+            let seq = cur + 1;
             info!(
                 "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
-                (cur + 1).to_string().red(),
+                seq.to_string().red(),
                 &urec.row.addr.to_string().yellow(),
                 "hdr".cyan(),
                 &urec.rec_hdr,
@@ -189,7 +190,7 @@ impl App {
             );
             println!(
                 "******************** Row {} ********************",
-                cur.to_string().yellow()
+                seq.to_string().yellow()
             );
             for (irow, row) in urec.row.row_data.iter().enumerate() {
                 let col_ref = &tabdef.clone().col_defs[row.0];
