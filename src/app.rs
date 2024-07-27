@@ -101,7 +101,7 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "COL{:>2}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
+                "COL{}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
                 c.pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
@@ -114,7 +114,7 @@ impl App {
 
         for i in &tabdef.idx_defs {
             println!(
-                "IDX{:>2}: idx_name={}, idx_type={}, algorithm={}",
+                "IDX{}: idx_name={}, idx_type={}, algorithm={}",
                 i.pos,
                 i.idx_name.magenta(),
                 i.idx_type.to_string().blue(),
@@ -123,7 +123,7 @@ impl App {
             for e in &i.elements {
                 let ref_col = &tabdef.col_defs[e.column_opx];
                 println!(
-                    "({}-{}): column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
+                    " ({}-{}): column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
                     i.pos,
                     e.pos,
                     e.column_opx.to_string().green(),
