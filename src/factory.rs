@@ -3,7 +3,7 @@ use crate::ibd::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_HEADER_SIZE,
     FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use crate::meta::def::MetaDataManager;
+use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
