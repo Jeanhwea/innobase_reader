@@ -169,7 +169,7 @@ impl App {
         let tabdef = Arc::new(mgr.load_tabdef()?);
         info!("tabdef = {:#?}", &tabdef);
 
-        index_page.page_body.parse_records(tabdef)?;
+        index_page.page_body.parse_records(tabdef.clone())?;
 
         for (cur, urec) in index_page.page_body.records().iter().enumerate() {
             if cur >= limit {
@@ -186,9 +186,18 @@ impl App {
                 "info".magenta(),
                 &urec.row_info,
             );
-            println!("******* Row {} *******", cur);
+            println!(
+                "******************** Row {} ********************",
+                cur.to_string().yellow()
+            );
             for (irow, row) in urec.row.row_data.iter().enumerate() {
-                println!("irow={}, buf={:?}", irow, row.2);
+                let col_ref = &tabdef.clone().col_defs[row.0];
+                println!(
+                    "irow={}, col_name={}, buf={:?}",
+                    irow.to_string().green(),
+                    &col_ref.col_name.magenta(),
+                    row.2
+                );
             }
         }
 
