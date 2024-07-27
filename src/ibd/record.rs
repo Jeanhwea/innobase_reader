@@ -2,7 +2,7 @@ use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
 use bytes::Bytes;
-use log::{trace};
+use log::trace;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -289,7 +289,7 @@ pub struct DataDictObject {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Default, Clone, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
@@ -331,7 +331,7 @@ pub enum ColumnTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Clone, PartialEq)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, PartialEq)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -398,7 +398,7 @@ pub struct DataDictColumnElement {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
     IT_UNIQUE = 2,
@@ -414,7 +414,7 @@ pub enum IndexTypes {
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Display, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,

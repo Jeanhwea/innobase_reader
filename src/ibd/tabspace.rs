@@ -1,6 +1,6 @@
 use super::{
     page::{BasePage, SdiIndexPage},
-    record::{ColumnKeys, ColumnTypes, DataDictColumn},
+    record::{ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, IndexTypes},
 };
 use crate::ibd::record::HiddenTypes;
 use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
@@ -28,6 +28,7 @@ impl MetaDataManager {
         info!("ddobj = {:?}", &ddobj);
 
         let mut coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
+        let idxdefs = ddobj.indexes.iter().map(IndexDef::from).collect::<Vec<_>>();
 
         let mut vfldinfo = Vec::new();
         let mut nullinfo = Vec::new();
@@ -68,6 +69,7 @@ impl MetaDataManager {
             vfld_size: vfld_offset,
             null_size: nullflag_size,
             col_defs: coldefs,
+            idx_defs: idxdefs,
         })
     }
 }
@@ -78,7 +80,8 @@ pub struct TableDef {
     pub tab_name: String,         // table name
     pub vfld_size: usize,         // variadic field size
     pub null_size: usize,         // nullable flag size
-    pub col_defs: Vec<ColumnDef>, // column infomation
+    pub col_defs: Vec<ColumnDef>, // column definitions
+    pub idx_defs: Vec<IndexDef>,  // index definitions
 }
 
 #[derive(Debug, Default, Clone)]
@@ -140,6 +143,27 @@ impl ColumnDef {
             null_offset: 0,
             vfld_offset: 0,
             vfld_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct IndexDef {
+    pub ord_pos: u32,         // ordinal position
+    pub idx_name: String,     // index name
+    pub hidden: bool,         // hidden
+    pub comment: String,      // Comment
+    pub idx_type: IndexTypes, // index type
+}
+
+impl IndexDef {
+    pub fn from(ddi: &DataDictIndex) -> Self {
+        Self {
+            ord_pos: ddi.ordinal_position,
+            idx_name: ddi.name.clone(),
+            hidden: ddi.hidden,
+            comment: ddi.comment.clone(),
+            idx_type: ddi.idx_type.clone(),
         }
     }
 }

@@ -101,7 +101,7 @@ impl App {
 
         for c in &tabdef.col_defs {
             println!(
-                "{:>3}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
+                "COL{:>2}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
                 c.ord_pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
@@ -110,6 +110,16 @@ impl App {
                 c.utf8_def.green(),
             );
             info!("{:?}", c);
+        }
+
+        for i in &tabdef.idx_defs {
+            println!(
+                "IDX{:>2}: name={}, idx_type={}",
+                i.ord_pos,
+                i.idx_name.magenta(),
+                i.idx_type.to_string().blue(),
+            );
+            info!("{:?}", i);
         }
 
         Ok(())
