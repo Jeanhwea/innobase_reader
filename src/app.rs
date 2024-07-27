@@ -123,7 +123,8 @@ impl App {
             for e in &i.elements {
                 let ref_col = &tabdef.col_defs[e.column_opx];
                 println!(
-                    "   {:>2}: column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
+                    "({}-{}): column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
+                    i.pos,
                     e.pos,
                     e.column_opx.to_string().green(),
                     ref_col.col_name.magenta(),
