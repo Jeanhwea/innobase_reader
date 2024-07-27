@@ -121,11 +121,12 @@ impl App {
                 i.algorithm.to_string().cyan(),
             );
             for e in &i.elements {
+                let ref_col = &tabdef.col_defs[e.column_opx as usize];
                 println!(
                     "   {:>2}: column_opx={}, col_name={}, order={}, ele_len={}, hidden={}",
                     e.pos,
                     e.column_opx.to_string().green(),
-                    &tabdef.col_defs[e.column_opx as usize].col_name.magenta(),
+                    ref_col.col_name.magenta(),
                     e.order.to_string().yellow(),
                     e.ele_len.to_string().blue(),
                     e.hidden.to_string().magenta(),
