@@ -16,6 +16,8 @@ use strum::{Display, EnumString};
 pub const PAGE_ADDR_INF: usize = 99;
 pub const PAGE_ADDR_SUP: usize = 112;
 
+pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
+
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
@@ -119,7 +121,14 @@ impl RowInfo {
         let off = c.vfld_offset;
         match c.vfld_bytes {
             1 => self.vfld_arr[off] as usize,
-            2 => u16::from_be_bytes([self.vfld_arr[off + 1], self.vfld_arr[off]]) as usize,
+            2 => {
+                let tmp = [
+                    self.vfld_arr[off + 1] as usize,
+                    (self.vfld_arr[off] & REC_N_FIELDS_ONE_BYTE_MAX) as usize,
+                ];
+                debug!("tmp = {:?}", tmp);
+                (tmp[1] << 8) + tmp[0]
+            }
             _ => 0,
         }
     }

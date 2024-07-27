@@ -1,4 +1,5 @@
 use crate::ibd::page::{BasePage, SdiIndexPage};
+use crate::ibd::record::REC_N_FIELDS_ONE_BYTE_MAX;
 use crate::meta::def::{ColumnDef, IndexDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
@@ -31,8 +32,15 @@ impl MetaDataManager {
             if c.isvar {
                 vfldinfo.push((
                     c.pos,
-                    // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
-                    if c.data_len > 255 { 2 } else { 1 },
+                    // see function in mysql-server source code
+                    // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+                    //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+                    // }
+                    if c.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+                        2
+                    } else {
+                        1
+                    },
                 ));
             }
             if c.isnil {
