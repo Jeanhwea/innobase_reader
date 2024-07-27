@@ -224,7 +224,13 @@ impl Record {
                 let datum = (col.pos - 1, 0, None);
                 self.row.row_data.push(datum);
             } else {
-                let vlen = self.row_info.varlen(col);
+                let vlen = self
+                    .row
+                    .rowsize
+                    .iter()
+                    .find(|e| e.0 == col.pos)
+                    .expect("ROW_SIZE_NOT_FOUND")
+                    .1;
                 let datum = (col.pos - 1, vlen, Some(rbuf.slice(end..end + vlen)));
                 self.row.row_data.push(datum);
                 end += vlen;
