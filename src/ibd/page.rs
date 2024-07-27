@@ -566,11 +566,14 @@ impl IndexPage {
             let mut varr = self.buf.slice(end - tabdef.vfld_size..end).to_vec();
             varr.reverse();
             let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
+            debug!("rowinfo={:?}", &rowinfo);
 
             end = addr as usize;
             let rowsize = rowinfo.rowsize();
-            let rbuf = self.buf.slice(end..end + rowsize);
-            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone());
+            debug!("rowsize = {:?}", &rowsize);
+            let total: usize = rowsize.iter().map(|e| e.1).sum();
+            let rbuf = self.buf.slice(end..end + total);
+            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone(), rowsize);
 
             addr += rec_hdr.next_rec_offset;
             let mut urec = Record::new(rec_hdr, rowinfo, row);

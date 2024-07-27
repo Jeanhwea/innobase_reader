@@ -2,7 +2,7 @@ use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::meta::def::{ColumnDef, TableDef};
 use crate::util;
 use bytes::Bytes;
-use log::trace;
+use log::{trace, debug};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -119,24 +119,27 @@ impl RowInfo {
         let off = c.vfld_offset;
         match c.vfld_bytes {
             1 => self.vfld_arr[off] as usize,
-            2 => u16::from_be_bytes(self.vfld_arr[off..off + 2].try_into().unwrap()) as usize,
+            2 => u16::from_be_bytes([self.vfld_arr[off + 1], self.vfld_arr[off]]) as usize,
             _ => 0,
         }
     }
 
-    pub fn rowsize(&self) -> usize {
-        let mut total = 0usize;
-        for c in &self.table_def.col_defs {
-            if self.isnull(c) {
-                continue;
-            }
-            if !c.isvar {
-                total += c.data_len as usize;
-                continue;
-            }
-            total += self.varlen(c);
-        }
-        total
+    pub fn rowsize(&self) -> Vec<(usize, usize)> {
+        self.table_def
+            .col_defs
+            .iter()
+            .map(|c| {
+                if self.isnull(c) {
+                    (c.pos, 0usize)
+                } else if !c.isvar {
+                    (c.pos, c.data_len as usize)
+                } else {
+                    let vlen = self.varlen(c);
+                    debug!("pos={}, vlen={}", c.pos, vlen);
+                    (c.pos, vlen)
+                }
+            })
+            .collect()
     }
 }
 
@@ -158,6 +161,7 @@ pub struct Row {
     /// row buffer
     row_buffer: Bytes,
     table_def: Arc<TableDef>,
+    rowsize: Vec<(usize, usize)>,
 }
 
 impl fmt::Debug for Row {
@@ -173,11 +177,12 @@ impl fmt::Debug for Row {
 }
 
 impl Row {
-    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>) -> Self {
+    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, rowsize: Vec<(usize, usize)>) -> Self {
         Self {
             addr,
             row_buffer: rbuf,
             table_def: tabdef,
+            rowsize,
             ..Row::default()
         }
     }
