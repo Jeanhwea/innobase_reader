@@ -38,13 +38,13 @@ impl MetaDataManager {
         for c in &coldefs {
             if c.is_varfield {
                 vfldinfo.push((
-                    c.ord_pos as usize,
+                    c.pos as usize,
                     // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
                     if c.data_len > 255 { 2 } else { 1 },
                 ));
             }
             if c.is_nullable {
-                nullinfo.push(c.ord_pos as usize);
+                nullinfo.push(c.pos as usize);
             }
         }
         debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
@@ -91,7 +91,7 @@ pub struct TableDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub ord_pos: u32,         // ordinal position
+    pub pos: u32,             // ordinal position
     pub col_name: String,     // column name
     pub data_len: u32,        // data lenght in bytes
     pub is_nullable: bool,    // is nullable
@@ -110,7 +110,7 @@ pub struct ColumnDef {
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         Self {
-            ord_pos: ddc.ordinal_position,
+            pos: ddc.ordinal_position,
             col_name: ddc.col_name.clone(),
             col_key: ddc.column_key.clone(),
             data_len: match ddc.hidden {
@@ -156,7 +156,7 @@ impl ColumnDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct IndexDef {
-    pub ord_pos: u32,                   // ordinal position
+    pub pos: u32,                       // ordinal position
     pub idx_name: String,               // index name
     pub hidden: bool,                   // hidden
     pub comment: String,                // Comment
@@ -168,7 +168,7 @@ pub struct IndexDef {
 impl IndexDef {
     pub fn from(ddi: &DataDictIndex) -> Self {
         Self {
-            ord_pos: ddi.ordinal_position,
+            pos: ddi.ordinal_position,
             idx_name: ddi.name.clone(),
             hidden: ddi.hidden,
             comment: ddi.comment.clone(),
@@ -181,7 +181,7 @@ impl IndexDef {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IndexElementDef {
-    pub ord_pos: u32,      // ordinal position
+    pub pos: u32,          // ordinal position
     pub ele_len: i32,      // element length
     pub order: IndexOrder, // order, ASC/DESC
     pub hidden: bool,      // hidden
@@ -192,7 +192,7 @@ pub struct IndexElementDef {
 impl IndexElementDef {
     pub fn from(ele: &DataDictIndexElement) -> Self {
         Self {
-            ord_pos: ele.ordinal_position,
+            pos: ele.ordinal_position,
             ele_len: ele.length as i32,
             order: ele.order,
             hidden: ele.hidden,

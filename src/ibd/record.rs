@@ -210,7 +210,7 @@ impl Record {
                 continue;
             }
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
@@ -220,7 +220,7 @@ impl Record {
                 continue;
             }
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
@@ -233,13 +233,13 @@ impl Record {
                 continue;
             }
             if self.row_info.isnull(col) {
-                let datum = (col.ord_pos as usize, 0, None);
+                let datum = (col.pos as usize, 0, None);
                 self.row.row_data.push(datum);
                 continue;
             }
 
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
