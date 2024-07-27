@@ -8,7 +8,6 @@ use super::{
 use crate::ibd::record::HiddenTypes;
 use crate::util;
 use anyhow::{Error, Result};
-use colored::Colorize;
 use log::debug;
 
 #[derive(Debug, Default)]
@@ -83,7 +82,7 @@ pub struct TableDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub pos: u32,             // ordinal position
+    pub pos: usize,           // ordinal position
     pub col_name: String,     // column name
     pub data_len: u32,        // data lenght in bytes
     pub is_nullable: bool,    // is nullable
@@ -102,7 +101,7 @@ pub struct ColumnDef {
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         Self {
-            pos: ddc.ordinal_position,
+            pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
             col_key: ddc.column_key.clone(),
             data_len: match ddc.hidden {
@@ -148,7 +147,7 @@ impl ColumnDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct IndexDef {
-    pub pos: u32,                       // ordinal position
+    pub pos: usize,                     // ordinal position
     pub idx_name: String,               // index name
     pub hidden: bool,                   // hidden
     pub comment: String,                // Comment
@@ -160,7 +159,7 @@ pub struct IndexDef {
 impl IndexDef {
     pub fn from(ddi: &DataDictIndex) -> Self {
         Self {
-            pos: ddi.ordinal_position,
+            pos: ddi.ordinal_position as usize,
             idx_name: ddi.name.clone(),
             hidden: ddi.hidden,
             comment: ddi.comment.clone(),
@@ -173,22 +172,22 @@ impl IndexDef {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct IndexElementDef {
-    pub pos: u32,          // ordinal position
+    pub pos: usize,        // ordinal position
     pub ele_len: i32,      // element length
     pub order: IndexOrder, // order, ASC/DESC
     pub hidden: bool,      // hidden
-    pub column_opx: u32,   // opx: ordinal position index
+    pub column_opx: usize, // opx: ordinal position index
                            // write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
 }
 
 impl IndexElementDef {
     pub fn from(ele: &DataDictIndexElement) -> Self {
         Self {
-            pos: ele.ordinal_position,
+            pos: ele.ordinal_position as usize,
             ele_len: ele.length as i32,
             order: ele.order,
             hidden: ele.hidden,
-            column_opx: ele.column_opx,
+            column_opx: ele.column_opx as usize,
         }
     }
 }

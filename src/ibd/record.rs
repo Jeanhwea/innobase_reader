@@ -145,13 +145,13 @@ pub struct Row {
     /// row address, the offset to the top of this page
     pub addr: usize,
     /// Row id, 6 bytes
-    pub row_id: u64,
+    pub row_id: Option<u64>,
     /// transaction id, 6 bytes
     pub trx_id: u64,
     /// rollback pointer, 7 bytes
     pub roll_ptr: u64,
     /// row data list, (ord, vlen, buf),
-    //    1. ord: ordinal_position
+    //    1. opx: ordinal_position index
     //    2. vlen: variadic field length
     //    3. buf: row data buffer in bytes
     pub row_data: Vec<(usize, usize, Option<Bytes>)>,
@@ -205,53 +205,27 @@ impl Record {
         let rbuf = &self.row.row_buffer;
         let mut end = 0usize;
 
-        for col in cols {
-            if col.col_key != ColumnKeys::CK_PRIMARY {
-                continue;
-            }
-            let vlen = self.row_info.varlen(col);
-            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
-            self.row.row_data.push(datum);
-            end += vlen;
-        }
-
-        for col in cols {
-            if col.hidden != HT_HIDDEN_SE {
-                continue;
-            }
-            let vlen = self.row_info.varlen(col);
-            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
-            self.row.row_data.push(datum);
-            end += vlen;
-        }
-
-        for col in cols {
-            if col.col_key == ColumnKeys::CK_PRIMARY {
-                continue;
-            }
-            if col.hidden == HT_HIDDEN_SE {
-                continue;
-            }
+        for e in &tabdef.idx_defs[0].elements {
+            let col = &cols[e.column_opx];
             if self.row_info.isnull(col) {
-                let datum = (col.pos as usize, 0, None);
+                let datum = (col.pos - 1, 0, None);
                 self.row.row_data.push(datum);
-                continue;
+            } else {
+                let vlen = self.row_info.varlen(col);
+                let datum = (col.pos - 1, vlen, Some(rbuf.slice(end..end + vlen)));
+                self.row.row_data.push(datum);
+                end += vlen;
             }
-
-            let vlen = self.row_info.varlen(col);
-            let datum = (col.pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
-            self.row.row_data.push(datum);
-            end += vlen;
         }
 
         for datum in &self.row.row_data {
-            let col = &cols[datum.0 - 1];
+            let col = &cols[datum.0];
             if col.hidden != HT_HIDDEN_SE {
                 continue;
             }
             match col.col_name.as_str() {
                 "DB_ROW_ID" => {
-                    self.row.row_id = util::from_bytes6(datum.2.as_ref().unwrap().clone());
+                    self.row.row_id = Some(util::from_bytes6(datum.2.as_ref().unwrap().clone()));
                 }
                 "DB_TRX_ID" => {
                     self.row.trx_id = util::from_bytes6(datum.2.as_ref().unwrap().clone());

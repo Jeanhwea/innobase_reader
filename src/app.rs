@@ -173,11 +173,16 @@ impl App {
             if cur >= limit {
                 break;
             }
-            println!(
-                "seq={}, addr=@{}, data={:?}",
-                (cur + 1).to_string().green(),
+            info!(
+                "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
+                (cur + 1).to_string().red(),
                 &urec.row.addr.to_string().yellow(),
-                &urec.row
+                "hdr".cyan(),
+                &urec.rec_hdr,
+                "data".green(),
+                &urec.row,
+                "info".magenta(),
+                &urec.row_info,
             );
         }
 
