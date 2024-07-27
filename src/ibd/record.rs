@@ -2,7 +2,7 @@ use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::ibd::tabspace::ColumnDef;
 use crate::{ibd::tabspace::TableDef, util};
 use bytes::Bytes;
-use log::debug;
+use log::{trace};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -107,7 +107,7 @@ impl RowInfo {
         let noff = util::numoff(off);
         let nidx = util::numidx(off);
         let mask = 1 << noff;
-        debug!("offset={}, noff={}, nidx={}, mask=0b{:08b}", off, noff, nidx, mask);
+        trace!("offset={}, noff={}, nidx={}, mask=0b{:08b}", off, noff, nidx, mask);
         (self.null_arr[nidx] & mask) > 0
     }
 
@@ -142,12 +142,21 @@ impl RowInfo {
 
 #[derive(Default)]
 pub struct Row {
-    pub addr: usize,                           // row address, the offset to the top of this page
-    pub row_id: u64,                           // Row id, 6 bytes
-    pub trx_id: u64,                           // transaction id, 6 bytes
-    pub roll_ptr: u64,                         // rollback pointer, 7 bytes
-    pub row_data: Vec<(usize, Option<Bytes>)>, // row data list, (ord, buf)
-    row_buffer: Bytes,                         // row buffer
+    /// row address, the offset to the top of this page
+    pub addr: usize,
+    /// Row id, 6 bytes
+    pub row_id: u64,
+    /// transaction id, 6 bytes
+    pub trx_id: u64,
+    /// rollback pointer, 7 bytes
+    pub roll_ptr: u64,
+    /// row data list, (ord, vlen, buf),
+    //    1. ord: ordinal_position
+    //    2. vlen: variadic field length
+    //    3. buf: row data buffer in bytes
+    pub row_data: Vec<(usize, usize, Option<Bytes>)>,
+    /// row buffer
+    row_buffer: Bytes,
     table_def: Arc<TableDef>,
 }
 
@@ -201,7 +210,7 @@ impl Record {
                 continue;
             }
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
@@ -211,7 +220,7 @@ impl Record {
                 continue;
             }
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
@@ -224,13 +233,13 @@ impl Record {
                 continue;
             }
             if self.row_info.isnull(col) {
-                let datum = (col.ord_pos as usize, None);
+                let datum = (col.ord_pos as usize, 0, None);
                 self.row.row_data.push(datum);
                 continue;
             }
 
             let vlen = self.row_info.varlen(col);
-            let datum = (col.ord_pos as usize, Some(rbuf.slice(end..end + vlen)));
+            let datum = (col.ord_pos as usize, vlen, Some(rbuf.slice(end..end + vlen)));
             self.row.row_data.push(datum);
             end += vlen;
         }
@@ -242,13 +251,13 @@ impl Record {
             }
             match col.col_name.as_str() {
                 "DB_ROW_ID" => {
-                    self.row.row_id = util::from_bytes6(datum.1.as_ref().unwrap().clone());
+                    self.row.row_id = util::from_bytes6(datum.2.as_ref().unwrap().clone());
                 }
                 "DB_TRX_ID" => {
-                    self.row.trx_id = util::from_bytes6(datum.1.as_ref().unwrap().clone());
+                    self.row.trx_id = util::from_bytes6(datum.2.as_ref().unwrap().clone());
                 }
                 "DB_ROLL_PTR" => {
-                    self.row.roll_ptr = util::from_bytes7(datum.1.as_ref().unwrap().clone());
+                    self.row.roll_ptr = util::from_bytes7(datum.2.as_ref().unwrap().clone());
                 }
                 _ => panic!("ERR_DB_META_COLUMN_NAME"),
             }

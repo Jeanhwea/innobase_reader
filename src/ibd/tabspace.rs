@@ -50,7 +50,7 @@ impl MetaDataManager {
         }
         let nullflag_size = util::align8(nullinfo.len());
 
-        let mut vfld_offset = nullflag_size;
+        let mut vfld_offset = 0usize;
         for ent in &vfldinfo {
             coldefs[ent.0 - 1].vfld_offset = vfld_offset;
             coldefs[ent.0 - 1].vfld_bytes = ent.1;
@@ -65,7 +65,7 @@ impl MetaDataManager {
         Ok(TableDef {
             has_row_id,
             tab_name: ddobj.name.clone(),
-            vfld_size: vfld_offset - nullflag_size,
+            vfld_size: vfld_offset,
             null_size: nullflag_size,
             col_defs: coldefs,
         })
