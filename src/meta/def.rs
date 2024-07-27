@@ -1,11 +1,13 @@
-use super::{
-    page::{BasePage, SdiIndexPage},
-    record::{
-        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, IndexAlgorithm, IndexOrder,
-        IndexTypes,
-    },
-};
+use crate::ibd::page::{BasePage, SdiIndexPage};
+use crate::ibd::record::ColumnKeys;
+use crate::ibd::record::ColumnTypes;
+use crate::ibd::record::DataDictColumn;
+use crate::ibd::record::DataDictIndex;
+use crate::ibd::record::DataDictIndexElement;
 use crate::ibd::record::HiddenTypes;
+use crate::ibd::record::IndexAlgorithm;
+use crate::ibd::record::IndexOrder;
+use crate::ibd::record::IndexTypes;
 use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
@@ -36,13 +38,13 @@ impl MetaDataManager {
         for c in &coldefs {
             if c.isvar {
                 vfldinfo.push((
-                    c.pos as usize,
+                    c.pos,
                     // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
                     if c.data_len > 255 { 2 } else { 1 },
                 ));
             }
             if c.isnil {
-                nullinfo.push(c.pos as usize);
+                nullinfo.push(c.pos);
             }
         }
         debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);

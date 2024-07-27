@@ -1,9 +1,9 @@
-use super::page::{
+use crate::ibd::page::SdiIndexPage;
+use crate::ibd::page::{
     BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_HEADER_SIZE,
     FIL_TRAILER_SIZE, PAGE_SIZE,
 };
-use super::tabspace::MetaDataManager;
-use crate::ibd::page::SdiIndexPage;
+use crate::meta::def::MetaDataManager;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};

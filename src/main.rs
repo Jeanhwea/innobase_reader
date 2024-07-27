@@ -7,7 +7,9 @@ use log::info;
 use std::path::PathBuf;
 
 mod app;
+mod factory;
 mod ibd;
+mod meta;
 mod util;
 
 #[derive(Debug, Parser)]

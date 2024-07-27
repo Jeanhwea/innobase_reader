@@ -1,6 +1,6 @@
 use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
-use crate::ibd::tabspace::ColumnDef;
-use crate::{ibd::tabspace::TableDef, util};
+use crate::meta::def::{ColumnDef, TableDef};
+use crate::util;
 use bytes::Bytes;
 use log::trace;
 use num_enum::FromPrimitive;

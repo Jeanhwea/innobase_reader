@@ -1,6 +1,6 @@
 use super::record::{Record, SdiObject};
-use super::tabspace::TableDef;
 use crate::ibd::record::{RecordHeader, Row, RowInfo, PAGE_ADDR_INF, PAGE_ADDR_SUP};
+use crate::meta::def::TableDef;
 use crate::util;
 use anyhow::{Error, Result};
 use bytes::Bytes;

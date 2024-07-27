@@ -1,4 +1,4 @@
-use crate::ibd::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
+use crate::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
 use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage};
 use crate::Commands;
 use anyhow::{Error, Result};
@@ -121,7 +121,7 @@ impl App {
                 i.algorithm.to_string().cyan(),
             );
             for e in &i.elements {
-                let ref_col = &tabdef.col_defs[e.column_opx as usize];
+                let ref_col = &tabdef.col_defs[e.column_opx];
                 println!(
                     "   {:>2}: column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
                     e.pos,
