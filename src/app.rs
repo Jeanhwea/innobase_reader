@@ -150,7 +150,12 @@ impl App {
             if cur >= limit {
                 break;
             }
-            println!("row {} = {:?}", cur + 1, &urec.row);
+            println!(
+                "seq={}, addr=@{}, data={:?}",
+                (cur + 1).to_string().green(),
+                &urec.row.addr.to_string().yellow(),
+                &urec.row
+            );
         }
 
         Ok(())
@@ -268,6 +273,6 @@ mod app_tests {
     fn it_works() {
         setup();
         let mut app = App::new(PathBuf::from(IBD_02));
-        assert!(app.run(Commands::Dump { page: 4, limit: 10 }).is_ok());
+        assert!(app.run(Commands::Dump { page: 4, limit: 3 }).is_ok());
     }
 }

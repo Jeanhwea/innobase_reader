@@ -58,6 +58,7 @@ pub fn from_bytes7(b: Bytes) -> u64 {
     u64::from_be_bytes(arr)
 }
 
+
 #[cfg(test)]
 mod util_tests {
 
