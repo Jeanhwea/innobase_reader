@@ -186,6 +186,10 @@ impl App {
                 "info".magenta(),
                 &urec.row_info,
             );
+            println!("******* Row {} *******", cur);
+            for (irow, row) in urec.row.row_data.iter().enumerate() {
+                println!("irow={}, buf={:?}", irow, row.2);
+            }
         }
 
         Ok(())
