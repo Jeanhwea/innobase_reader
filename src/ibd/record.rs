@@ -122,12 +122,11 @@ impl RowInfo {
         match c.vfld_bytes {
             1 => self.vfld_arr[off] as usize,
             2 => {
-                let tmp = [
-                    self.vfld_arr[off + 1] as usize,
-                    (self.vfld_arr[off] & REC_N_FIELDS_ONE_BYTE_MAX) as usize,
-                ];
-                debug!("tmp = {:?}", tmp);
-                (tmp[1] << 8) + tmp[0]
+                let b0 = self.vfld_arr[off + 1] as usize;
+                let b1 = self.vfld_arr[off] as usize;
+                let vlen = (b0 << 8) + (b1 & (REC_N_FIELDS_ONE_BYTE_MAX as usize));
+                debug!("{:02x} {:02x} => {}", b0, b1, vlen);
+                vlen
             }
             _ => 0,
         }

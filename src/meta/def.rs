@@ -65,10 +65,7 @@ impl ColumnDef {
                 _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
             },
             isnil: ddc.is_nullable,
-            isvar: matches!(
-                &ddc.dd_type,
-                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
-            ),
+            isvar: matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
             collation_id: ddc.collation_id,
