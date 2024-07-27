@@ -249,6 +249,7 @@ pub struct SdiObject {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataDictObject {
     pub name: String,
+    pub schema_ref: String,
     pub created: u64,
     pub last_altered: u64,
     pub hidden: u8,

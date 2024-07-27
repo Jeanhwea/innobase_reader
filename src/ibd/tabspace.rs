@@ -60,24 +60,26 @@ impl MetaDataManager {
         }
 
         Ok(TableDef {
+            schema_ref: ddobj.schema_ref.clone(),
             tab_name: ddobj.name.clone(),
             collation_id: ddobj.collation_id,
-            vfld_size: vfld_offset,
-            null_size: nullflag_size,
             col_defs: coldefs,
             idx_defs: idxdefs,
+            vfld_size: vfld_offset,
+            null_size: nullflag_size,
         })
     }
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
+    pub schema_ref: String,       // schema name
     pub tab_name: String,         // table name
-    pub vfld_size: usize,         // variadic field size
-    pub null_size: usize,         // nullable flag size
-    pub collation_id: u32,        // collation
+    pub collation_id: u32,        // collation, see INFORMATION_SCHEMA.COLLATIONS
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
+    pub vfld_size: usize,         // variadic field size
+    pub null_size: usize,         // nullable flag size
 }
 
 #[derive(Debug, Default, Clone)]
