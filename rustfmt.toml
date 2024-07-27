@@ -1,4 +1,5 @@
 max_width = 120
-reorder_imports = true
+reorder_imports = false
+edition = "2021"
 # imports_granularity = "Crate"
 # group_imports = "StdExternalCrate"
