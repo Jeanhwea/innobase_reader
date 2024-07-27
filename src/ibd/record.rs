@@ -99,7 +99,7 @@ impl RowInfo {
     }
 
     pub fn isnull(&self, c: &ColumnDef) -> bool {
-        if !c.is_nullable {
+        if !c.isnil {
             return false;
         }
 
@@ -112,7 +112,7 @@ impl RowInfo {
     }
 
     pub fn varlen(&self, c: &ColumnDef) -> usize {
-        if !c.is_varfield {
+        if !c.isvar {
             return c.data_len as usize;
         }
 
@@ -130,7 +130,7 @@ impl RowInfo {
             if self.isnull(c) {
                 continue;
             }
-            if !c.is_varfield {
+            if !c.isvar {
                 total += c.data_len as usize;
                 continue;
             }

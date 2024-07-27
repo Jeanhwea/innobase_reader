@@ -105,7 +105,7 @@ impl App {
                 c.pos,
                 c.col_name.magenta(),
                 c.dd_type.to_string().blue(),
-                c.is_nullable.to_string().yellow(),
+                c.isnil.to_string().yellow(),
                 c.data_len.to_string().cyan(),
                 c.utf8_def.green(),
             );
@@ -130,7 +130,7 @@ impl App {
                     e.order.to_string().yellow(),
                     e.ele_len.to_string().blue(),
                     e.hidden.to_string().magenta(),
-                    ref_col.is_varfield.to_string().cyan(),
+                    ref_col.isvar.to_string().cyan(),
                 );
             }
             info!("{:?}", i);

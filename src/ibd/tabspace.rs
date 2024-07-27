@@ -34,14 +34,14 @@ impl MetaDataManager {
         let mut vfldinfo = Vec::new();
         let mut nullinfo = Vec::new();
         for c in &coldefs {
-            if c.is_varfield {
+            if c.isvar {
                 vfldinfo.push((
                     c.pos as usize,
                     // 字符数大于 255 , 使用 2 个字节存储; 否则用 1 个字节
                     if c.data_len > 255 { 2 } else { 1 },
                 ));
             }
-            if c.is_nullable {
+            if c.isnil {
                 nullinfo.push(c.pos as usize);
             }
         }
@@ -87,8 +87,8 @@ pub struct ColumnDef {
     pub pos: usize,           // ordinal position
     pub col_name: String,     // column name
     pub data_len: u32,        // data lenght in bytes
-    pub is_nullable: bool,    // is nullable
-    pub is_varfield: bool,    // is variadic field
+    pub isnil: bool,          // is nullable field
+    pub isvar: bool,          // is variadic field
     pub dd_type: ColumnTypes, // data dictionary type
     pub hidden: HiddenTypes,  // hidden type
     pub col_key: ColumnKeys,  // column key type
@@ -127,8 +127,8 @@ impl ColumnDef {
                 },
                 _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
             },
-            is_nullable: ddc.is_nullable,
-            is_varfield: matches!(
+            isnil: ddc.is_nullable,
+            isvar: matches!(
                 &ddc.dd_type,
                 ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
             ),
