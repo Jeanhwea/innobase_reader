@@ -1,6 +1,9 @@
 use super::{
     page::{BasePage, SdiIndexPage},
-    record::{ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, IndexTypes},
+    record::{
+        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, IndexAlgorithm, IndexOrder,
+        IndexTypes,
+    },
 };
 use crate::ibd::record::HiddenTypes;
 use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
@@ -25,7 +28,7 @@ impl MetaDataManager {
 
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
         let ddobj = self.sdi.as_ref().unwrap().page_body.get_sdi_object().dd_object;
-        info!("ddobj = {:?}", &ddobj);
+        debug!("ddobj = {:#?}", &ddobj);
 
         let mut coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
         let idxdefs = ddobj.indexes.iter().map(IndexDef::from).collect::<Vec<_>>();
@@ -66,6 +69,7 @@ impl MetaDataManager {
         Ok(TableDef {
             has_row_id,
             tab_name: ddobj.name.clone(),
+            collation_id: ddobj.collation_id,
             vfld_size: vfld_offset,
             null_size: nullflag_size,
             col_defs: coldefs,
@@ -80,6 +84,7 @@ pub struct TableDef {
     pub tab_name: String,         // table name
     pub vfld_size: usize,         // variadic field size
     pub null_size: usize,         // nullable flag size
+    pub collation_id: u32,        // collation
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
 }
@@ -96,6 +101,7 @@ pub struct ColumnDef {
     pub col_key: ColumnKeys,  // column key type
     pub utf8_def: String,     // utf8 column definition
     pub comment: String,      // Comment
+    pub collation_id: u32,    // collation
     pub null_offset: usize,   // nullable offset
     pub vfld_offset: usize,   // variadic field offset
     pub vfld_bytes: usize,    // variadic field size
@@ -138,6 +144,7 @@ impl ColumnDef {
             },
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
+            collation_id: ddc.collation_id,
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
             null_offset: 0,
@@ -149,11 +156,13 @@ impl ColumnDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct IndexDef {
-    pub ord_pos: u32,         // ordinal position
-    pub idx_name: String,     // index name
-    pub hidden: bool,         // hidden
-    pub comment: String,      // Comment
-    pub idx_type: IndexTypes, // index type
+    pub ord_pos: u32,                   // ordinal position
+    pub idx_name: String,               // index name
+    pub hidden: bool,                   // hidden
+    pub comment: String,                // Comment
+    pub idx_type: IndexTypes,           // index type
+    pub algorithm: IndexAlgorithm,      // index algorithm
+    pub elements: Vec<IndexElementDef>, // index elememts
 }
 
 impl IndexDef {
@@ -164,6 +173,30 @@ impl IndexDef {
             hidden: ddi.hidden,
             comment: ddi.comment.clone(),
             idx_type: ddi.idx_type.clone(),
+            algorithm: ddi.algorithm.clone(),
+            elements: ddi.elements.iter().map(IndexElementDef::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct IndexElementDef {
+    pub ord_pos: u32,      // ordinal position
+    pub ele_len: i32,      // element length
+    pub order: IndexOrder, // order, ASC/DESC
+    pub hidden: bool,      // hidden
+    pub column_opx: u32,   // opx: ordinal position index
+                           // write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
+}
+
+impl IndexElementDef {
+    pub fn from(ele: &DataDictIndexElement) -> Self {
+        Self {
+            ord_pos: ele.ordinal_position,
+            ele_len: ele.length as i32,
+            order: ele.order,
+            hidden: ele.hidden,
+            column_opx: ele.column_opx,
         }
     }
 }

@@ -278,6 +278,7 @@ pub struct DataDictObject {
     pub created: u64,
     pub last_altered: u64,
     pub hidden: u8,
+    pub collation_id: u32,
     pub columns: Vec<DataDictColumn>,
     pub indexes: Vec<DataDictIndex>,
     #[serde(flatten)]
@@ -367,6 +368,7 @@ pub enum ColumnKeys {
 //    class Column_impl : public Entity_object_impl, public Column {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DataDictColumn {
+    pub ordinal_position: u32,
     #[serde(rename = "name")]
     pub col_name: String,
     #[serde(rename = "type")]
@@ -377,9 +379,9 @@ pub struct DataDictColumn {
     pub is_auto_increment: bool,
     pub is_virtual: bool,
     pub hidden: HiddenTypes,
-    pub ordinal_position: u32,
     pub char_length: u32,
     pub comment: String,
+    pub collation_id: u32,
     pub column_key: ColumnKeys,
     pub column_type_utf8: String,
     pub elements: Vec<DataDictColumnElement>,
@@ -425,19 +427,42 @@ pub enum IndexAlgorithm {
     UNDEF,
 }
 
+// see sql/dd/types/index.h
+//     enum class enum_index_algorithm
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, Copy)]
+pub enum IndexOrder {
+    #[default]
+    ORDER_UNDEF = 1,
+    ORDER_ASC = 2,
+    ORDER_DESC = 3,
+}
+
 // see sql/dd/impl/types/index_impl.h
 //    class Index_impl : public Entity_object_impl, public Index {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataDictIndex {
+    pub ordinal_position: u32,
     pub name: String,
     pub hidden: bool,
-    pub ordinal_position: u32,
     pub comment: String,
     #[serde(rename = "type")]
     pub idx_type: IndexTypes,
     pub algorithm: IndexAlgorithm,
     pub is_visible: bool,
     pub engine: String,
+    pub elements: Vec<DataDictIndexElement>,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct DataDictIndexElement {
+    pub ordinal_position: u32,
+    pub length: u32,
+    pub order: IndexOrder,
+    pub hidden: bool,
+    pub column_opx: u32,
 }

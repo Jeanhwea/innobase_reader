@@ -114,11 +114,22 @@ impl App {
 
         for i in &tabdef.idx_defs {
             println!(
-                "IDX{:>2}: name={}, idx_type={}",
+                "IDX{:>2}: name={}, idx_type={}, algorithm={}",
                 i.ord_pos,
                 i.idx_name.magenta(),
                 i.idx_type.to_string().blue(),
+                i.algorithm.to_string().cyan(),
             );
+            for e in &i.elements {
+                println!(
+                    "   {:>2}: column_opx={}, order={}, ele_len={}, hidden={}",
+                    e.ord_pos,
+                    e.column_opx.to_string().green(),
+                    e.order.to_string().yellow(),
+                    e.ele_len.to_string().blue(),
+                    e.hidden.to_string().magenta(),
+                );
+            }
             info!("{:?}", i);
         }
 
