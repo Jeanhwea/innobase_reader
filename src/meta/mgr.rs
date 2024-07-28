@@ -63,7 +63,6 @@ impl MetaDataManager {
 
             let mut vfld_offset = 0usize;
             for ent in &vfldinfo {
-                ele_defs[ent.0 - 1].vfld_offset = vfld_offset;
                 ele_defs[ent.0 - 1].vfld_bytes = ent.1;
                 vfld_offset += ent.1;
             }

@@ -127,12 +127,11 @@ impl RowInfo {
         (self.null_arr[nidx] & mask) > 0
     }
 
-    pub fn varlen(&self, e: &IndexElementDef) -> usize {
+    pub fn varlen(&self, off: usize, e: &IndexElementDef) -> usize {
         if !e.isvar {
             return e.data_len as usize;
         }
 
-        let off = e.vfld_offset;
         match e.vfld_bytes {
             1 => {
                 let b0 = self.vfld_arr[off] as usize;
@@ -162,6 +161,7 @@ impl RowInfo {
     }
 
     pub fn dyninfo(&self, idxdef: &IndexDef) -> Vec<DynamicInfo> {
+        let mut offset = 0;
         idxdef
             .elements
             .iter()
@@ -171,7 +171,8 @@ impl RowInfo {
                 } else if !e.isvar {
                     DynamicInfo(e.pos, e.data_len as usize, self.isnull(e), e.col_name.clone())
                 } else {
-                    let vlen = self.varlen(e);
+                    let vlen = self.varlen(offset, e);
+                    offset += vlen;
                     debug!("pos={}, vlen={}", e.pos, vlen);
                     DynamicInfo(e.pos, vlen, self.isnull(e), e.col_name.clone())
                 }

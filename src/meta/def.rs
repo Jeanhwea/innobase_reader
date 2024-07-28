@@ -125,7 +125,6 @@ pub struct IndexElementDef {
     pub isnil: bool,       // is nullable field
     pub isvar: bool,       // is variadic field
     pub null_offset: usize, // nullable offset
-    pub vfld_offset: usize, // variadic field offset
     pub vfld_bytes: usize, // variadic field size
 }
 
