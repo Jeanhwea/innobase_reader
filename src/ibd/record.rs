@@ -2,6 +2,7 @@ use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
 use crate::meta::def::{IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use bytes::Bytes;
+use colored::Colorize;
 use log::{trace, debug};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -133,7 +134,12 @@ impl RowInfo {
 
         let off = e.vfld_offset;
         match e.vfld_bytes {
-            1 => self.vfld_arr[off] as usize,
+            1 => {
+                let b0 = self.vfld_arr[off] as usize;
+                let vlen = b0;
+                debug!("col_name={}, b0=0x{:02x} => vlen={}", e.col_name.magenta(), b0, vlen);
+                vlen
+            }
             2 => {
                 let b0 = self.vfld_arr[off + 1] as usize;
                 let b1 = self.vfld_arr[off] as usize;
@@ -142,7 +148,13 @@ impl RowInfo {
                 } else {
                     b1
                 };
-                debug!("b0=0x{:02x}, b1=0x{:02x} => {}", b0, b1, vlen);
+                debug!(
+                    "col_name={}, b0=0x{:02x}, b1=0x{:02x} => vlen={}",
+                    e.col_name.magenta(),
+                    b0,
+                    b1,
+                    vlen,
+                );
                 vlen
             }
             _ => 0,
