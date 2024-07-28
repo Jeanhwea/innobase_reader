@@ -135,9 +135,13 @@ impl RowInfo {
         match e.vfld_bytes {
             1 => self.vfld_arr[off] as usize,
             2 => {
-                let b0 = self.vfld_arr[off + 1] as usize; // 0xb8
-                let b1 = self.vfld_arr[off] as usize; // 0x8b
-                let vlen = b0 + ((b1 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8);
+                let b0 = self.vfld_arr[off + 1] as usize;
+                let b1 = self.vfld_arr[off] as usize;
+                let vlen = if b0 > REC_N_FIELDS_ONE_BYTE_MAX {
+                    b0 + ((b1 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
+                } else {
+                    b0
+                };
                 debug!("{:02x} {:02x} => {}", b0, b1, vlen);
                 vlen
             }
