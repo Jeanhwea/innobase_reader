@@ -249,20 +249,20 @@ impl Record {
             }
         }
 
-        for datum in &self.row.row_data {
-            let col = &tabdef.col_defs[datum.0];
+        for d in &self.row.row_data {
+            let col = &tabdef.col_defs[d.0];
             if col.hidden != HT_HIDDEN_SE {
                 continue;
             }
             match col.col_name.as_str() {
                 "DB_ROW_ID" => {
-                    self.row.row_id = Some(util::from_bytes6(datum.2.as_ref().unwrap().clone()));
+                    self.row.row_id = Some(util::from_bytes6(d.2.as_ref().unwrap().clone()));
                 }
                 "DB_TRX_ID" => {
-                    self.row.trx_id = util::from_bytes6(datum.2.as_ref().unwrap().clone());
+                    self.row.trx_id = util::from_bytes6(d.2.as_ref().unwrap().clone());
                 }
                 "DB_ROLL_PTR" => {
-                    self.row.roll_ptr = util::from_bytes7(datum.2.as_ref().unwrap().clone());
+                    self.row.roll_ptr = util::from_bytes7(d.2.as_ref().unwrap().clone());
                 }
                 _ => panic!("ERR_DB_META_COLUMN_NAME"),
             }
