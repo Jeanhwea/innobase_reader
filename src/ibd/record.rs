@@ -230,16 +230,14 @@ impl Record {
     pub fn unpack(&mut self) {
         let tabdef = self.row.table_def.clone();
         let rbuf = &self.row.row_buffer;
-        let cols = &tabdef.col_defs;
-        let rdi = &self.row.row_dyn_info;
-        let mut end = 0usize;
 
         // TODO: only read PRIMARY index data
         assert_eq!(&tabdef.idx_defs[0].idx_name, "PRIMARY");
 
+        let mut end = 0usize;
         for e in &tabdef.idx_defs[0].elements {
-            let di = &rdi[e.column_opx];
-            let col = &cols[e.column_opx];
+            let di = &self.row.row_dyn_info[e.column_opx];
+            let col = &tabdef.col_defs[e.column_opx];
             if di.2 {
                 self.row.row_data.push(RowDatum(col.pos - 1, 0, None));
             } else {
@@ -252,7 +250,7 @@ impl Record {
         }
 
         for datum in &self.row.row_data {
-            let col = &cols[datum.0];
+            let col = &tabdef.col_defs[datum.0];
             if col.hidden != HT_HIDDEN_SE {
                 continue;
             }
