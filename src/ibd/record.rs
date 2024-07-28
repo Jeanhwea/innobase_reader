@@ -236,15 +236,15 @@ impl Record {
 
         let mut end = 0usize;
         for e in &tabdef.idx_defs[0].elements {
-            let di = &self.row.row_dyn_info[e.column_opx];
+            let rdi = &self.row.row_dyn_info[e.column_opx];
             let col = &tabdef.col_defs[e.column_opx];
-            if di.2 {
-                self.row.row_data.push(RowDatum(col.pos - 1, 0, None));
+            let opx = col.pos - 1;
+            if rdi.2 {
+                self.row.row_data.push(RowDatum(opx, 0, None));
             } else {
-                let len = di.1;
-                self.row
-                    .row_data
-                    .push(RowDatum(col.pos - 1, len, Some(rbuf.slice(end..end + len))));
+                let len = rdi.1;
+                let buf = Some(rbuf.slice(end..end + len));
+                self.row.row_data.push(RowDatum(opx, len, buf));
                 end += len;
             }
         }
