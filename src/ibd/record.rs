@@ -172,7 +172,7 @@ impl RowInfo {
                     DynamicInfo(e.pos, e.data_len as usize, self.isnull(e), e.col_name.clone())
                 } else {
                     let vlen = self.varlen(offset, e);
-                    offset += vlen;
+                    offset += e.vfld_bytes;
                     debug!("pos={}, vlen={}", e.pos, vlen);
                     DynamicInfo(e.pos, vlen, self.isnull(e), e.col_name.clone())
                 }
