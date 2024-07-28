@@ -227,7 +227,7 @@ impl Record {
 
         let mut end = 0usize;
         for e in &idxdef.elements {
-            let rdi = &self.row.row_dyn_info[e.pos];
+            let rdi = &self.row.row_dyn_info[e.pos - 1];
             if rdi.2 {
                 self.row.row_data.push(RowDatum(e.column_opx, 0, None));
             } else {
