@@ -238,28 +238,23 @@ impl Record {
                 self.row.row_data.push(RowDatum(opx, 0, None));
             } else {
                 let len = rdi.1;
-                let buf = Some(rbuf.slice(end..end + len));
-                self.row.row_data.push(RowDatum(opx, len, buf));
+                let buf = rbuf.slice(end..end + len);
+                self.row.row_data.push(RowDatum(opx, len, Some(buf.clone())));
                 end += len;
-            }
-        }
-
-        for d in &self.row.row_data {
-            let col = &tabdef.col_defs[d.0];
-            if col.hidden != HT_HIDDEN_SE {
-                continue;
-            }
-            match col.col_name.as_str() {
-                "DB_ROW_ID" => {
-                    self.row.row_id = Some(util::from_bytes6(d.2.as_ref().unwrap().clone()));
+                if col.hidden == HT_HIDDEN_SE {
+                    match col.col_name.as_str() {
+                        "DB_ROW_ID" => {
+                            self.row.row_id = Some(util::from_bytes6(buf.clone()));
+                        }
+                        "DB_TRX_ID" => {
+                            self.row.trx_id = util::from_bytes6(buf.clone());
+                        }
+                        "DB_ROLL_PTR" => {
+                            self.row.roll_ptr = util::from_bytes7(buf.clone());
+                        }
+                        _ => panic!("ERR_DB_META_COLUMN_NAME"),
+                    }
                 }
-                "DB_TRX_ID" => {
-                    self.row.trx_id = util::from_bytes6(d.2.as_ref().unwrap().clone());
-                }
-                "DB_ROLL_PTR" => {
-                    self.row.roll_ptr = util::from_bytes7(d.2.as_ref().unwrap().clone());
-                }
-                _ => panic!("ERR_DB_META_COLUMN_NAME"),
             }
         }
     }
