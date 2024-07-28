@@ -74,12 +74,6 @@ impl RecordHeader {
     }
 }
 
-pub struct RowInfo {
-    pub vfld_arr: Vec<u8>, // variadic field array in reversed order
-    pub null_arr: Vec<u8>, // nullable flag array in reversed order
-    table_def: Arc<TableDef>,
-}
-
 /// Row Dynamic Information, (pos, len, isnull, name)
 ///   1. pos: column ordinal position
 ///   2. len: row data length
@@ -95,11 +89,17 @@ pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String);
 #[derive(Debug)]
 pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
 
+pub struct RowInfo {
+    pub vfld_arr: Vec<u8>, // variadic field array in reversed order
+    pub null_arr: Vec<u8>, // nullable flag array in reversed order
+    table_def: Arc<TableDef>,
+}
+
 impl fmt::Debug for RowInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("RowInfo")
-            .field("vfld_arr", &self.vfld_arr)
-            .field("null_arr", &self.null_arr)
+            .field("vfld_arr", &format!("{:02x?}", &self.vfld_arr))
+            .field("null_arr", &format!("{:02x?}", &self.null_arr))
             .finish()
     }
 }
