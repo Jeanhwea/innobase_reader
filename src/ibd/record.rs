@@ -82,6 +82,11 @@ pub struct RowInfo {
     table_def: Arc<TableDef>,
 }
 
+/// Row Dynamic Information
+///   (pos, vlen, isnull, col_name)
+#[derive(Debug)]
+pub struct RowDynamicInfo(pub usize, pub usize, pub bool, pub String);
+
 impl fmt::Debug for RowInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("RowInfo")
@@ -132,19 +137,19 @@ impl RowInfo {
         }
     }
 
-    pub fn rowsize(&self) -> Vec<(usize, usize)> {
+    pub fn dyninfo(&self) -> Vec<RowDynamicInfo> {
         self.table_def
             .col_defs
             .iter()
             .map(|c| {
                 if self.isnull(c) {
-                    (c.pos, 0usize)
+                    RowDynamicInfo(c.pos, 0usize, self.isnull(c), c.col_name.clone())
                 } else if !c.isvar {
-                    (c.pos, c.data_len as usize)
+                    RowDynamicInfo(c.pos, c.data_len as usize, self.isnull(c), c.col_name.clone())
                 } else {
                     let vlen = self.varlen(c);
                     debug!("pos={}, vlen={}", c.pos, vlen);
-                    (c.pos, vlen)
+                    RowDynamicInfo(c.pos, vlen, self.isnull(c), c.col_name.clone())
                 }
             })
             .collect()
@@ -169,7 +174,7 @@ pub struct Row {
     /// row buffer
     row_buffer: Bytes,
     table_def: Arc<TableDef>,
-    rowsize: Vec<(usize, usize)>,
+    row_dyn_info: Vec<RowDynamicInfo>,
 }
 
 impl fmt::Debug for Row {
@@ -179,18 +184,18 @@ impl fmt::Debug for Row {
             .field("row_id", &self.row_id)
             .field("trx_id", &self.trx_id)
             .field("roll_ptr", &self.roll_ptr)
-            .field("row_data", &self.row_data)
+            .field("row_dyn_info", &self.row_dyn_info)
             .finish()
     }
 }
 
 impl Row {
-    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, rowsize: Vec<(usize, usize)>) -> Self {
+    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, dyninfo: Vec<RowDynamicInfo>) -> Self {
         Self {
             addr,
             row_buffer: rbuf,
             table_def: tabdef,
-            rowsize,
+            row_dyn_info: dyninfo,
             ..Row::default()
         }
     }
@@ -226,7 +231,7 @@ impl Record {
             } else {
                 let vlen = self
                     .row
-                    .rowsize
+                    .row_dyn_info
                     .iter()
                     .find(|e| e.0 == col.pos)
                     .expect("ROW_SIZE_NOT_FOUND")

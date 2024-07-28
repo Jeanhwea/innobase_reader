@@ -569,11 +569,11 @@ impl IndexPage {
             debug!("rowinfo={:?}", &rowinfo);
 
             end = addr as usize;
-            let rowsize = rowinfo.rowsize();
-            debug!("rowsize = {:?}", &rowsize);
-            let total: usize = rowsize.iter().map(|e| e.1).sum();
+            let rdi = rowinfo.dyninfo();
+            debug!("Row Dynamic Info = {:?}", &rdi);
+            let total: usize = rdi.iter().map(|e| e.1).sum();
             let rbuf = self.buf.slice(end..end + total);
-            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone(), rowsize);
+            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone(), rdi);
 
             addr += rec_hdr.next_rec_offset;
             let mut urec = Record::new(rec_hdr, rowinfo, row);
