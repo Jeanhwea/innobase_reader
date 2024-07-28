@@ -192,11 +192,11 @@ impl App {
                 "******************** Row {} ********************",
                 seq.to_string().yellow()
             );
-            for (irow, row) in urec.row.row_data.iter().enumerate() {
+            for (opx, row) in urec.row.row_data.iter().enumerate() {
                 let col_ref = &tabdef.clone().col_defs[row.0];
                 println!(
-                    "irow={}, col_name={}, buf={:?}",
-                    irow.to_string().green(),
+                    "opx={}, col_name={}, buf={:?}",
+                    opx.to_string().green(),
                     &col_ref.col_name.magenta(),
                     row.2
                 );
