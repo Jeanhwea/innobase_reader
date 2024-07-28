@@ -192,14 +192,9 @@ impl App {
                 "******************** Row {} ********************",
                 seq.to_string().yellow()
             );
-            for (opx, row) in urec.row.row_data.iter().enumerate() {
-                let col_ref = &tabdef.clone().col_defs[row.0];
-                println!(
-                    "opx={}, col_name={}, buf={:?}",
-                    opx.to_string().green(),
-                    &col_ref.col_name.magenta(),
-                    row.2
-                );
+            for row in &urec.row.row_data {
+                let col = &tabdef.clone().col_defs[row.0];
+                println!("{:>12} => {:?}", &col.col_name.magenta(), row.2);
             }
         }
 
