@@ -82,10 +82,20 @@ pub struct RowInfo {
     table_def: Arc<TableDef>,
 }
 
-/// Row Dynamic Information
-///   (pos, vlen, isnull, col_name)
+/// Row Dynamic Information, (pos, len, isnull, name)
+///   1. pos: column ordinal position
+///   2. len: row data length
+///   3. isnull, row data is null
+///   3. name: column name
 #[derive(Debug)]
-pub struct RowDynamicInfo(pub usize, pub usize, pub bool, pub String);
+pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String);
+
+/// Row Data, (ord, len, buf),
+///    1. opx: ordinal_position index
+///    2. len: variadic field length
+///    3. buf: row data buffer in bytes
+#[derive(Debug)]
+pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
 
 impl fmt::Debug for RowInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -105,7 +115,7 @@ impl RowInfo {
         }
     }
 
-    pub fn isnull(&self, c: &ColumnDef) -> bool {
+    fn isnull(&self, c: &ColumnDef) -> bool {
         if !c.isnil {
             return false;
         }
@@ -137,19 +147,19 @@ impl RowInfo {
         }
     }
 
-    pub fn dyninfo(&self) -> Vec<RowDynamicInfo> {
+    pub fn dyninfo(&self) -> Vec<DynamicInfo> {
         self.table_def
             .col_defs
             .iter()
             .map(|c| {
                 if self.isnull(c) {
-                    RowDynamicInfo(c.pos, 0usize, self.isnull(c), c.col_name.clone())
+                    DynamicInfo(c.pos, 0usize, self.isnull(c), c.col_name.clone())
                 } else if !c.isvar {
-                    RowDynamicInfo(c.pos, c.data_len as usize, self.isnull(c), c.col_name.clone())
+                    DynamicInfo(c.pos, c.data_len as usize, self.isnull(c), c.col_name.clone())
                 } else {
                     let vlen = self.varlen(c);
                     debug!("pos={}, vlen={}", c.pos, vlen);
-                    RowDynamicInfo(c.pos, vlen, self.isnull(c), c.col_name.clone())
+                    DynamicInfo(c.pos, vlen, self.isnull(c), c.col_name.clone())
                 }
             })
             .collect()
@@ -170,11 +180,11 @@ pub struct Row {
     //    1. opx: ordinal_position index
     //    2. vlen: variadic field length
     //    3. buf: row data buffer in bytes
-    pub row_data: Vec<(usize, usize, Option<Bytes>)>,
+    pub row_data: Vec<RowDatum>,
     /// row buffer
     row_buffer: Bytes,
     table_def: Arc<TableDef>,
-    row_dyn_info: Vec<RowDynamicInfo>,
+    row_dyn_info: Vec<DynamicInfo>,
 }
 
 impl fmt::Debug for Row {
@@ -190,7 +200,7 @@ impl fmt::Debug for Row {
 }
 
 impl Row {
-    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, dyninfo: Vec<RowDynamicInfo>) -> Self {
+    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, dyninfo: Vec<DynamicInfo>) -> Self {
         Self {
             addr,
             row_buffer: rbuf,
@@ -219,26 +229,25 @@ impl Record {
 
     pub fn unpack(&mut self) {
         let tabdef = self.row.table_def.clone();
-        let cols = &tabdef.col_defs;
         let rbuf = &self.row.row_buffer;
+        let cols = &tabdef.col_defs;
+        let rdi = &self.row.row_dyn_info;
         let mut end = 0usize;
 
+        // TODO: only read PRIMARY index data
+        assert_eq!(&tabdef.idx_defs[0].idx_name, "PRIMARY");
+
         for e in &tabdef.idx_defs[0].elements {
+            let di = &rdi[e.column_opx];
             let col = &cols[e.column_opx];
-            if self.row_info.isnull(col) {
-                let datum = (col.pos - 1, 0, None);
-                self.row.row_data.push(datum);
+            if di.2 {
+                self.row.row_data.push(RowDatum(col.pos - 1, 0, None));
             } else {
-                let vlen = self
-                    .row
-                    .row_dyn_info
-                    .iter()
-                    .find(|e| e.0 == col.pos)
-                    .expect("ROW_SIZE_NOT_FOUND")
-                    .1;
-                let datum = (col.pos - 1, vlen, Some(rbuf.slice(end..end + vlen)));
-                self.row.row_data.push(datum);
-                end += vlen;
+                let len = di.1;
+                self.row
+                    .row_data
+                    .push(RowDatum(col.pos - 1, len, Some(rbuf.slice(end..end + len))));
+                end += len;
             }
         }
 
