@@ -168,7 +168,7 @@ impl App {
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
-        info!("tabdef = {:#?}", &tabdef);
+        info!("tabdef = {:?}", &tabdef);
 
         index_page.page_body.parse_records(tabdef.clone())?;
 
@@ -313,6 +313,7 @@ mod app_tests {
     fn it_works() {
         setup();
         let mut app = App::new(PathBuf::from(IBD_02));
+        assert!(app.run(Commands::Desc).is_ok());
         assert!(app.run(Commands::Dump { page: 4, limit: 3 }).is_ok());
     }
 }
