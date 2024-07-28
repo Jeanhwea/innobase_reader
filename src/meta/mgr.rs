@@ -4,6 +4,7 @@ use crate::meta::def::{ColumnDef, IndexDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
+use crate::meta::cst::get_collation;
 
 #[derive(Debug, Default)]
 pub struct MetaDataManager {
@@ -61,10 +62,14 @@ impl MetaDataManager {
             vfld_offset += ent.1;
         }
 
+        let coll = get_collation(ddobj.collation_id);
+
         Ok(TableDef {
             schema_ref: ddobj.schema_ref.clone(),
             tab_name: ddobj.name.clone(),
             collation_id: ddobj.collation_id,
+            collation: coll.coll_name.clone(),
+            charset: coll.charset_name.clone(),
             col_defs: coldefs,
             idx_defs: idxdefs,
             vfld_size: vfld_offset,

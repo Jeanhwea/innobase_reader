@@ -7,12 +7,15 @@ use crate::ibd::record::HiddenTypes;
 use crate::ibd::record::IndexAlgorithm;
 use crate::ibd::record::IndexOrder;
 use crate::ibd::record::IndexTypes;
+use crate::meta::cst::get_collation;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
     pub schema_ref: String,       // schema name
     pub tab_name: String,         // table name
     pub collation_id: u32,        // collation, see INFORMATION_SCHEMA.COLLATIONS
+    pub collation: String,        // collation name
+    pub charset: String,          // character set name
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
     pub vfld_size: usize,         // variadic field size
@@ -32,6 +35,8 @@ pub struct ColumnDef {
     pub utf8_def: String,     // utf8 column definition
     pub comment: String,      // Comment
     pub collation_id: u32,    // collation
+    pub collation: String,    // collation name
+    pub charset: String,      // character set name
     pub null_offset: usize,   // nullable offset
     pub vfld_offset: usize,   // variadic field offset
     pub vfld_bytes: usize,    // variadic field size
@@ -39,6 +44,7 @@ pub struct ColumnDef {
 
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
+        let coll = get_collation(ddc.collation_id);
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
@@ -69,6 +75,8 @@ impl ColumnDef {
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
             collation_id: ddc.collation_id,
+            collation: coll.coll_name.clone(),
+            charset: coll.charset_name.clone(),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
             null_offset: 0,

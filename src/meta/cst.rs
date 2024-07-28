@@ -2591,7 +2591,7 @@ lazy_static! {
 }
 
 pub fn get_collation(id: u32) -> &'static Collation {
-    COLLMAP.get(&id).unwrap()
+    COLLMAP.get(&id).expect("ERR_COLLATION_NOT_FOUND")
 }
 
 #[cfg(test)]
