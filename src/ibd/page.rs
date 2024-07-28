@@ -28,8 +28,6 @@ pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
 /// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageTypes {
     ALLOCATED = 0,                 // Freshly allocated page
@@ -357,8 +355,6 @@ impl BasePageOperation for FileSpaceHeaderPage {
 }
 
 #[repr(u32)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
@@ -592,8 +588,6 @@ impl IndexPage {
 }
 
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageFormats {
     REDUNDANT = 0,
@@ -603,8 +597,6 @@ pub enum PageFormats {
 }
 
 #[repr(u16)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageDirections {
     PAGE_LEFT = 1,

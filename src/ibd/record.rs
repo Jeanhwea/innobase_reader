@@ -19,8 +19,6 @@ pub const PAGE_ADDR_SUP: usize = 112;
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
     REC_STATUS_ORDINARY = 0,
@@ -291,8 +289,6 @@ pub struct DataDictObject {
 // see sql/dd/types/column.h
 //     enum class enum_column_types
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum ColumnTypes {
     DECIMAL = 1,
@@ -333,8 +329,6 @@ pub enum ColumnTypes {
 // see sql/dd/types/column.h
 //     enum class enum_hidden_type
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, PartialEq)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
@@ -355,8 +349,6 @@ pub enum HiddenTypes {
 // see sql/dd/types/column.h
 //     enum class enum_column_type
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone)]
 pub enum ColumnKeys {
     CK_NONE = 1,
@@ -401,8 +393,6 @@ pub struct DataDictColumnElement {
 // see sql/dd/types/index.h
 //     enum class enum_index_type
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
@@ -417,8 +407,6 @@ pub enum IndexTypes {
 // see sql/dd/types/index.h
 //     enum class enum_index_algorithm
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
@@ -433,8 +421,6 @@ pub enum IndexAlgorithm {
 // see sql/dd/types/index.h
 //     enum class enum_index_algorithm
 #[repr(u8)]
-#[allow(non_camel_case_types)]
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, Copy)]
 pub enum IndexOrder {
     #[default]

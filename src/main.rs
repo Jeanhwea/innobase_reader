@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(non_camel_case_types)]
+#![allow(clippy::upper_case_acronyms)]
 // #![allow(unused_imports)]
 
 use anyhow::Result;
