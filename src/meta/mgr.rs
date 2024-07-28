@@ -1,6 +1,6 @@
 use crate::ibd::page::{BasePage, SdiIndexPage};
 use crate::ibd::record::REC_N_FIELDS_ONE_BYTE_MAX;
-use crate::meta::def::{ColumnDef, IndexDef, TableDef};
+use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
@@ -24,42 +24,51 @@ impl MetaDataManager {
         let ddobj = self.sdi.as_ref().unwrap().page_body.get_sdi_object().dd_object;
         debug!("ddobj = {:#?}", &ddobj);
 
-        let mut coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
-        let idxdefs = ddobj.indexes.iter().map(IndexDef::from).collect::<Vec<_>>();
+        let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
 
-        let mut vfldinfo = Vec::new();
-        let mut nullinfo = Vec::new();
-        for c in &coldefs {
-            if c.isvar {
-                vfldinfo.push((
-                    c.pos,
-                    // see function in mysql-server source code
-                    // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
-                    //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
-                    // }
-                    if c.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
-                        2
-                    } else {
-                        1
-                    },
-                ));
+        let mut idxdefs = Vec::new();
+        for idx in &ddobj.indexes {
+            let mut ele_defs = Vec::new();
+            for ele in &idx.elements {
+                let ref_col = &coldefs[ele.column_opx as usize];
+                ele_defs.push(IndexElementDef::from(ele, ref_col));
             }
-            if c.isnil {
-                nullinfo.push(c.pos);
+
+            let mut vfldinfo = Vec::new();
+            let mut nullinfo = Vec::new();
+            for e in &ele_defs {
+                if e.isvar {
+                    vfldinfo.push((
+                        e.pos,
+                        // see function in mysql-server source code
+                        // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+                        //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+                        // }
+                        if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+                            2
+                        } else {
+                            1
+                        },
+                    ));
+                }
+                if e.isnil {
+                    nullinfo.push(e.pos);
+                }
             }
-        }
-        debug!("varginfo = {:?}, nullinfo = {:?}", vfldinfo, nullinfo);
 
-        for (off, ord) in nullinfo.iter().enumerate() {
-            coldefs[ord - 1].null_offset = off;
-        }
-        let nullflag_size = util::align8(nullinfo.len());
+            for (off, pos) in nullinfo.iter().enumerate() {
+                ele_defs[pos - 1].null_offset = off;
+            }
+            let nullflag_size = util::align8(nullinfo.len());
 
-        let mut vfld_offset = 0usize;
-        for ent in &vfldinfo {
-            coldefs[ent.0 - 1].vfld_offset = vfld_offset;
-            coldefs[ent.0 - 1].vfld_bytes = ent.1;
-            vfld_offset += ent.1;
+            let mut vfld_offset = 0usize;
+            for ent in &vfldinfo {
+                ele_defs[ent.0 - 1].vfld_offset = vfld_offset;
+                ele_defs[ent.0 - 1].vfld_bytes = ent.1;
+                vfld_offset += ent.1;
+            }
+
+            idxdefs.push(IndexDef::from(idx, ele_defs, vfld_offset, nullflag_size));
         }
 
         let coll = get_collation(ddobj.collation_id);
@@ -72,8 +81,6 @@ impl MetaDataManager {
             charset: coll.charset_name.clone(),
             col_defs: coldefs,
             idx_defs: idxdefs,
-            vfld_size: vfld_offset,
-            null_size: nullflag_size,
         })
     }
 }

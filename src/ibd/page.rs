@@ -551,21 +551,24 @@ impl IndexPage {
         let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
         addr += inf.next_rec_offset;
 
+        let idxdef = &tabdef.idx_defs[0];
+        assert_eq!(idxdef.idx_name, "PRIMARY");
+
         for _nrec in 0..self.index_header.page_n_recs {
             let mut end = addr as usize;
             let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
 
             end -= 5;
-            let mut narr = self.buf.slice(end - tabdef.null_size..end).to_vec();
+            let mut narr = self.buf.slice(end - idxdef.null_size..end).to_vec();
             narr.reverse();
-            end -= tabdef.null_size;
-            let mut varr = self.buf.slice(end - tabdef.vfld_size..end).to_vec();
+            end -= idxdef.null_size;
+            let mut varr = self.buf.slice(end - idxdef.vfld_size..end).to_vec();
             varr.reverse();
             let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
             debug!("rowinfo={:?}", &rowinfo);
 
             end = addr as usize;
-            let rdi = rowinfo.dyninfo();
+            let rdi = rowinfo.dyninfo(idxdef);
             debug!("Row Dynamic Info = {:?}", &rdi);
             let total: usize = rdi.iter().map(|e| e.1).sum();
             let rbuf = self.buf.slice(end..end + total);
@@ -573,7 +576,7 @@ impl IndexPage {
 
             addr += rec_hdr.next_rec_offset;
             let mut urec = Record::new(rec_hdr, rowinfo, row);
-            urec.unpack();
+            urec.unpack(idxdef);
 
             urecs.push(urec);
         }

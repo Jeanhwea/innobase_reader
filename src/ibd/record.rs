@@ -1,5 +1,5 @@
 use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
-use crate::meta::def::{ColumnDef, TableDef};
+use crate::meta::def::{IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use bytes::Bytes;
 use log::{trace, debug};
@@ -113,12 +113,12 @@ impl RowInfo {
         }
     }
 
-    fn isnull(&self, c: &ColumnDef) -> bool {
-        if !c.isnil {
+    fn isnull(&self, e: &IndexElementDef) -> bool {
+        if !e.isnil {
             return false;
         }
 
-        let off = c.null_offset;
+        let off = e.null_offset;
         let noff = util::numoff(off);
         let nidx = util::numidx(off);
         let mask = 1 << noff;
@@ -126,13 +126,13 @@ impl RowInfo {
         (self.null_arr[nidx] & mask) > 0
     }
 
-    pub fn varlen(&self, c: &ColumnDef) -> usize {
-        if !c.isvar {
-            return c.data_len as usize;
+    pub fn varlen(&self, e: &IndexElementDef) -> usize {
+        if !e.isvar {
+            return e.data_len as usize;
         }
 
-        let off = c.vfld_offset;
-        match c.vfld_bytes {
+        let off = e.vfld_offset;
+        match e.vfld_bytes {
             1 => self.vfld_arr[off] as usize,
             2 => {
                 let b0 = self.vfld_arr[off + 1] as usize; // 0xb8
@@ -145,19 +145,19 @@ impl RowInfo {
         }
     }
 
-    pub fn dyninfo(&self) -> Vec<DynamicInfo> {
-        self.table_def
-            .col_defs
+    pub fn dyninfo(&self, idxdef: &IndexDef) -> Vec<DynamicInfo> {
+        idxdef
+            .elements
             .iter()
-            .map(|c| {
-                if self.isnull(c) {
-                    DynamicInfo(c.pos, 0usize, self.isnull(c), c.col_name.clone())
-                } else if !c.isvar {
-                    DynamicInfo(c.pos, c.data_len as usize, self.isnull(c), c.col_name.clone())
+            .map(|e| {
+                if self.isnull(e) {
+                    DynamicInfo(e.pos, 0usize, self.isnull(e), e.col_name.clone())
+                } else if !e.isvar {
+                    DynamicInfo(e.pos, e.data_len as usize, self.isnull(e), e.col_name.clone())
                 } else {
-                    let vlen = self.varlen(c);
-                    debug!("pos={}, vlen={}", c.pos, vlen);
-                    DynamicInfo(c.pos, vlen, self.isnull(c), c.col_name.clone())
+                    let vlen = self.varlen(e);
+                    debug!("pos={}, vlen={}", e.pos, vlen);
+                    DynamicInfo(e.pos, vlen, self.isnull(e), e.col_name.clone())
                 }
             })
             .collect()
@@ -222,27 +222,21 @@ impl Record {
         }
     }
 
-    pub fn unpack(&mut self) {
-        let tabdef = self.row.table_def.clone();
+    pub fn unpack(&mut self, idxdef: &IndexDef) {
         let rbuf = &self.row.row_buffer;
 
-        // TODO: only read PRIMARY index data
-        assert_eq!(&tabdef.idx_defs[0].idx_name, "PRIMARY");
-
         let mut end = 0usize;
-        for e in &tabdef.idx_defs[0].elements {
-            let rdi = &self.row.row_dyn_info[e.column_opx];
-            let col = &tabdef.col_defs[e.column_opx];
-            let opx = col.pos - 1;
+        for e in &idxdef.elements {
+            let rdi = &self.row.row_dyn_info[e.pos];
             if rdi.2 {
-                self.row.row_data.push(RowDatum(opx, 0, None));
+                self.row.row_data.push(RowDatum(e.column_opx, 0, None));
             } else {
                 let len = rdi.1;
                 let buf = rbuf.slice(end..end + len);
-                self.row.row_data.push(RowDatum(opx, len, Some(buf.clone())));
+                self.row.row_data.push(RowDatum(e.column_opx, len, Some(buf.clone())));
                 end += len;
-                if col.hidden == HT_HIDDEN_SE {
-                    match col.col_name.as_str() {
+                if e.col_hidden == HT_HIDDEN_SE {
+                    match e.col_name.as_str() {
                         "DB_ROW_ID" => {
                             self.row.row_id = Some(util::from_bytes6(buf.clone()));
                         }
