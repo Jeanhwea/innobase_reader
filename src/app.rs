@@ -189,7 +189,7 @@ impl App {
                 &urec.row_info,
             );
             println!(
-                "******************** Row {} ********************",
+                "****************************** Row {} ******************************",
                 seq.to_string().yellow()
             );
             for row in &urec.row.row_data {
