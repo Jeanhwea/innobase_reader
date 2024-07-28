@@ -66,7 +66,10 @@ impl ColumnDef {
                 _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
             },
             isnil: ddc.is_nullable,
-            isvar: matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
+            isvar: matches!(
+                &ddc.dd_type,
+                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
+            ),
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
             collation_id: ddc.collation_id,
@@ -139,7 +142,8 @@ impl IndexElementDef {
             col_hidden: col.hidden.clone(),
             data_len: col.data_len,
             isnil: col.isnil,
-            isvar: if len >= 0 { true } else { col.isvar },
+            // isvar: if len >= 0 { true } else { col.isvar },
+            isvar: col.isvar,
             ..IndexElementDef::default()
         }
     }

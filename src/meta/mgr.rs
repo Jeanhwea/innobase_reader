@@ -3,6 +3,7 @@ use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
+use crate::ibd::record::REC_N_FIELDS_ONE_BYTE_MAX;
 use crate::meta::cst::get_collation;
 
 #[derive(Debug, Default)]
@@ -43,7 +44,11 @@ impl MetaDataManager {
                         // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
                         //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
                         // }
-                        if e.data_len > 256 { 2 } else { 1 },
+                        if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+                            2
+                        } else {
+                            1
+                        },
                     ));
                 }
                 if e.isnil {
