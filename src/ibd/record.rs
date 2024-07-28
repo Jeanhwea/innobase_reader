@@ -176,10 +176,7 @@ pub struct Row {
     pub trx_id: u64,
     /// rollback pointer, 7 bytes
     pub roll_ptr: u64,
-    /// row data list, (ord, vlen, buf),
-    //    1. opx: ordinal_position index
-    //    2. vlen: variadic field length
-    //    3. buf: row data buffer in bytes
+    /// row data list
     pub row_data: Vec<RowDatum>,
     /// row buffer
     row_buffer: Bytes,
