@@ -45,7 +45,7 @@ pub fn fmt_addr<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::E
 where
     T: Display + LowerHex,
 {
-    write!(f, "{}(0x{:x})", d, d)
+    write!(f, "@@{}(0x{:x})", d, d)
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
