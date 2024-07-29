@@ -329,10 +329,10 @@ impl FileSpaceHeaderPage {
 
     pub fn parse_sdi_meta(&mut self) {
         // sdi_addr, page offset = 10505
-        let sdi_addr = FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
+        let sdi_addr = self.addr + FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
 
         // info!("len = {}, sdi_addr = {}", len, sdi_addr);
-        let sdi_meta = SdiMetaInfo::new(self.buf.slice(sdi_addr..sdi_addr + 8));
+        let sdi_meta = SdiMetaInfo::new(sdi_addr, self.buf.clone());
 
         self.sdi_meta_data = Some(sdi_meta);
     }
@@ -346,7 +346,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
             (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
                 as usize;
         for offset in 0..len {
-            let beg = FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
+            let beg = addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
             let end = beg + XDES_ENTRY_SIZE;
             entries.push(XDesEntry::new(beg, buf.clone()));
         }
@@ -404,15 +404,21 @@ impl XDesEntry {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiMetaInfo {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub sdi_version: u32, // SDI Version
     pub sdi_page_no: u32, // SDI Page Number
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl SdiMetaInfo {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            sdi_version: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            sdi_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
+            sdi_version: util::u32_val(&buf, addr),
+            sdi_page_no: util::u32_val(&buf, addr + 4),
+            buf: buf.clone(),
+            addr,
         }
     }
 }
