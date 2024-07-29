@@ -366,7 +366,7 @@ impl BasePageBody for FileSpaceHeaderPageBody {
 }
 
 #[repr(u32)]
-#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
     XDES_FREE = 1,       // extent is in free list of space
@@ -386,7 +386,8 @@ pub struct XDesEntry {
     pub addr: usize, // page address
     pub seg_id: u64,         // seg_id
     pub flst_node: FlstNode, // list node data
-    pub state: XDesStates,   // state information
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
+    pub state: XDesStates, // state information
     pub bitmap: Bytes,       // bitmap
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
@@ -528,16 +529,13 @@ pub struct IndexPageBody {
 impl BasePageBody for IndexPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(addr, buf.clone());
-        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT);
         debug!("idx_hdr={:?}", &idx_hdr);
+        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT);
 
         // Parse Page Directory Slots
-        let n_slots = idx_hdr.page_n_dir_slots as usize;
-        let mut slots = vec![0; n_slots];
-        for (offset, element) in slots.iter_mut().enumerate() {
-            let beg = buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE;
-            *element = util::u16_val(&buf, beg);
-        }
+        let slots = (0..idx_hdr.page_n_dir_slots as usize)
+            .map(|offset| util::u16_val(&buf, buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE))
+            .collect();
         debug!("slots={:?}", &slots);
 
         Self {
