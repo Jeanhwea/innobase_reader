@@ -41,6 +41,13 @@ where
     write!(f, "0x{:016x}({})", d, d)
 }
 
+pub fn fmt_addr<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + LowerHex,
+{
+    write!(f, "@{}", d)
+}
+
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     let input_buffer = input.to_vec();
     let mut decoder = ZlibDecoder::new(&*input_buffer);
@@ -61,12 +68,16 @@ pub fn numidx(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
-pub fn read_as_u32(b: &[u8]) -> u32 {
-    u32::from_be_bytes(b.try_into().expect("ERR_CONV_u32_FAILED"))
+pub fn u16_val(buf: &[u8], addr: usize) -> u16 {
+    u16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_u16"))
 }
 
-pub fn read_as_u64(b: &[u8]) -> u64 {
-    u64::from_be_bytes(b.try_into().expect("ERR_CONV_u64_FAILED"))
+pub fn u32_val(buf: &[u8], addr: usize) -> u32 {
+    u32::from_be_bytes(buf[addr..addr + 4].try_into().expect("ERR_READ_VALUE_u32"))
+}
+
+pub fn u64_val(buf: &[u8], addr: usize) -> u64 {
+    u64::from_be_bytes(buf[addr..addr + 8].try_into().expect("ERR_READ_VALUE_u64"))
 }
 
 pub fn from_bytes6(b: Bytes) -> u64 {
@@ -100,8 +111,7 @@ mod util_tests {
         setup();
         let buf = Bytes::from_static(&[1, 2, 3, 4, 5, 6, 7, 8]);
         info!("buf={:?}", buf);
-        assert_eq!(read_as_u32(&buf[0..4]), 0x01020304);
-        assert_eq!(read_as_u64(&buf), 0x0102030405060708);
+        assert_eq!(u32_val(&buf[0..7], 2), 0x03040506);
     }
 
     #[test]
