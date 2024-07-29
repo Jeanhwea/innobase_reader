@@ -133,6 +133,14 @@ mod util_tests {
     }
 
     #[test]
+    fn it_works() {
+        setup();
+        let n = 5;
+        let ans: Vec<_> = (0..n).map(|x| x + 1).collect();
+        info!("ans={:?}", ans);
+    }
+
+    #[test]
     fn test_conv_u32() {
         setup();
         let buf = Bytes::from_static(&[1, 2, 3, 4, 5, 6, 7, 8]);

@@ -6,7 +6,7 @@ use anyhow::{Error, Result};
 use bytes::Bytes;
 use colored::Colorize;
 use derivative::Derivative;
-use log::{debug, info};
+use log::debug;
 use num_enum::FromPrimitive;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -29,6 +29,7 @@ pub const INODE_FLST_NODE_SIZE: usize = 12;
 pub const INODE_ENTRY_SIZE: usize = 192;
 pub const INODE_ENTRY_MAX_COUNT: usize = 85;
 pub const INODE_ENTRY_ARR_COUNT: usize = 32;
+pub const FSEG_FRAG_ARR_OFFSET: usize = 64;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
@@ -278,7 +279,7 @@ pub struct FileSpaceHeader {
     pub free_frag: FlstBaseNode,
     /// list of full extents not belonging to any segment
     pub full_frag: FlstBaseNode,
-    /// next segemnt id, 8 bytes which give the first unused segment id
+    /// next segment id, 8 bytes which give the first unused segment id
     pub seg_id: u64,
     /// list of pages containing segment headers, where all the segment inode
     /// slots are reserved
@@ -347,14 +348,12 @@ impl FileSpaceHeaderPageBody {
 impl BasePageBody for FileSpaceHeaderPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(addr, buf.clone());
-        let mut entries = Vec::new();
         let len: usize =
             (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
                 as usize;
-        for offset in 0..len {
-            let beg = addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
-            entries.push(XDesEntry::new(beg, buf.clone()));
-        }
+        let entries = (0..len)
+            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone()))
+            .collect();
 
         Self {
             fsp_hdr: hdr,
@@ -442,16 +441,11 @@ pub struct INodePageBody {
 
 impl BasePageBody for INodePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut entries = Vec::new();
-        for offset in 0..INODE_ENTRY_MAX_COUNT {
-            let beg = addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
-            let entry = INodeEntry::new(beg, buf.clone());
-            info!("0x{:08x}", &entry.fseg_magic_n);
-            if entry.fseg_magic_n == 0 || entry.fseg_id == 0 {
-                break;
-            }
-            entries.push(entry);
-        }
+        let entries = (0..INODE_ENTRY_MAX_COUNT)
+            .map(|offset| INodeEntry::new(addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE, buf.clone()))
+            .filter(|entry| entry.fseg_magic_n == 0 || entry.fseg_id == 0)
+            .collect();
+
         Self {
             inode_flst_node: FlstNode::new(addr, buf.clone()),
             inode_ent_list: entries,
@@ -474,18 +468,17 @@ pub struct INodeEntry {
     pub fseg_full: FlstBaseNode,
     pub fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
     #[derivative(Debug(format_with = "util::fmt_arr32"))]
-    pub fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
+    pub fseg_frag_arr: Vec<u32>,
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl INodeEntry {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut arr = [0u32; INODE_ENTRY_ARR_COUNT];
-        for (offset, element) in arr.iter_mut().enumerate() {
-            let beg = addr + 64 + offset * FRAG_ARR_ENTRY_SIZE;
-            *element = util::u32_val(&buf, beg);
-        }
+        let arr = (0..INODE_ENTRY_ARR_COUNT)
+            .map(|offset| util::u32_val(&buf, addr + FSEG_FRAG_ARR_OFFSET + offset * FRAG_ARR_ENTRY_SIZE))
+            .collect();
+        debug!("INodeEntry::arr={:?}", arr);
 
         Self {
             fseg_id: util::u64_val(&buf, addr),
