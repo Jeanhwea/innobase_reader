@@ -1,4 +1,4 @@
-use crate::ibd::page::{BasePage, SdiIndexPage};
+use crate::ibd::page::{BasePage, SdiPageBody};
 use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
@@ -8,11 +8,11 @@ use crate::meta::cst::coll_find;
 
 #[derive(Debug, Default)]
 pub struct MetaDataManager {
-    pub sdi: Option<BasePage<SdiIndexPage>>, // SDI index page
+    pub sdi: Option<BasePage<SdiPageBody>>, // SDI index page
 }
 
 impl MetaDataManager {
-    pub fn new(sdi_page: BasePage<SdiIndexPage>) -> Self {
+    pub fn new(sdi_page: BasePage<SdiPageBody>) -> Self {
         Self { sdi: Some(sdi_page) }
     }
 

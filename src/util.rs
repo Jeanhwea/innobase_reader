@@ -83,6 +83,10 @@ pub fn numidx(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
+pub fn i16_val(buf: &[u8], addr: usize) -> i16 {
+    i16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_i16"))
+}
+
 pub fn u16_val(buf: &[u8], addr: usize) -> u16 {
     u16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_u16"))
 }

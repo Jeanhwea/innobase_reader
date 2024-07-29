@@ -1,6 +1,4 @@
-use crate::ibd::page::{
-    SdiIndexPage, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE,
-};
+use crate::ibd::page::{SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE};
 use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -112,7 +110,7 @@ impl DatafileFactory {
         info!("sdi_page_no = {}", sdi_page_no);
 
         let buffer = self.do_read_bytes(sdi_page_no)?;
-        let sdi_page: BasePage<SdiIndexPage> = PageFactory::new(buffer).parse();
+        let sdi_page: BasePage<SdiPageBody> = PageFactory::new(buffer).parse();
         assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
         debug!("load sdi_page = {:?}", &sdi_page);
 

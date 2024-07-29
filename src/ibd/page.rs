@@ -13,13 +13,19 @@ use std::sync::Arc;
 use std::{cmp, fmt};
 use strum::{Display, EnumString};
 
+// page
 pub const PAGE_SIZE: usize = 16 * 1024;
 
+// file
 pub const FIL_HEADER_SIZE: usize = 38;
 pub const FIL_TRAILER_SIZE: usize = 8;
+
+// file space
 pub const FSP_HEADER_SIZE: usize = 112;
 pub const XDES_ENTRY_SIZE: usize = 40;
 pub const XDES_ENTRY_MAX_COUNT: usize = 256;
+
+// inode
 pub const INODE_FLST_NODE_SIZE: usize = 12;
 pub const INODE_ENTRY_SIZE: usize = 192;
 pub const INODE_ENTRY_MAX_COUNT: usize = 85;
@@ -379,10 +385,10 @@ pub enum XDesStates {
 pub struct XDesEntry {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
-    seg_id: u64,         // seg_id
-    flst_node: FlstNode, // list node data
-    state: XDesStates,   // state information
-    bitmap: Bytes,       // bitmap
+    pub seg_id: u64,         // seg_id
+    pub flst_node: FlstNode, // list node data
+    pub state: XDesStates,   // state information
+    pub bitmap: Bytes,       // bitmap
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
@@ -461,14 +467,14 @@ impl BasePageBody for INodePageBody {
 pub struct INodeEntry {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
-    fseg_id: u64,
-    fseg_not_full_n_used: u32,
-    fseg_free: FlstBaseNode,
-    fseg_not_full: FlstBaseNode,
-    fseg_full: FlstBaseNode,
-    fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
+    pub fseg_id: u64,
+    pub fseg_not_full_n_used: u32,
+    pub fseg_free: FlstBaseNode,
+    pub fseg_not_full: FlstBaseNode,
+    pub fseg_full: FlstBaseNode,
+    pub fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
     #[derivative(Debug(format_with = "util::fmt_arr32"))]
-    fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
+    pub fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
@@ -496,18 +502,23 @@ impl INodeEntry {
 }
 
 // Index Page
-pub struct IndexPage {
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct IndexPageBody {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
+
     /// Index Header
-    index_header: IndexHeader, // Index Header
+    pub index_header: IndexHeader, // Index Header
     /// FSEG Header
-    fseg_header: FSegHeader, // FSEG Header
+    pub fseg_header: FSegHeader, // FSEG Header
 
     /// System Record
-    infimum: RecordHeader, // infimum_extra[], see page0page.h
-    supremum: RecordHeader, // supremum_extra_data[], see page0page.h
+    pub infimum: RecordHeader, // infimum_extra[], see page0page.h
+    pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
     /// User Records, grow down
-    records: Vec<Record>, // User Record List
+    pub records: Vec<Record>, // User Record List
 
     ////////////////////////////////////////
     //
@@ -515,86 +526,74 @@ pub struct IndexPage {
     //
     ////////////////////////////////////////
     /// Page Directory, grows up
-    dir_slots: Vec<u16>, // page directory slots
+    pub dir_slots: Vec<u16>, // page directory slots
 
-    buf: Arc<Bytes>,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
-impl fmt::Debug for IndexPage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IndexPage")
-            .field("index_header", &self.index_header)
-            .field("fseg_header", &self.fseg_header)
-            .field("infimum", &self.infimum)
-            .field("supremum", &self.supremum)
-            .field("records", &self.records)
-            .field("dir_slots", &format!("{:?}", &self.dir_slots))
-            .finish()
-    }
-}
-
-impl BasePageBody for IndexPage {
-    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
-        let idx_hdr = IndexHeader::new(buffer.slice(0..36));
+impl BasePageBody for IndexPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let idx_hdr = IndexHeader::new(addr, buf.clone());
 
         // Parse Page Directory Slots
         let n_slots = idx_hdr.page_n_dir_slots as usize;
         let mut slots = vec![0; n_slots];
         for (offset, element) in slots.iter_mut().enumerate() {
-            let end = buffer.len() - offset * PAGE_DIR_ENTRY_SIZE;
-            let beg = end - PAGE_DIR_ENTRY_SIZE;
-            *element = u16::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
+            let beg = buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE;
+            *element = util::u16_val(&buf, beg);
         }
 
         Self {
             index_header: idx_hdr,
-            fseg_header: FSegHeader::new(buffer.slice(36..56)),
-            infimum: RecordHeader::new(buffer.slice(56..69)),
-            supremum: RecordHeader::new(buffer.slice(69..82)),
+            fseg_header: FSegHeader::new(addr + 36, buf.clone()),
+            infimum: RecordHeader::new(addr + 56, buf.clone()),
+            supremum: RecordHeader::new(addr + 69, buf.clone()),
             records: Vec::new(),
             dir_slots: slots,
-            buf: buffer,
+            buf: buf.clone(),
+            addr,
         }
     }
 }
 
-impl IndexPage {
+impl IndexPageBody {
     pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let inf = &self.infimum;
         let urecs = &mut self.records;
-        let mut addr = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
-        addr += inf.next_rec_offset;
+        let mut off = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
+        off += inf.next_rec_offset;
 
         let idxdef = &tabdef.idx_defs[0];
         assert_eq!(idxdef.idx_name, "PRIMARY");
 
         for _nrec in 0..self.index_header.page_n_recs {
-            let mut end = addr as usize;
-            let rec_hdr = RecordHeader::new(self.buf.slice(end - 5..end));
+            let mut addr = off as usize;
+            let rec_hdr = RecordHeader::new(addr - 5, self.buf.clone());
 
-            end -= 5;
-            let mut narr = self.buf.slice(end - idxdef.null_size..end).to_vec();
+            addr -= 5;
+            let mut narr = self.buf.slice(addr - idxdef.null_size..addr).to_vec();
             narr.reverse();
-            end -= idxdef.null_size;
-            let mut varr = self.buf.slice(end - idxdef.vfld_size..end).to_vec();
+            addr -= idxdef.null_size;
+            let mut varr = self.buf.slice(addr - idxdef.vfld_size..addr).to_vec();
             varr.reverse();
             let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
             debug!("rowinfo={:?}", &rowinfo);
 
-            end = addr as usize;
+            addr = off as usize;
             let rdi = rowinfo.dyninfo(idxdef);
             debug!("Row Dynamic Info = {:?}", &rdi);
             let total: usize = rdi.iter().map(|e| e.1).sum();
-            let rbuf = self.buf.slice(end..end + total);
-            let row = Row::new(end + FIL_HEADER_SIZE, rbuf, tabdef.clone(), rdi);
+            let rbuf = self.buf.slice(addr..addr + total);
+            let row = Row::new(addr + FIL_HEADER_SIZE, self.buf.clone(), tabdef.clone(), rdi);
 
-            addr += rec_hdr.next_rec_offset;
-            let mut urec = Record::new(rec_hdr, rowinfo, row);
+            off += rec_hdr.next_rec_offset;
+            let mut urec = Record::new(off as usize, self.buf.clone(), rec_hdr, rowinfo, row);
             urec.unpack(idxdef);
 
             urecs.push(urec);
         }
-        assert_eq!(addr as usize, PAGE_ADDR_SUP - FIL_HEADER_SIZE);
+        assert_eq!(off as usize, PAGE_ADDR_SUP - FIL_HEADER_SIZE);
 
         Ok(())
     }
@@ -626,94 +625,108 @@ pub enum PageDirections {
 }
 
 // Index Page Header, see page0types.h
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct IndexHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     /// number of slots in page directory
-    page_n_dir_slots: u16,
+    pub page_n_dir_slots: u16,
     /// pointer to record heap top
-    page_heap_top: u16,
+    pub page_heap_top: u16,
     /// number of records in the heap, bit 15=flag: new-style compact page format
-    page_format: PageFormats,
-    page_n_heap: u16,
+    pub page_format: PageFormats,
+    pub page_n_heap: u16,
     /// pointer to start of page free record list
-    page_free: u16,
+    pub page_free: u16,
     /// number of bytes in deleted records
-    page_garbage: u16,
+    pub page_garbage: u16,
     /// pointer to the last inserted record, or NULL if this info has been reset by a deletion
-    page_last_insert: u16,
+    pub page_last_insert: u16,
     /// last insert direction: PAGE_LEFT, ...
-    page_direction: PageDirections,
+    pub page_direction: PageDirections,
     /// number of consecutive inserts to the same direction
-    page_n_direction: u16,
+    pub page_n_direction: u16,
     /// number of user records on the page
-    page_n_recs: u16,
+    pub page_n_recs: u16,
     /// highest id of a trx which may have modified a record on the page; trx_id_t;
     /// defined only in secondary indexes and in the insert buffer tree
-    page_max_trx_id: u64,
+    pub page_max_trx_id: u64,
     /// level of the node in an index tree; the leaf level is the level 0. This
     /// field should not be written to after page creation.
-    page_level: u16,
+    pub page_level: u16,
     /// index id where the page belongs. This field should not be written to after page creation.
-    page_index_id: u64,
+    pub page_index_id: u64,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl IndexHeader {
-    pub fn new(buffer: Bytes) -> Self {
-        let n_heap = u16::from_be_bytes(buffer.as_ref()[4..6].try_into().unwrap());
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let n_heap = util::u16_val(&buf, addr + 4);
         let fmt_flag = ((n_heap & 0x8000) >> 15) as u8;
-        let page_direct = u16::from_be_bytes(buffer.as_ref()[12..14].try_into().unwrap());
+
         Self {
-            page_n_dir_slots: u16::from_be_bytes(buffer.as_ref()[..2].try_into().unwrap()),
-            page_heap_top: u16::from_be_bytes(buffer.as_ref()[2..4].try_into().unwrap()),
+            page_n_dir_slots: util::u16_val(&buf, addr),
+            page_heap_top: util::u16_val(&buf, addr + 2),
             page_format: fmt_flag.into(),
             page_n_heap: n_heap,
-            page_free: u16::from_be_bytes(buffer.as_ref()[6..8].try_into().unwrap()),
-            page_garbage: u16::from_be_bytes(buffer.as_ref()[8..10].try_into().unwrap()),
-            page_last_insert: u16::from_be_bytes(buffer.as_ref()[10..12].try_into().unwrap()),
-            page_direction: page_direct.into(),
-            page_n_direction: u16::from_be_bytes(buffer.as_ref()[14..16].try_into().unwrap()),
-            page_n_recs: u16::from_be_bytes(buffer.as_ref()[16..18].try_into().unwrap()),
-            page_max_trx_id: u64::from_be_bytes(buffer.as_ref()[18..26].try_into().unwrap()),
-            page_level: u16::from_be_bytes(buffer.as_ref()[26..28].try_into().unwrap()),
-            page_index_id: u64::from_be_bytes(buffer.as_ref()[28..].try_into().unwrap()),
+            page_free: util::u16_val(&buf, addr + 6),
+            page_garbage: util::u16_val(&buf, addr + 8),
+            page_last_insert: util::u16_val(&buf, addr + 10),
+            page_direction: util::u16_val(&buf, addr + 12).into(),
+            page_n_direction: util::u16_val(&buf, addr + 14),
+            page_n_recs: util::u16_val(&buf, addr + 16),
+            page_max_trx_id: util::u64_val(&buf, addr + 18),
+            page_level: util::u16_val(&buf, addr + 26),
+            page_index_id: util::u64_val(&buf, addr + 28),
+            buf: buf.clone(),
+            addr,
         }
     }
 }
 
 // File Segment Header, see fsp0types.h/page0types.h
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FSegHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     /// leaf page
-    leaf_space_id: u32, // space id
-    leaf_page_no: u32, // page number
-    leaf_offset: u16,  // byte offset
+    pub leaf_space_id: u32, // space id
+    pub leaf_page_no: u32, // page number
+    pub leaf_offset: u16,  // byte offset
     /// non-leaf page
-    nonleaf_space_id: u32, // space id
-    nonleaf_page_no: u32, // page number
-    nonleaf_offset: u16, // byte offset
+    pub nonleaf_space_id: u32, // space id
+    pub nonleaf_page_no: u32, // page number
+    pub nonleaf_offset: u16, // byte offset
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl FSegHeader {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            leaf_space_id: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            leaf_page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
-            leaf_offset: u16::from_be_bytes(buffer.as_ref()[8..10].try_into().unwrap()),
-            nonleaf_space_id: u32::from_be_bytes(buffer.as_ref()[10..14].try_into().unwrap()),
-            nonleaf_page_no: u32::from_be_bytes(buffer.as_ref()[14..18].try_into().unwrap()),
-            nonleaf_offset: u16::from_be_bytes(buffer.as_ref()[18..20].try_into().unwrap()),
+            leaf_space_id: util::u32_val(&buf, addr),
+            leaf_page_no: util::u32_val(&buf, addr + 4),
+            leaf_offset: util::u16_val(&buf, addr + 8),
+            nonleaf_space_id: util::u32_val(&buf, addr + 10),
+            nonleaf_page_no: util::u32_val(&buf, addr + 14),
+            nonleaf_offset: util::u16_val(&buf, addr + 18),
+            buf: buf.clone(),
+            addr,
         }
     }
 }
 
 // SDI Index Page, see ibd2sdi.cc
-pub struct SdiIndexPage {
-    index: IndexPage,        // common Index Page
-    sdi_hdr: SdiDataHeader,  // SDI Data Header
-    pub uncomp_data: String, // unzipped SDI Data, a JSON string
+pub struct SdiPageBody {
+    pub index: IndexPageBody,   // common Index Page
+    pub sdi_hdr: SdiDataHeader, // SDI Data Header
+    pub uncomp_data: String,    // unzipped SDI Data, a JSON string
 }
 
-impl fmt::Debug for SdiIndexPage {
+impl fmt::Debug for SdiPageBody {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let _trunc = cmp::min(self.uncomp_data.len(), 520);
         f.debug_struct("SdiIndexPage")
@@ -723,9 +736,9 @@ impl fmt::Debug for SdiIndexPage {
     }
 }
 
-impl BasePageBody for SdiIndexPage {
+impl BasePageBody for SdiPageBody {
     fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
-        let index = IndexPage::new(addr, buffer.clone());
+        let index = IndexPageBody::new(addr, buffer.clone());
         let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
         let hdr = SdiDataHeader::new(buffer.slice(beg..end));
@@ -749,7 +762,7 @@ impl BasePageBody for SdiIndexPage {
     }
 }
 
-impl SdiIndexPage {
+impl SdiPageBody {
     pub fn get_sdi_object(&self) -> SdiObject {
         if self.uncomp_data.is_empty() {
             panic!("ERR_SID_UNCOMP_STRING_EMPTY");
@@ -761,17 +774,17 @@ impl SdiIndexPage {
 #[derive(Debug)]
 pub struct SdiDataHeader {
     /// Length of TYPE field in record of SDI Index.
-    data_type: u32, // 4 bytes
+    pub data_type: u32, // 4 bytes
     /// Length of ID field in record of SDI Index.
-    data_id: u64, // 8 bytes
+    pub data_id: u64, // 8 bytes
     /// trx id
-    trx_id: u64, // 6 bytes
+    pub trx_id: u64, // 6 bytes
     /// 7-byte roll-ptr.
-    roll_ptr: u64, // 7 bytes
+    pub roll_ptr: u64, // 7 bytes
     /// Length of UNCOMPRESSED_LEN field in record of SDI Index.
-    uncomp_len: u32, // 4 bytes
+    pub uncomp_len: u32, // 4 bytes
     /// Length of COMPRESSED_LEN field in record of SDI Index.
-    comp_len: u32, // 4 bytes
+    pub comp_len: u32, // 4 bytes
 }
 
 impl SdiDataHeader {

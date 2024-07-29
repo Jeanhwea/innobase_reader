@@ -3,14 +3,13 @@ use crate::meta::def::{IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use bytes::Bytes;
 use colored::Colorize;
+use derivative::Derivative;
 use log::{trace, debug};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Formatter;
 use std::sync::Arc;
 use strum::{Display, EnumString};
 
@@ -30,25 +29,32 @@ pub enum RecordStatus {
     UNDEF,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct RecordHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
     pub n_owned: u8,              // 4 bits
     pub heap_no: u16,             // 13 bits
     pub rec_status: RecordStatus, // 3 bits, see rec.h
     pub next_rec_offset: i16,     // next record offset
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl RecordHeader {
-    pub fn new(buffer: Bytes) -> Self {
-        let b1 = u16::from_be_bytes(buffer.as_ref()[1..3].try_into().unwrap());
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let b1 = util::u16_val(&buf, addr + 1);
         let status = (b1 & 0x0007) as u8;
         Self {
-            info_bits: (buffer[0] & 0xf0) >> 4,
-            n_owned: (buffer[0] & 0x0f),
+            info_bits: (buf[0] & 0xf0) >> 4,
+            n_owned: (buf[0] & 0x0f),
             heap_no: (b1 & 0xfff8) >> 3,
             rec_status: status.into(),
-            next_rec_offset: i16::from_be_bytes(buffer.as_ref()[3..5].try_into().unwrap()),
+            next_rec_offset: util::i16_val(&buf, addr + 3),
+            buf: buf.clone(),
+            addr,
         }
     }
 
@@ -80,29 +86,25 @@ impl RecordHeader {
 ///   2. len: row data length
 ///   3. isnull, row data is null
 ///   3. name: column name
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String);
 
 /// Row Data, (ord, len, buf),
 ///    1. opx: ordinal_position index
 ///    2. len: variadic field length
 ///    3. buf: row data buffer in bytes
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
 
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct RowInfo {
     pub vfld_arr: Vec<u8>, // variadic field array in reversed order
     pub null_arr: Vec<u8>, // nullable flag array in reversed order
-    table_def: Arc<TableDef>,
-}
-
-impl fmt::Debug for RowInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RowInfo")
-            .field("vfld_arr", &format!("{:02x?}", &self.vfld_arr))
-            .field("null_arr", &format!("{:02x?}", &self.null_arr))
-            .finish()
-    }
+    #[derivative(Debug = "ignore")]
+    pub table_def: Arc<TableDef>,
 }
 
 impl RowInfo {
@@ -181,10 +183,11 @@ impl RowInfo {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Derivative, Default)]
+#[derivative(Debug)]
 pub struct Row {
-    /// row address, the offset to the top of this page
-    pub addr: usize,
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     /// Row id, 6 bytes
     pub row_id: Option<u64>,
     /// transaction id, 6 bytes
@@ -193,56 +196,52 @@ pub struct Row {
     pub roll_ptr: u64,
     /// row data list
     pub row_data: Vec<RowDatum>,
-    /// row buffer
-    row_buffer: Bytes,
-    table_def: Arc<TableDef>,
-    row_dyn_info: Vec<DynamicInfo>,
-}
-
-impl fmt::Debug for Row {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Row")
-            .field("addr", &self.addr)
-            .field("row_id", &self.row_id)
-            .field("trx_id", &self.trx_id)
-            .field("roll_ptr", &self.roll_ptr)
-            .field("row_dyn_info", &self.row_dyn_info)
-            .finish()
-    }
+    pub row_dyn_info: Vec<DynamicInfo>,
+    #[derivative(Debug = "ignore")]
+    pub table_def: Arc<TableDef>,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl Row {
-    pub fn new(addr: usize, rbuf: Bytes, tabdef: Arc<TableDef>, dyninfo: Vec<DynamicInfo>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, dyninfo: Vec<DynamicInfo>) -> Self {
         Self {
-            addr,
-            row_buffer: rbuf,
             table_def: tabdef,
             row_dyn_info: dyninfo,
+            buf: buf.clone(),
+            addr,
             ..Row::default()
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct Record {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub row_info: RowInfo,     // row information
     pub rec_hdr: RecordHeader, // record header
     pub row: Row,              // row data
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl Record {
-    pub fn new(hdr: RecordHeader, rowinfo: RowInfo, data: Row) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, rowinfo: RowInfo, data: Row) -> Self {
         Self {
             rec_hdr: hdr,
             row_info: rowinfo,
             row: data,
+            buf: buf.clone(),
+            addr,
         }
     }
 
     pub fn unpack(&mut self, idxdef: &IndexDef) {
-        let rbuf = &self.row.row_buffer;
+        let rbuf = self.row.buf.clone();
 
-        let mut end = 0usize;
+        let mut end = self.addr;
         for e in &idxdef.elements {
             let rdi = &self.row.row_dyn_info[e.pos - 1];
             if rdi.2 {

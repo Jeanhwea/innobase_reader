@@ -1,5 +1,5 @@
 use crate::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPage, PageTypes, SdiIndexPage};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody};
 use crate::Commands;
 use anyhow::{Error, Result};
 use colored::Colorize;
@@ -164,7 +164,7 @@ impl App {
             )));
         }
         let buffer = df_fact.read_page(page_no)?;
-        let mut index_page: BasePage<IndexPage> = PageFactory::new(buffer).parse();
+        let mut index_page: BasePage<IndexPageBody> = PageFactory::new(buffer).parse();
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
@@ -227,11 +227,11 @@ impl App {
                 println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {
-                let index_page: BasePage<IndexPage> = pg_fact.parse();
+                let index_page: BasePage<IndexPageBody> = pg_fact.parse();
                 println!("{:#?}", index_page);
             }
             PageTypes::SDI => {
-                let sdi_page: BasePage<SdiIndexPage> = pg_fact.parse();
+                let sdi_page: BasePage<SdiPageBody> = pg_fact.parse();
                 println!("{:#?}", sdi_page);
             }
             _ => {
