@@ -155,10 +155,10 @@ impl RowInfo {
                         2 => {
                             varptr -= 1;
                             let b0 = buf[varptr] as usize;
+                            varptr -= 1;
+                            let b1 = buf[varptr] as usize;
 
                             if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
-                                varptr -= 1;
-                                let b1 = buf[varptr] as usize;
                                 debug!("{} => b0=0x{:0x?}, b1=0x{:0x?}", "calc_vlen".red(), b0, b1);
                                 b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
                             } else {
