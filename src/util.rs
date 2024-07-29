@@ -63,6 +63,13 @@ where
     write!(f, "0x{:04x}@({})", d, d.to_string().blue())
 }
 
+pub fn fmt_enum<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display,
+{
+    write!(f, "{}", d.to_string().magenta())
+}
+
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     let input_buffer = input.to_vec();
     let mut decoder = ZlibDecoder::new(&*input_buffer);

@@ -130,6 +130,7 @@ pub struct FilePageHeader {
     pub next_page: u32, // Next Page, FIL_PAGE_NEXT
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub lsn: u64, // LSN for last page modification, FIL_PAGE_LSN
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_type: PageTypes, // Page Type, FIL_PAGE_TYPE
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub flush_lsn: u64, // Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
@@ -535,6 +536,8 @@ pub struct IndexPageBody {
 impl BasePageBody for IndexPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(addr, buf.clone());
+        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT);
+        debug!("idx_hdr={:?}", &idx_hdr);
 
         // Parse Page Directory Slots
         let n_slots = idx_hdr.page_n_dir_slots as usize;
@@ -543,6 +546,7 @@ impl BasePageBody for IndexPageBody {
             let beg = buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE;
             *element = util::u16_val(&buf, beg);
         }
+        debug!("slots={:?}", &slots);
 
         Self {
             index_header: idx_hdr,
