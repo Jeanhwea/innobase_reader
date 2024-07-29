@@ -31,7 +31,7 @@ impl PageFactory {
     }
 
     pub fn fil_hdr(&self) -> FilePageHeader {
-        FilePageHeader::new(self.buf.clone())
+        FilePageHeader::new(self.buf.clone(), 0)
     }
 
     pub fn parse<P>(&self) -> BasePage<P>
@@ -39,7 +39,7 @@ impl PageFactory {
         P: BasePageOperation,
     {
         BasePage::new(
-            FilePageHeader::new(self.buf.clone()),
+            FilePageHeader::new(self.buf.clone(), 0),
             self.buf.slice(FIL_HEADER_SIZE..self.len - FIL_TRAILER_SIZE),
             FilePageTrailer::new(self.buf.slice(self.len - FIL_TRAILER_SIZE..)),
         )

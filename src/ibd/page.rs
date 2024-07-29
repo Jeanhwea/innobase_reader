@@ -87,25 +87,12 @@ pub struct FilePageHeader {
     pub space_id: u32, // Space ID, FIL_PAGE_SPACE_ID
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub addr: usize,  // page address
 }
 
-// impl fmt::Debug for FilePageHeader {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("FilePageHeader")
-//             .field("check_sum", &format!("0x{:08x}", self.check_sum))
-//             .field("page_no", &self.page_no)
-//             .field("prev_page", &format!("0x{:08x} ({})", self.prev_page, self.prev_page))
-//             .field("next_page", &format!("0x{:08x} ({})", self.next_page, self.next_page))
-//             .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
-//             .field("page_type", &self.page_type)
-//             .field("flush_lsn", &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn))
-//             .field("space_id", &self.space_id)
-//             .finish()
-//     }
-// }
-
 impl FilePageHeader {
-    pub fn new(buffer: Arc<Bytes>) -> Self {
+    pub fn new(buffer: Arc<Bytes>, page_addr: usize) -> Self {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
             page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
@@ -116,6 +103,7 @@ impl FilePageHeader {
             flush_lsn: u64::from_be_bytes(buffer.as_ref()[26..34].try_into().unwrap()),
             space_id: u32::from_be_bytes(buffer.as_ref()[34..38].try_into().unwrap()),
             buf: buffer,
+            addr: page_addr,
         }
     }
 }
