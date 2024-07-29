@@ -174,6 +174,7 @@ impl FilePageTrailer {
     }
 }
 
+/// File List Base Node
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstBaseNode {
@@ -198,6 +199,7 @@ impl FlstBaseNode {
     }
 }
 
+/// File List Node
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstNode {
@@ -214,11 +216,13 @@ impl FlstNode {
     }
 }
 
+/// File Address
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilAddr {
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub page: u32, // Page number within a space
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub boffset: u16, // Byte offset within the page
 }
 
