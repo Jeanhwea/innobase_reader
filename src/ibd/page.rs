@@ -313,7 +313,7 @@ pub struct FileSpaceHeaderPageBody {
     pub addr: usize, // page address
     pub fsp_hdr: FileSpaceHeader,
     pub xdes_ent_list: Vec<XDesEntry>,
-    pub sdi_meta_data: Option<SdiMetaInfo>,
+    pub sdi_meta_data: Option<SdiMetaData>,
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 }
@@ -332,7 +332,7 @@ impl FileSpaceHeaderPageBody {
         let sdi_addr = self.addr + FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
 
         // info!("len = {}, sdi_addr = {}", len, sdi_addr);
-        let sdi_meta = SdiMetaInfo::new(sdi_addr, self.buf.clone());
+        let sdi_meta = SdiMetaData::new(sdi_addr, self.buf.clone());
 
         self.sdi_meta_data = Some(sdi_meta);
     }
@@ -402,7 +402,7 @@ impl XDesEntry {
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct SdiMetaInfo {
+pub struct SdiMetaData {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     pub sdi_version: u32, // SDI Version
@@ -411,7 +411,7 @@ pub struct SdiMetaInfo {
     pub buf: Arc<Bytes>, // page data buffer
 }
 
-impl SdiMetaInfo {
+impl SdiMetaData {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             sdi_version: util::u32_val(&buf, addr),
