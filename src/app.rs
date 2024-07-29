@@ -1,6 +1,6 @@
 use crate::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
 use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody};
-use crate::Commands;
+use crate::{Commands, util};
 use anyhow::{Error, Result};
 use colored::Colorize;
 use log::{debug, error, info};
@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::ibd::record::ColumnTypes;
 
 #[derive(Debug)]
 pub struct App {
@@ -194,7 +195,29 @@ impl App {
             );
             for row in &urec.row_data.row_tuple {
                 let col = &tabdef.clone().col_defs[row.0];
-                println!("{:>12} => {:?}", &col.col_name.magenta(), row.2);
+                match &row.2 {
+                    None => {
+                        println!("{:>12} => {}", &col.col_name.magenta(), "NULL".red());
+                    }
+                    Some(datum) => match &col.dd_type {
+                        ColumnTypes::LONG => {
+                            println!(
+                                "{:>12} => {:?} [{}]",
+                                &col.col_name.magenta(),
+                                datum,
+                                util::unpack_i32_val(datum).to_string().blue(),
+                            );
+                        }
+                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                            let barr = &datum.to_vec();
+                            let text = std::str::from_utf8(barr).unwrap();
+                            println!("{:>12} => {:?} [{}]", &col.col_name.magenta(), &datum, text.yellow());
+                        }
+                        _ => {
+                            println!("{:>12} => {:?}", &col.col_name.magenta(), datum);
+                        }
+                    },
+                }
             }
         }
 

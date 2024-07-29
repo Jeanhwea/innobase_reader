@@ -94,6 +94,10 @@ pub fn i16_val(buf: &[u8], addr: usize) -> i16 {
     i16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_i16"))
 }
 
+pub fn i32_val(buf: &[u8], addr: usize) -> i32 {
+    i32::from_be_bytes(buf[addr..addr + 4].try_into().expect("ERR_READ_VALUE_i32"))
+}
+
 pub fn u16_val(buf: &[u8], addr: usize) -> u16 {
     u16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_u16"))
 }
@@ -104,6 +108,16 @@ pub fn u32_val(buf: &[u8], addr: usize) -> u32 {
 
 pub fn u64_val(buf: &[u8], addr: usize) -> u64 {
     u64::from_be_bytes(buf[addr..addr + 8].try_into().expect("ERR_READ_VALUE_u64"))
+}
+
+pub fn unpack_i32_val(buf: &[u8]) -> i32 {
+    if (buf[0] & 0x80) > 0 {
+        let b = [buf[0] & 0x7f, buf[1], buf[2], buf[3]];
+        i32::from_be_bytes(b)
+    } else {
+        let b = [buf[0] | 0x80, buf[1], buf[2], buf[3]];
+        i32::from_be_bytes(b)
+    }
 }
 
 pub fn from_bytes6(b: Bytes) -> u64 {
