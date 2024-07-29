@@ -76,8 +76,8 @@ impl MetaDataManager {
             schema_ref: ddobj.schema_ref.clone(),
             tab_name: ddobj.name.clone(),
             collation_id: ddobj.collation_id,
-            collation: coll.coll_name.clone(),
-            charset: coll.charset_name.clone(),
+            collation: coll.name.into(),
+            charset: coll.charset.into(),
             col_defs: coldefs,
             idx_defs: idxdefs,
         })

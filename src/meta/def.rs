@@ -73,8 +73,8 @@ impl ColumnDef {
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
             collation_id: ddc.collation_id,
-            collation: coll.coll_name.clone(),
-            charset: coll.charset_name.clone(),
+            collation: coll.name.into(),
+            charset: coll.charset.into(),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
         }
