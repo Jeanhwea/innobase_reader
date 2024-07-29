@@ -571,7 +571,7 @@ impl IndexPageBody {
             let rec_hdr = RecordHeader::new(addr, self.buf.clone());
 
             // Record Information
-            let row_info = RowInfo::new(addr, self.buf.clone(), tabdef.clone(), &idxdef);
+            let row_info = RowInfo::new(addr, self.buf.clone(), tabdef.clone(), idxdef);
 
             // Row
             addr = cursor as usize;
@@ -579,8 +579,8 @@ impl IndexPageBody {
             cursor += rec_hdr.next_rec_offset;
 
             // Record
-            let urec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
-            urecs.push(urec);
+            let rec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
+            urecs.push(rec);
         }
         assert_eq!(cursor as usize, PAGE_ADDR_SUP);
 

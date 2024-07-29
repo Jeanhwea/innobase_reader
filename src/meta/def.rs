@@ -104,7 +104,6 @@ impl IndexDef {
             algorithm: ddi.algorithm.clone(),
             elements: ele_defs,
             null_size,
-            ..IndexDef::default()
         }
     }
 }
@@ -115,7 +114,7 @@ pub struct IndexElementDef {
     pub ele_len: i32,      // element length
     pub order: IndexOrder, // order, ASC/DESC
     pub hidden: bool,      // hidden
-    ///   see write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
+    /// see write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
     pub column_opx: usize, // opx: ordinal position index
     pub col_name: String,  // referenced column name
     pub col_hidden: HiddenTypes, // hidden type
@@ -138,7 +137,6 @@ impl IndexElementDef {
             col_hidden: col.hidden.clone(),
             data_len: col.data_len,
             isnil: col.isnil,
-            // isvar: if len >= 0 { true } else { col.isvar },
             isvar: col.isvar,
             ..IndexElementDef::default()
         }
