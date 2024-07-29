@@ -90,12 +90,11 @@ pub struct IndexDef {
     pub idx_type: IndexTypes,           // index type
     pub algorithm: IndexAlgorithm,      // index algorithm
     pub elements: Vec<IndexElementDef>, // index elememts
-    pub vfld_size: usize,               // variadic field size
     pub null_size: usize,               // nullable flag size
 }
 
 impl IndexDef {
-    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>, vfld_size: usize, null_size: usize) -> Self {
+    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>, null_size: usize) -> Self {
         Self {
             pos: ddi.ordinal_position as usize,
             idx_name: ddi.name.clone(),
@@ -104,7 +103,6 @@ impl IndexDef {
             idx_type: ddi.idx_type.clone(),
             algorithm: ddi.algorithm.clone(),
             elements: ele_defs,
-            vfld_size,
             null_size,
             ..IndexDef::default()
         }
@@ -125,7 +123,6 @@ pub struct IndexElementDef {
     pub isnil: bool,       // is nullable field
     pub isvar: bool,       // is variadic field
     pub null_offset: usize, // nullable offset
-    pub vfld_bytes: usize, // variadic field size
 }
 
 impl IndexElementDef {

@@ -3,7 +3,6 @@ use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
-use crate::ibd::record::REC_N_FIELDS_ONE_BYTE_MAX;
 use crate::meta::cst::coll_find;
 
 #[derive(Debug, Default)]
@@ -34,23 +33,8 @@ impl MetaDataManager {
                 ele_defs.push(IndexElementDef::from(ele, ref_col));
             }
 
-            let mut vfldinfo = Vec::new();
             let mut nullinfo = Vec::new();
             for e in &ele_defs {
-                if e.isvar {
-                    vfldinfo.push((
-                        e.pos,
-                        // see function in mysql-server source code
-                        // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
-                        //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
-                        // }
-                        if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
-                            2
-                        } else {
-                            1
-                        },
-                    ));
-                }
                 if e.isnil {
                     nullinfo.push(e.pos);
                 }
@@ -61,13 +45,7 @@ impl MetaDataManager {
             }
             let nullflag_size = util::align8(nullinfo.len());
 
-            let mut vfld_offset = 0usize;
-            for ent in &vfldinfo {
-                ele_defs[ent.0 - 1].vfld_bytes = ent.1;
-                vfld_offset += ent.1;
-            }
-
-            idxdefs.push(IndexDef::from(idx, ele_defs, vfld_offset, nullflag_size));
+            idxdefs.push(IndexDef::from(idx, ele_defs, nullflag_size));
         }
 
         let coll = coll_find(ddobj.collation_id);

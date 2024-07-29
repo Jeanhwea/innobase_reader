@@ -4,7 +4,6 @@ use crate::meta::def::TableDef;
 use crate::util;
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use colored::Colorize;
 use derivative::Derivative;
 use log::debug;
 use num_enum::FromPrimitive;
@@ -32,6 +31,9 @@ pub const INODE_ENTRY_ARR_COUNT: usize = 32;
 pub const FSEG_FRAG_ARR_OFFSET: usize = 64;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
+
+// record
+pub const RECORD_HEADER_SIZE: usize = 5;
 
 // Base Page Structure
 #[derive(Clone, Derivative)]
@@ -553,41 +555,33 @@ impl BasePageBody for IndexPageBody {
 
 impl IndexPageBody {
     pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
-        let inf = &self.infimum;
-        let urecs = &mut self.records;
-        let mut off = (PAGE_ADDR_INF - FIL_HEADER_SIZE) as i16;
-        off += inf.next_rec_offset;
-
         let idxdef = &tabdef.idx_defs[0];
         assert_eq!(idxdef.idx_name, "PRIMARY");
 
+        let inf = &self.infimum;
+        let mut cursor = PAGE_ADDR_INF as i16 + inf.next_rec_offset;
+
+        let urecs = &mut self.records;
         for _nrec in 0..self.index_header.page_n_recs {
-            let mut addr = off as usize;
-            let rec_hdr = RecordHeader::new(addr - 5, self.buf.clone());
+            let mut addr = cursor as usize;
 
-            addr -= 5;
-            let mut narr = self.buf.slice(addr - idxdef.null_size..addr).to_vec();
-            narr.reverse();
-            addr -= idxdef.null_size;
-            let mut varr = self.buf.slice(addr - idxdef.vfld_size..addr).to_vec();
-            varr.reverse();
-            let rowinfo = RowInfo::new(varr, narr, tabdef.clone());
-            debug!("rowinfo={:?}", &rowinfo);
+            // Record Header
+            addr -= RECORD_HEADER_SIZE;
+            let rec_hdr = RecordHeader::new(addr, self.buf.clone());
 
-            addr = off as usize;
-            let rdi = rowinfo.dyninfo(idxdef);
-            debug!("Row Dynamic Info = {:?}", &rdi);
-            let total: usize = rdi.iter().map(|e| e.1).sum();
-            let rbuf = self.buf.slice(addr..addr + total);
-            let row = Row::new(addr + FIL_HEADER_SIZE, self.buf.clone(), tabdef.clone(), rdi);
+            // Record Information
+            let row_info = RowInfo::new(addr, self.buf.clone(), tabdef.clone(), &idxdef);
 
-            off += rec_hdr.next_rec_offset;
-            let mut urec = Record::new(off as usize, self.buf.clone(), rec_hdr, rowinfo, row);
-            urec.unpack(idxdef);
+            // Row
+            addr = cursor as usize;
+            let row = Row::new(addr, self.buf.clone(), tabdef.clone());
+            cursor += rec_hdr.next_rec_offset;
 
+            // Record
+            let urec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
             urecs.push(urec);
         }
-        assert_eq!(off as usize, PAGE_ADDR_SUP - FIL_HEADER_SIZE);
+        assert_eq!(cursor as usize, PAGE_ADDR_SUP);
 
         Ok(())
     }

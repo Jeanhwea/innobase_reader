@@ -1,10 +1,8 @@
-use crate::ibd::record::HiddenTypes::HT_HIDDEN_SE;
-use crate::meta::def::{IndexDef, IndexElementDef, TableDef};
+use crate::meta::def::{IndexDef, TableDef};
 use crate::util;
 use bytes::Bytes;
-use colored::Colorize;
 use derivative::Derivative;
-use log::{trace, debug};
+use log::debug;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -83,13 +81,14 @@ impl RecordHeader {
 }
 
 /// Row Dynamic Information, (pos, len, isnull, name)
-///   1. pos: column ordinal position
+///   1. pos: index element ordinal position
 ///   2. len: row data length
 ///   3. isnull, row data is null
-///   3. name: column name
+///   4. name: column name
+///   5. opx: column ordinal position index (opx)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String);
+pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String, pub usize);
 
 /// Row Data, (ord, len, buf),
 ///    1. opx: ordinal_position index
@@ -102,85 +101,82 @@ pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowInfo {
-    pub vfld_arr: Vec<u8>, // variadic field array in reversed order
-    pub null_arr: Vec<u8>, // nullable flag array in reversed order
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address, [nilfld, varfld], access in reverse order
+    // pub vfld_arr: Vec<u8>, // variadic field array in reversed order
+    // pub null_arr: Vec<u8>, // nullable flag array in reversed order
+    pub row_dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl RowInfo {
-    pub fn new(varr: Vec<u8>, narr: Vec<u8>, tabdef: Arc<TableDef>) -> Self {
-        Self {
-            vfld_arr: varr,
-            null_arr: narr,
-            table_def: tabdef.clone(),
-        }
-    }
+    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
+        let nilptr = addr;
+        let mut varptr = addr - idxdef.null_size;
 
-    fn isnull(&self, e: &IndexElementDef) -> bool {
-        if !e.isnil {
-            return false;
-        }
-
-        let off = e.null_offset;
-        let noff = util::numoff(off);
-        let nidx = util::numidx(off);
-        let mask = 1 << noff;
-        trace!("offset={}, noff={}, nidx={}, mask=0b{:08b}", off, noff, nidx, mask);
-        (self.null_arr[nidx] & mask) > 0
-    }
-
-    pub fn varlen(&self, off: usize, e: &IndexElementDef) -> usize {
-        if !e.isvar {
-            return e.data_len as usize;
-        }
-
-        match e.vfld_bytes {
-            1 => {
-                let b0 = self.vfld_arr[off] as usize;
-                let vlen = b0;
-                debug!("col_name={}, b0=0x{:02x} => vlen={}", e.col_name.magenta(), b0, vlen);
-                vlen
-            }
-            2 => {
-                let b0 = self.vfld_arr[off + 1] as usize;
-                let b1 = self.vfld_arr[off] as usize;
-                let vlen = if b1 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
-                    b0 + ((b1 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
-                } else {
-                    b1
-                };
-                debug!(
-                    "col_name={}, b0=0x{:02x}, b1=0x{:02x} => vlen={}",
-                    e.col_name.magenta(),
-                    b0,
-                    b1,
-                    vlen,
-                );
-                vlen
-            }
-            _ => 0,
-        }
-    }
-
-    pub fn dyninfo(&self, idxdef: &IndexDef) -> Vec<DynamicInfo> {
-        let mut offset = 0;
-        idxdef
+        let row_dyn_info = idxdef
             .elements
             .iter()
             .map(|e| {
-                if self.isnull(e) {
-                    DynamicInfo(e.pos, 0usize, self.isnull(e), e.col_name.clone())
-                } else if !e.isvar {
-                    DynamicInfo(e.pos, e.data_len as usize, self.isnull(e), e.col_name.clone())
+                let isnull = if e.isnil {
+                    let nidx = util::numidx(e.null_offset);
+                    let mask = 1 << util::numoff(e.null_offset);
+                    let val = buf[nilptr - nidx];
+                    (val & mask) > 0
                 } else {
-                    let vlen = self.varlen(offset, e);
-                    offset += e.vfld_bytes;
-                    debug!("pos={}, vlen={}", e.pos, vlen);
-                    DynamicInfo(e.pos, vlen, self.isnull(e), e.col_name.clone())
+                    false
+                };
+
+                if isnull {
+                    DynamicInfo(e.pos, 0, isnull, e.col_name.clone(), e.column_opx)
+                } else if !e.isvar {
+                    DynamicInfo(e.pos, e.data_len as usize, isnull, e.col_name.clone(), e.column_opx)
+                } else {
+                    // see function in mysql-server source code
+                    // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+                    //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+                    // }
+                    let vfld_bytes = if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+                        2
+                    } else {
+                        1
+                    };
+
+                    let vlen = match vfld_bytes {
+                        1 => {
+                            let b0 = buf[varptr] as usize;
+                            varptr += 1;
+                            b0
+                        }
+                        2 => {
+                            let b0 = buf[varptr] as usize;
+                            varptr += 1;
+
+                            if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
+                                let b1 = buf[varptr] as usize;
+                                varptr += 1;
+                                b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
+                            } else {
+                                b0
+                            }
+                        }
+                        _ => todo!("ERR_PROCESS_VAR_FILED_BYTES: {:?}", e),
+                    };
+                    DynamicInfo(e.pos, vlen, isnull, e.col_name.clone(), e.column_opx)
                 }
             })
-            .collect()
+            .collect();
+        debug!("row_dyn_info={:?}", row_dyn_info);
+
+        Self {
+            row_dyn_info,
+            table_def: tabdef.clone(),
+            buf: buf.clone(),
+            addr,
+        }
     }
 }
 
@@ -195,9 +191,8 @@ pub struct Row {
     pub trx_id: u64,
     /// rollback pointer, 7 bytes
     pub roll_ptr: u64,
-    /// row data list
-    pub row_data: Vec<RowDatum>,
-    pub row_dyn_info: Vec<DynamicInfo>,
+    /// row data tuple list
+    pub row_tuple: Vec<RowDatum>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
     #[derivative(Debug = "ignore")]
@@ -205,10 +200,9 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, dyninfo: Vec<DynamicInfo>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>) -> Self {
         Self {
             table_def: tabdef,
-            row_dyn_info: dyninfo,
             buf: buf.clone(),
             addr,
             ..Row::default()
@@ -223,50 +217,31 @@ pub struct Record {
     pub addr: usize, // page address
     pub row_info: RowInfo,     // row information
     pub rec_hdr: RecordHeader, // record header
-    pub row: Row,              // row data
+    pub row_data: Row,         // row data
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl Record {
-    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, rowinfo: RowInfo, data: Row) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
+        let mut dataptr = addr;
+        for x in &row_info.row_dyn_info {
+            if x.2 {
+                row.row_tuple.push(RowDatum(x.4, 0, None));
+            } else {
+                let len = x.1;
+                let rbuf = buf.slice(dataptr..dataptr + len);
+                row.row_tuple.push(RowDatum(x.4, len, Some(rbuf)));
+                dataptr += len;
+            }
+        }
+
         Self {
             rec_hdr: hdr,
-            row_info: rowinfo,
-            row: data,
+            row_info,
+            row_data: row,
             buf: buf.clone(),
             addr,
-        }
-    }
-
-    pub fn unpack(&mut self, idxdef: &IndexDef) {
-        let rbuf = self.row.buf.clone();
-
-        let mut end = self.addr;
-        for e in &idxdef.elements {
-            let rdi = &self.row.row_dyn_info[e.pos - 1];
-            if rdi.2 {
-                self.row.row_data.push(RowDatum(e.column_opx, 0, None));
-            } else {
-                let len = rdi.1;
-                let buf = rbuf.slice(end..end + len);
-                self.row.row_data.push(RowDatum(e.column_opx, len, Some(buf.clone())));
-                end += len;
-                if e.col_hidden == HT_HIDDEN_SE {
-                    match e.col_name.as_str() {
-                        "DB_ROW_ID" => {
-                            self.row.row_id = Some(util::from_bytes6(buf.clone()));
-                        }
-                        "DB_TRX_ID" => {
-                            self.row.trx_id = util::from_bytes6(buf.clone());
-                        }
-                        "DB_ROLL_PTR" => {
-                            self.row.roll_ptr = util::from_bytes7(buf.clone());
-                        }
-                        _ => panic!("ERR_DB_META_COLUMN_NAME"),
-                    }
-                }
-            }
         }
     }
 }

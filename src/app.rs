@@ -180,11 +180,11 @@ impl App {
             info!(
                 "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
                 seq.to_string().red(),
-                &urec.row.addr.to_string().yellow(),
+                &urec.row_data.addr.to_string().yellow(),
                 "hdr".cyan(),
                 &urec.rec_hdr,
                 "data".green(),
-                &urec.row,
+                &urec.row_data,
                 "info".magenta(),
                 &urec.row_info,
             );
@@ -192,7 +192,7 @@ impl App {
                 "****************************** Row {} ******************************",
                 seq.to_string().yellow()
             );
-            for row in &urec.row.row_data {
+            for row in &urec.row_data.row_tuple {
                 let col = &tabdef.clone().col_defs[row.0];
                 println!("{:>12} => {:?}", &col.col_name.magenta(), row.2);
             }
