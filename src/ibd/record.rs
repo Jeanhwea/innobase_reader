@@ -148,15 +148,15 @@ impl RowInfo {
 
                     let vlen = match vfld_bytes {
                         1 => {
-                            varptr -= 1;
                             let b0 = buf[varptr] as usize;
+                            varptr -= 1;
                             b0
                         }
                         2 => {
-                            varptr -= 1;
                             let b0 = buf[varptr] as usize;
                             varptr -= 1;
                             let b1 = buf[varptr] as usize;
+                            varptr -= 1;
 
                             if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
                                 debug!("{} => b0=0x{:0x?}, b1=0x{:0x?}", "calc_vlen".red(), b0, b1);
