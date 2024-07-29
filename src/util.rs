@@ -2,7 +2,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
-use std::fmt::{Display, LowerHex};
+use std::fmt::{Display, LowerHex, Binary};
 use std::io::{Read, Write};
 use std::sync::Once;
 
@@ -25,6 +25,13 @@ pub fn init() {
             })
             .init();
     })
+}
+
+pub fn fmt_bin32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + Binary + LowerHex,
+{
+    write!(f, "0b{:032b}(0x{:08x})", d, d)
 }
 
 pub fn fmt_hex32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>

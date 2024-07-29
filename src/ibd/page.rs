@@ -246,6 +246,7 @@ pub struct FileSpaceHeader {
     /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
     /// fsp_space_t.flags, see fsp0types.h
+    #[derivative(Debug(format_with = "util::fmt_bin32"))]
     pub fsp_flags: u32,
     /// number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
