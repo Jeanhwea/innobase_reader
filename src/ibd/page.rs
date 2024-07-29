@@ -27,47 +27,6 @@ pub const INODE_ENTRY_ARR_COUNT: usize = 32;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
-/// MySQL Page Type, see fil0fil.h
-#[repr(u16)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum PageTypes {
-    ALLOCATED = 0,                 // Freshly allocated page
-    UNUSED = 1,                    // This page type is unused.
-    UNDO_LOG = 2,                  // Undo log page
-    INODE = 3,                     // Index node
-    IBUF_FREE_LIST = 4,            // Insert buffer free list
-    IBUF_BITMAP = 5,               // Insert buffer bitmap
-    SYS = 6,                       // System page
-    TRX_SYS = 7,                   // Transaction system data
-    FSP_HDR = 8,                   // File space header
-    XDES = 9,                      // Extent descriptor page
-    BLOB = 10,                     // Uncompressed BLOB page
-    ZBLOB = 11,                    // First compressed BLOB page
-    ZBLOB2 = 12,                   // Subsequent compressed BLOB page
-    UNKNOWN = 13,                  // this value when flushing pages.
-    COMPRESSED = 14,               // Compressed page
-    ENCRYPTED = 15,                // Encrypted page
-    COMPRESSED_AND_ENCRYPTED = 16, // Compressed and Encrypted page
-    ENCRYPTED_RTREE = 17,          // Encrypted R-tree page
-    SDI_BLOB = 18,                 // Uncompressed SDI BLOB page
-    SDI_ZBLOB = 19,                // Compressed SDI BLOB page
-    LEGACY_DBLWR = 20,             // Legacy doublewrite buffer page.
-    RSEG_ARRAY = 21,               // Rollback Segment Array page
-    LOB_INDEX = 22,                // Index pages of uncompressed LOB
-    LOB_DATA = 23,                 // Data pages of uncompressed LOB
-    LOB_FIRST = 24,                // The first page of an uncompressed LOB
-    ZLOB_FIRST = 25,               // The first page of a compressed LOB
-    ZLOB_DATA = 26,                // Data pages of compressed LOB
-    ZLOB_INDEX = 27,               // Index pages of compressed LOB.
-    ZLOB_FRAG = 28,                // Fragment pages of compressed LOB.
-    ZLOB_FRAG_ENTRY = 29,          // Index pages of fragment pages (compressed LOB).
-    SDI = 17853,                   // Tablespace SDI Index page
-    RTREE = 17854,                 // R-tree node
-    INDEX = 17855,                 // B-tree node
-    #[default]
-    UNDEF,
-}
-
 // Base Page Structure
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -107,6 +66,47 @@ where
             page_size,
         }
     }
+}
+
+/// MySQL Page Type, see fil0fil.h
+#[repr(u16)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum PageTypes {
+    ALLOCATED = 0,                 // Freshly allocated page
+    UNUSED = 1,                    // This page type is unused.
+    UNDO_LOG = 2,                  // Undo log page
+    INODE = 3,                     // Index node
+    IBUF_FREE_LIST = 4,            // Insert buffer free list
+    IBUF_BITMAP = 5,               // Insert buffer bitmap
+    SYS = 6,                       // System page
+    TRX_SYS = 7,                   // Transaction system data
+    FSP_HDR = 8,                   // File space header
+    XDES = 9,                      // Extent descriptor page
+    BLOB = 10,                     // Uncompressed BLOB page
+    ZBLOB = 11,                    // First compressed BLOB page
+    ZBLOB2 = 12,                   // Subsequent compressed BLOB page
+    UNKNOWN = 13,                  // this value when flushing pages.
+    COMPRESSED = 14,               // Compressed page
+    ENCRYPTED = 15,                // Encrypted page
+    COMPRESSED_AND_ENCRYPTED = 16, // Compressed and Encrypted page
+    ENCRYPTED_RTREE = 17,          // Encrypted R-tree page
+    SDI_BLOB = 18,                 // Uncompressed SDI BLOB page
+    SDI_ZBLOB = 19,                // Compressed SDI BLOB page
+    LEGACY_DBLWR = 20,             // Legacy doublewrite buffer page.
+    RSEG_ARRAY = 21,               // Rollback Segment Array page
+    LOB_INDEX = 22,                // Index pages of uncompressed LOB
+    LOB_DATA = 23,                 // Data pages of uncompressed LOB
+    LOB_FIRST = 24,                // The first page of an uncompressed LOB
+    ZLOB_FIRST = 25,               // The first page of a compressed LOB
+    ZLOB_DATA = 26,                // Data pages of compressed LOB
+    ZLOB_INDEX = 27,               // Index pages of compressed LOB.
+    ZLOB_FRAG = 28,                // Fragment pages of compressed LOB.
+    ZLOB_FRAG_ENTRY = 29,          // Index pages of fragment pages (compressed LOB).
+    SDI = 17853,                   // Tablespace SDI Index page
+    RTREE = 17854,                 // R-tree node
+    INDEX = 17855,                 // B-tree node
+    #[default]
+    UNDEF,
 }
 
 /// FIL Header, see fil0types.h
