@@ -4,7 +4,7 @@ use crate::util;
 use anyhow::{Error, Result};
 use log::debug;
 use crate::ibd::record::REC_N_FIELDS_ONE_BYTE_MAX;
-use crate::meta::cst::get_collation;
+use crate::meta::cst::coll_find;
 
 #[derive(Debug, Default)]
 pub struct MetaDataManager {
@@ -70,7 +70,7 @@ impl MetaDataManager {
             idxdefs.push(IndexDef::from(idx, ele_defs, vfld_offset, nullflag_size));
         }
 
-        let coll = get_collation(ddobj.collation_id);
+        let coll = coll_find(ddobj.collation_id);
 
         Ok(TableDef {
             schema_ref: ddobj.schema_ref.clone(),

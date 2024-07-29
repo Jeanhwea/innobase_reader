@@ -7,7 +7,7 @@ use crate::ibd::record::HiddenTypes;
 use crate::ibd::record::IndexAlgorithm;
 use crate::ibd::record::IndexOrder;
 use crate::ibd::record::IndexTypes;
-use crate::meta::cst::get_collation;
+use crate::meta::cst::coll_find;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
@@ -39,7 +39,7 @@ pub struct ColumnDef {
 
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
-        let coll = get_collation(ddc.collation_id);
+        let coll = coll_find(ddc.collation_id);
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),

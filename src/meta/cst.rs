@@ -10,6 +10,8 @@ pub struct Collation {
 }
 
 lazy_static! {
+
+    /// see INFORMATION_SCHEMA.COLLATIONS for more details
     static ref COLLMAP: HashMap<u32, Collation> = {
         let mut map = HashMap::new();
         map.insert(
@@ -2590,7 +2592,8 @@ lazy_static! {
     };
 }
 
-pub fn get_collation(id: u32) -> &'static Collation {
+/// find collation by id
+pub fn coll_find(id: u32) -> &'static Collation {
     COLLMAP.get(&id).expect("ERR_COLLATION_NOT_FOUND")
 }
 
