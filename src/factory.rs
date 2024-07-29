@@ -13,16 +13,14 @@ pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 #[derive(Debug, Default)]
 pub struct PageFactory {
     buf: Arc<Bytes>,
-    len: usize,
     page_no: usize,
 }
 
 impl PageFactory {
-    pub fn new(buffer: Bytes) -> PageFactory {
+    pub fn new(buffer: Bytes, page_no: usize) -> PageFactory {
         Self {
-            len: buffer.len(),
             buf: Arc::new(buffer),
-            ..PageFactory::default()
+            page_no,
         }
     }
 
@@ -34,9 +32,6 @@ impl PageFactory {
     where
         P: BasePageBody,
     {
-        // let hdr = FilePageHeader::new(0, self.buf.clone());
-        // let trl = FilePageTrailer::new(self.len - FIL_TRAILER_SIZE, self.buf.clone());
-        // assert_eq!(hdr.check_sum, trl.check_sum);
         BasePage::new(0, self.buf.clone())
     }
 }
@@ -97,8 +92,9 @@ impl DatafileFactory {
     }
 
     pub fn init_meta_mgr(&self) -> Result<MetaDataManager, Error> {
-        let buffer = self.do_read_bytes(0)?;
-        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = PageFactory::new(buffer).parse();
+        let page_no = 0;
+        let buffer = self.do_read_bytes(page_no)?;
+        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = PageFactory::new(buffer, page_no).parse();
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
         debug!("load fsg_page = {:?}", &fsp_page);
 
@@ -110,7 +106,7 @@ impl DatafileFactory {
         info!("sdi_page_no = {}", sdi_page_no);
 
         let buffer = self.do_read_bytes(sdi_page_no)?;
-        let sdi_page: BasePage<SdiPageBody> = PageFactory::new(buffer).parse();
+        let sdi_page: BasePage<SdiPageBody> = PageFactory::new(buffer, sdi_page_no).parse();
         assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
         debug!("load sdi_page = {:?}", &sdi_page);
 
@@ -131,12 +127,13 @@ impl DatafileFactory {
 
     pub fn parse_fil_hdr(&self, page_no: usize) -> Result<FilePageHeader> {
         let buffer = self.do_read_bytes(page_no)?;
-        Ok(PageFactory::new(buffer).fil_hdr())
+        Ok(PageFactory::new(buffer, page_no).fil_hdr())
     }
 
     pub fn first_fil_hdr(&self) -> Result<FilePageHeader> {
-        let buffer = self.do_read_bytes(0)?;
-        Ok(PageFactory::new(buffer).fil_hdr())
+        let page_no = 0;
+        let buffer = self.do_read_bytes(page_no)?;
+        Ok(PageFactory::new(buffer, page_no).fil_hdr())
     }
 }
 

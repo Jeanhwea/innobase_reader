@@ -164,7 +164,7 @@ impl App {
             )));
         }
         let buffer = df_fact.read_page(page_no)?;
-        let mut index_page: BasePage<IndexPageBody> = PageFactory::new(buffer).parse();
+        let mut index_page: BasePage<IndexPageBody> = PageFactory::new(buffer, page_no).parse();
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
@@ -208,7 +208,7 @@ impl App {
         }
 
         let buffer = df_fact.read_page(page_no)?;
-        let pg_fact = PageFactory::new(buffer);
+        let pg_fact = PageFactory::new(buffer, page_no);
         let fil_hdr = pg_fact.fil_hdr();
         match fil_hdr.page_type {
             PageTypes::ALLOCATED => {
