@@ -39,7 +39,7 @@ pub fn fmt_hex32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::
 where
     T: Display + LowerHex,
 {
-    write!(f, "0x{:08x}({})", d, d)
+    write!(f, "0x{:08x}({})", d, d.to_string().blue())
 }
 
 pub fn fmt_arr32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
@@ -53,14 +53,14 @@ pub fn fmt_hex64<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::
 where
     T: Display + LowerHex,
 {
-    write!(f, "0x{:016x}({})", d, d)
+    write!(f, "0x{:016x}({})", d, d.to_string().blue())
 }
 
 pub fn fmt_addr<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display + LowerHex,
 {
-    write!(f, "0x{:04x}@({})", d, d.to_string().blue())
+    write!(f, "0x{:04x}@({})", d, d.to_string().yellow())
 }
 
 pub fn fmt_enum<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>

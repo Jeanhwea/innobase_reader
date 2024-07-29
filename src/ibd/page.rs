@@ -600,7 +600,7 @@ impl IndexPageBody {
 }
 
 #[repr(u8)]
-#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
@@ -609,7 +609,7 @@ pub enum PageFormats {
 }
 
 #[repr(u16)]
-#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageDirections {
     PAGE_LEFT = 1,
     PAGE_RIGHT = 2,
@@ -631,6 +631,7 @@ pub struct IndexHeader {
     /// pointer to record heap top
     pub page_heap_top: u16,
     /// number of records in the heap, bit 15=flag: new-style compact page format
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_format: PageFormats,
     pub page_n_heap: u16,
     /// pointer to start of page free record list
@@ -640,6 +641,7 @@ pub struct IndexHeader {
     /// pointer to the last inserted record, or NULL if this info has been reset by a deletion
     pub page_last_insert: u16,
     /// last insert direction: PAGE_LEFT, ...
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_direction: PageDirections,
     /// number of consecutive inserts to the same direction
     pub page_n_direction: u16,
