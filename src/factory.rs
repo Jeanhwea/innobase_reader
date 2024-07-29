@@ -38,11 +38,10 @@ impl PageFactory {
     where
         P: BasePageOperation,
     {
-        BasePage::new(
-            FilePageHeader::new(self.buf.clone(), 0),
-            self.buf.slice(FIL_HEADER_SIZE..self.len - FIL_TRAILER_SIZE),
-            FilePageTrailer::new(self.buf.slice(self.len - FIL_TRAILER_SIZE..)),
-        )
+        let hdr = FilePageHeader::new(self.buf.clone(), 0);
+        let trl = FilePageTrailer::new(self.buf.clone(), self.len - FIL_TRAILER_SIZE);
+        assert_eq!(hdr.check_sum, trl.check_sum);
+        BasePage::new(hdr, self.buf.slice(FIL_HEADER_SIZE..self.len - FIL_TRAILER_SIZE), trl)
     }
 }
 
