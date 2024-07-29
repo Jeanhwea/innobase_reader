@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bytes::Bytes;
 use chrono::Local;
+use colored::Colorize;
 use flate2::read::ZlibDecoder;
 use std::fmt::{Display, LowerHex, Binary};
 use std::io::{Read, Write};
@@ -52,7 +53,7 @@ pub fn fmt_addr<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::E
 where
     T: Display + LowerHex,
 {
-    write!(f, "0x{:x} @{}", d, d)
+    write!(f, "0x{:x} {}{}", d, "@".blue(), d.to_string().blue())
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
