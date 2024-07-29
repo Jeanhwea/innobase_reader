@@ -143,7 +143,7 @@ impl FilePageHeader {
             page_type: util::u16_val(&buf, addr + 24).into(),
             flush_lsn: util::u64_val(&buf, addr + 26),
             space_id: util::u32_val(&buf, addr + 34),
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -168,7 +168,7 @@ impl FilePageTrailer {
         Self {
             check_sum: util::u32_val(&buf, addr),
             lsn_low32bit: util::u32_val(&buf, addr + 4),
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -193,7 +193,7 @@ impl FlstBaseNode {
             len: util::u32_val(&buf, addr),
             first: FilAddr::new(addr + 4, buf.clone()),
             last: FilAddr::new(addr + 10, buf.clone()),
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -203,8 +203,12 @@ impl FlstBaseNode {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstNode {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub prev: FilAddr,
     pub next: FilAddr,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl FlstNode {
@@ -212,6 +216,8 @@ impl FlstNode {
         Self {
             prev: FilAddr::new(addr, buf.clone()),
             next: FilAddr::new(addr + 6, buf.clone()),
+            buf: buf.clone(),
+            addr,
         }
     }
 }
@@ -220,10 +226,14 @@ impl FlstNode {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilAddr {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub page: u32, // Page number within a space
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub boffset: u16, // Byte offset within the page
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl FilAddr {
@@ -231,6 +241,8 @@ impl FilAddr {
         Self {
             page: util::u32_val(&buf, addr),
             boffset: util::u16_val(&buf, addr + 4),
+            buf: buf.clone(),
+            addr,
         }
     }
 }
@@ -287,7 +299,7 @@ impl FileSpaceHeader {
             seg_id: util::u64_val(&buf, addr + 72),
             inodes_full: FlstBaseNode::new(addr + 80, buf.clone()),
             inodes_free: FlstBaseNode::new(addr + 96, buf.clone()),
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -343,7 +355,7 @@ impl BasePageOperation for FileSpaceHeaderPage {
             fsp_hdr: hdr,
             xdes_ent_list: entries,
             sdi_meta_data: None,
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -383,7 +395,7 @@ impl XDesEntry {
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
             bitmap: buf.clone().slice(addr + 24..addr + 40),
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -433,7 +445,7 @@ impl BasePageOperation for INodePage {
         Self {
             inode_flst_node: FlstNode::new(addr, buf.clone()),
             inode_ent_list: entries,
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
@@ -473,7 +485,7 @@ impl INodeEntry {
             fseg_full: FlstBaseNode::new(addr + 44, buf.clone()),
             fseg_magic_n: util::u32_val(&buf, addr + 60),
             fseg_frag_arr: arr,
-            buf,
+            buf: buf.clone(),
             addr,
         }
     }
