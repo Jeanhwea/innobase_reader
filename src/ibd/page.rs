@@ -217,7 +217,8 @@ impl FlstNode {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilAddr {
-    pub page: u32,    // Page number within a space
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub page: u32, // Page number within a space
     pub boffset: u16, // Byte offset within the page
 }
 
@@ -255,7 +256,7 @@ pub struct FileSpaceHeader {
     /// list of full extents not belonging to any segment
     pub full_frag: FlstBaseNode,
     /// next segemnt id, 8 bytes which give the first unused segment id
-    pub segid: u64,
+    pub seg_id: u64,
     /// list of pages containing segment headers, where all the segment inode
     /// slots are reserved
     pub inodes_full: FlstBaseNode,
@@ -278,7 +279,7 @@ impl FileSpaceHeader {
             fsp_free: FlstBaseNode::new(addr + 24, buf.clone()),
             free_frag: FlstBaseNode::new(addr + 40, buf.clone()),
             full_frag: FlstBaseNode::new(addr + 56, buf.clone()),
-            segid: util::u64_val(&buf, addr + 72),
+            seg_id: util::u64_val(&buf, addr + 72),
             inodes_full: FlstBaseNode::new(addr + 80, buf.clone()),
             inodes_free: FlstBaseNode::new(addr + 96, buf.clone()),
             buf,
