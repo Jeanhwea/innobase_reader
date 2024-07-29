@@ -46,6 +46,14 @@ pub fn numidx(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
+pub fn read_as_u32(b: &[u8]) -> u32 {
+    u32::from_be_bytes(b.try_into().expect("ERR_CONV_u32_FAILED"))
+}
+
+pub fn read_as_u64(b: &[u8]) -> u64 {
+    u64::from_be_bytes(b.try_into().expect("ERR_CONV_u64_FAILED"))
+}
+
 pub fn from_bytes6(b: Bytes) -> u64 {
     assert_eq!(b.len(), 6);
     let arr = [b[0], b[1], b[2], b[3], b[4], b[5], 0u8, 0u8];
@@ -63,11 +71,22 @@ mod util_tests {
 
     use std::env::set_var;
 
+    use log::info;
+
     use super::*;
 
     fn setup() {
         set_var("RUST_LOG", "info");
         init();
+    }
+
+    #[test]
+    fn test_conv_u32() {
+        setup();
+        let buf = Bytes::from_static(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        info!("buf={:?}", buf);
+        assert_eq!(read_as_u32(&buf[0..4]), 0x01020304);
+        assert_eq!(read_as_u64(&buf), 0x0102030405060708);
     }
 
     #[test]
