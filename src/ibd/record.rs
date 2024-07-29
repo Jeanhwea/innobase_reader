@@ -32,14 +32,15 @@ pub enum RecordStatus {
 pub struct RecordHeader {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
     pub info_bits: u8, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
     pub n_owned: u8,   // 4 bits
     pub heap_no: u16,  // 13 bits
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub rec_status: RecordStatus, // 3 bits, see rec.h
     pub next_rec_offset: i16, // next record offset
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl RecordHeader {
@@ -103,13 +104,13 @@ pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
 pub struct RowInfo {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address, [nilfld, varfld], access in reverse order
-    // pub vfld_arr: Vec<u8>, // variadic field array in reversed order
-    // pub null_arr: Vec<u8>, // nullable flag array in reversed order
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
+    // calculated dynamic info
     pub row_dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl RowInfo {
@@ -187,12 +188,13 @@ impl RowInfo {
 pub struct Row {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
     /// row data tuple list
     pub row_tuple: Vec<RowDatum>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl Row {
@@ -211,11 +213,12 @@ impl Row {
 pub struct Record {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
     pub row_info: RowInfo,     // row information
     pub rec_hdr: RecordHeader, // record header
     pub row_data: Row,         // row data
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl Record {
