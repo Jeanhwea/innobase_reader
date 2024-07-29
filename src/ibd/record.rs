@@ -9,7 +9,6 @@ use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use std::sync::Arc;
-use colored::Colorize;
 use strum::{Display, EnumString};
 
 pub const PAGE_ADDR_INF: usize = 99;
@@ -122,11 +121,12 @@ impl RowInfo {
             .elements
             .iter()
             .map(|e| {
+                // debug!("nilptr={}, varptr={}", nilptr, varptr);
                 let isnull = if e.isnil {
-                    let nidx = util::numidx(e.null_offset);
-                    let mask = 1 << util::numoff(e.null_offset);
-                    let val = buf[nilptr - nidx];
-                    (val & mask) > 0
+                    let null_index = util::numidx(e.null_offset);
+                    let null_mask = 1 << util::numoff(e.null_offset);
+                    let null_flag = buf[nilptr - null_index - 1];
+                    (null_flag & null_mask) > 0
                 } else {
                     false
                 };
@@ -148,18 +148,18 @@ impl RowInfo {
 
                     let vlen = match vfld_bytes {
                         1 => {
-                            let b0 = buf[varptr] as usize;
+                            let b0 = buf[varptr - 1] as usize;
                             varptr -= 1;
                             b0
                         }
                         2 => {
-                            let b0 = buf[varptr] as usize;
-                            varptr -= 1;
-                            let b1 = buf[varptr] as usize;
+                            let b0 = buf[varptr - 1] as usize;
                             varptr -= 1;
 
                             if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
-                                debug!("{} => b0=0x{:0x?}, b1=0x{:0x?}", "calc_vlen".red(), b0, b1);
+                                let b1 = buf[varptr - 1] as usize;
+                                varptr -= 1;
+                                // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
                                 b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
                             } else {
                                 b0

@@ -562,7 +562,8 @@ impl IndexPageBody {
         let mut cursor = PAGE_ADDR_INF as i16 + inf.next_rec_offset;
 
         let urecs = &mut self.records;
-        for _nrec in 0..self.index_header.page_n_recs {
+        for nrec in 0..self.index_header.page_n_recs {
+            debug!("nrec={}, cursor={}", nrec, cursor);
             let mut addr = cursor as usize;
 
             // Record Header
