@@ -187,12 +187,6 @@ impl RowInfo {
 pub struct Row {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
-    /// Row id, 6 bytes
-    pub row_id: Option<u64>,
-    /// transaction id, 6 bytes
-    pub trx_id: u64,
-    /// rollback pointer, 7 bytes
-    pub roll_ptr: u64,
     /// row data tuple list
     pub row_tuple: Vec<RowDatum>,
     #[derivative(Debug = "ignore")]
