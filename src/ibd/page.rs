@@ -7,7 +7,7 @@ use bytes::Bytes;
 use colored::Colorize;
 use log::{debug, info};
 use num_enum::FromPrimitive;
-use std::fmt::Formatter;
+use std::fmt::{Formatter, Debug};
 use std::sync::Arc;
 use std::{cmp, fmt};
 use strum::{Display, EnumString};
@@ -271,11 +271,23 @@ impl FileSpaceHeader {
 }
 
 // Base Page Structure
-#[derive(Debug)]
 pub struct BasePage<P> {
     pub fil_hdr: FilePageHeader,
     pub page_body: P,
     pub fil_trl: FilePageTrailer,
+}
+
+impl<P> fmt::Debug for BasePage<P>
+where
+    P: BasePageOperation + Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BasePage")
+            .field("fil_hdr", &self.fil_hdr)
+            .field("page_body", &self.page_body)
+            .field("fil_trl", &self.fil_trl)
+            .finish()
+    }
 }
 
 pub trait BasePageOperation {
@@ -312,6 +324,7 @@ impl fmt::Debug for FileSpaceHeaderPage {
             .finish()
     }
 }
+
 impl FileSpaceHeaderPage {
     // INFO_SIZE = 3 + 4 + 32*2 + 36 + 4 = 111
     // static constexpr size_t INFO_SIZE =
