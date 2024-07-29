@@ -8,9 +8,8 @@ use colored::Colorize;
 use derivative::Derivative;
 use log::{debug, info};
 use num_enum::FromPrimitive;
-use std::fmt::{Formatter, Debug};
+use std::fmt::Debug;
 use std::sync::Arc;
-use std::{cmp, fmt};
 use strum::{Display, EnumString};
 
 // page
@@ -724,37 +723,28 @@ impl FSegHeader {
 }
 
 // SDI Index Page, see ibd2sdi.cc
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct SdiPageBody {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub index: IndexPageBody,   // common Index Page
     pub sdi_hdr: SdiDataHeader, // SDI Data Header
-    pub uncomp_data: String,    // unzipped SDI Data, a JSON string
-}
-
-impl fmt::Debug for SdiPageBody {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let _trunc = cmp::min(self.uncomp_data.len(), 520);
-        f.debug_struct("SdiIndexPage")
-            .field("index", &self.index)
-            .field("sdi_hdr", &self.sdi_hdr)
-            .finish()
-    }
+    #[derivative(Debug = "ignore")]
+    pub uncomp_data: String, // unzipped SDI Data, a JSON string
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl BasePageBody for SdiPageBody {
-    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
-        let index = IndexPageBody::new(addr, buffer.clone());
-        let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let index = IndexPageBody::new(addr, buf.clone());
+        let beg = PAGE_ADDR_INF + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
-        let hdr = SdiDataHeader::new(buffer.slice(beg..end));
-        debug!(
-            "beg={}, end={}, comp_len={}, umcomp_len={}",
-            beg.to_string().green(),
-            end.to_string().magenta(),
-            hdr.comp_len.to_string().yellow(),
-            hdr.uncomp_len.to_string().yellow()
-        );
+        let hdr = SdiDataHeader::new(beg, buf.clone());
+        debug!("sdi_hdr={:?}", &hdr);
 
-        let comped_data = buffer.slice(end..end + (hdr.comp_len as usize));
+        let comped_data = buf.slice(end..end + (hdr.comp_len as usize));
         let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
         assert_eq!(uncomped_data.len(), hdr.uncomp_len as usize);
 
@@ -762,6 +752,8 @@ impl BasePageBody for SdiPageBody {
             index,
             sdi_hdr: hdr,
             uncomp_data: uncomped_data,
+            buf: buf.clone(),
+            addr,
         }
     }
 }
@@ -775,8 +767,11 @@ impl SdiPageBody {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct SdiDataHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     /// Length of TYPE field in record of SDI Index.
     pub data_type: u32, // 4 bytes
     /// Length of ID field in record of SDI Index.
@@ -789,17 +784,21 @@ pub struct SdiDataHeader {
     pub uncomp_len: u32, // 4 bytes
     /// Length of COMPRESSED_LEN field in record of SDI Index.
     pub comp_len: u32, // 4 bytes
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl SdiDataHeader {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            data_type: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            data_id: u64::from_be_bytes(buffer.as_ref()[4..12].try_into().unwrap()),
-            trx_id: util::from_bytes6(buffer.slice(12..18)),
-            roll_ptr: util::from_bytes7(buffer.slice(18..25)),
-            uncomp_len: u32::from_be_bytes(buffer.as_ref()[25..29].try_into().unwrap()),
-            comp_len: u32::from_be_bytes(buffer.as_ref()[29..33].try_into().unwrap()),
+            data_type: util::u32_val(&buf, addr),
+            data_id: util::u64_val(&buf, addr + 4),
+            trx_id: util::from_bytes6(buf.slice(12..18)),
+            roll_ptr: util::from_bytes7(buf.slice(18..25)),
+            uncomp_len: util::u32_val(&buf, addr + 25),
+            comp_len: util::u32_val(&buf, addr + 29),
+            buf: buf.clone(),
+            addr,
         }
     }
 }

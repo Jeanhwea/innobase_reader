@@ -19,7 +19,7 @@ pub const PAGE_ADDR_SUP: usize = 112;
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
 #[repr(u8)]
-#[derive(Debug, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
     REC_STATUS_ORDINARY = 0,
     REC_STATUS_NODE_PTR = 1,
@@ -34,11 +34,12 @@ pub enum RecordStatus {
 pub struct RecordHeader {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
-    pub info_bits: u8,            // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
-    pub n_owned: u8,              // 4 bits
-    pub heap_no: u16,             // 13 bits
+    pub info_bits: u8, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
+    pub n_owned: u8,   // 4 bits
+    pub heap_no: u16,  // 13 bits
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub rec_status: RecordStatus, // 3 bits, see rec.h
-    pub next_rec_offset: i16,     // next record offset
+    pub next_rec_offset: i16, // next record offset
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
