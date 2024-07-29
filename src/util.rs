@@ -3,7 +3,7 @@ use bytes::Bytes;
 use chrono::Local;
 use colored::Colorize;
 use flate2::read::ZlibDecoder;
-use std::fmt::{Display, LowerHex, Binary};
+use std::fmt::{Display, LowerHex, Binary, Debug};
 use std::io::{Read, Write};
 use std::sync::Once;
 
@@ -40,6 +40,13 @@ where
     T: Display + LowerHex,
 {
     write!(f, "0x{:08x}({})", d, d)
+}
+
+pub fn fmt_arr32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Debug,
+{
+    write!(f, "{:08x?}", d)
 }
 
 pub fn fmt_hex64<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>

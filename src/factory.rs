@@ -1,5 +1,5 @@
 use crate::ibd::page::{
-    SdiIndexPage, BasePage, BasePageOperation, FilePageHeader, FileSpaceHeaderPage, PageTypes, PAGE_SIZE,
+    SdiIndexPage, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE,
 };
 use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
@@ -34,7 +34,7 @@ impl PageFactory {
 
     pub fn parse<P>(&self) -> BasePage<P>
     where
-        P: BasePageOperation,
+        P: BasePageBody,
     {
         // let hdr = FilePageHeader::new(0, self.buf.clone());
         // let trl = FilePageTrailer::new(self.len - FIL_TRAILER_SIZE, self.buf.clone());
@@ -100,7 +100,7 @@ impl DatafileFactory {
 
     pub fn init_meta_mgr(&self) -> Result<MetaDataManager, Error> {
         let buffer = self.do_read_bytes(0)?;
-        let mut fsp_page: BasePage<FileSpaceHeaderPage> = PageFactory::new(buffer).parse();
+        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = PageFactory::new(buffer).parse();
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
         debug!("load fsg_page = {:?}", &fsp_page);
 

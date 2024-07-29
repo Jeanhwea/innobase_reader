@@ -1,5 +1,5 @@
 use crate::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPage, INodePage, IndexPage, PageTypes, SdiIndexPage};
+use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPage, PageTypes, SdiIndexPage};
 use crate::Commands;
 use anyhow::{Error, Result};
 use colored::Colorize;
@@ -216,14 +216,14 @@ impl App {
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
-                let mut fsp_page: BasePage<FileSpaceHeaderPage> = pg_fact.parse();
+                let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = pg_fact.parse();
                 if df_fact.server_version > SDI_META_INFO_MIN_VER {
                     fsp_page.page_body.parse_sdi_meta();
                 }
                 println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {
-                let inode_page: BasePage<INodePage> = pg_fact.parse();
+                let inode_page: BasePage<INodePageBody> = pg_fact.parse();
                 println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {

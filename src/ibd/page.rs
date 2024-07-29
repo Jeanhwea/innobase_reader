@@ -30,32 +30,32 @@ pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 // Base Page Structure
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct BasePage<P> {
+pub struct BasePage<B> {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     pub page_size: usize, // page size
     pub fil_hdr: FilePageHeader,
-    pub page_body: P,
+    pub page_body: B,
     pub fil_trl: FilePageTrailer,
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 }
 
-pub trait BasePageOperation {
+pub trait BasePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self;
 }
 
-impl<P> BasePage<P>
+impl<B> BasePage<B>
 where
-    P: BasePageOperation,
+    B: BasePageBody,
 {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<P> {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<B> {
         let page_size = buf.len();
         let header = FilePageHeader::new(0, buf.clone());
         let trailer = FilePageTrailer::new(page_size - FIL_TRAILER_SIZE, buf.clone());
         assert_eq!(header.check_sum, trailer.check_sum);
 
-        let body = BasePageOperation::new(FIL_HEADER_SIZE, buf.clone());
+        let body = BasePageBody::new(FIL_HEADER_SIZE, buf.clone());
 
         Self {
             fil_hdr: header,
@@ -308,7 +308,7 @@ impl FileSpaceHeader {
 // File Space Header Page
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct FileSpaceHeaderPage {
+pub struct FileSpaceHeaderPageBody {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     pub fsp_hdr: FileSpaceHeader,
@@ -318,7 +318,7 @@ pub struct FileSpaceHeaderPage {
     pub buf: Arc<Bytes>,
 }
 
-impl FileSpaceHeaderPage {
+impl FileSpaceHeaderPageBody {
     // INFO_SIZE = 3 + 4 + 32*2 + 36 + 4 = 111
     // static constexpr size_t INFO_SIZE =
     //     (MAGIC_SIZE + sizeof(uint32) + (KEY_LEN * 2) + SERVER_UUID_LEN +
@@ -338,7 +338,7 @@ impl FileSpaceHeaderPage {
     }
 }
 
-impl BasePageOperation for FileSpaceHeaderPage {
+impl BasePageBody for FileSpaceHeaderPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(addr, buf.clone());
         let mut entries = Vec::new();
@@ -347,7 +347,6 @@ impl BasePageOperation for FileSpaceHeaderPage {
                 as usize;
         for offset in 0..len {
             let beg = addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
-            let end = beg + XDES_ENTRY_SIZE;
             entries.push(XDesEntry::new(beg, buf.clone()));
         }
 
@@ -426,7 +425,7 @@ impl SdiMetaInfo {
 // File Segment Inode, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct INodePage {
+pub struct INodePageBody {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     pub inode_flst_node: FlstNode,
@@ -435,12 +434,11 @@ pub struct INodePage {
     pub buf: Arc<Bytes>, // page data buffer
 }
 
-impl BasePageOperation for INodePage {
+impl BasePageBody for INodePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let mut entries = Vec::new();
         for offset in 0..INODE_ENTRY_MAX_COUNT {
             let beg = addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
-            let end = beg + INODE_ENTRY_SIZE;
             let entry = INodeEntry::new(beg, buf.clone());
             info!("0x{:08x}", &entry.fseg_magic_n);
             if entry.fseg_magic_n == 0 || entry.fseg_id == 0 {
@@ -469,6 +467,7 @@ pub struct INodeEntry {
     fseg_not_full: FlstBaseNode,
     fseg_full: FlstBaseNode,
     fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
+    #[derivative(Debug(format_with = "util::fmt_arr32"))]
     fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
@@ -479,7 +478,6 @@ impl INodeEntry {
         let mut arr = [0u32; INODE_ENTRY_ARR_COUNT];
         for (offset, element) in arr.iter_mut().enumerate() {
             let beg = addr + 64 + offset * FRAG_ARR_ENTRY_SIZE;
-            let end = beg + FRAG_ARR_ENTRY_SIZE;
             *element = util::u32_val(&buf, beg);
         }
 
@@ -535,7 +533,7 @@ impl fmt::Debug for IndexPage {
     }
 }
 
-impl BasePageOperation for IndexPage {
+impl BasePageBody for IndexPage {
     fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(buffer.slice(0..36));
 
@@ -725,7 +723,7 @@ impl fmt::Debug for SdiIndexPage {
     }
 }
 
-impl BasePageOperation for SdiIndexPage {
+impl BasePageBody for SdiIndexPage {
     fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         let index = IndexPage::new(addr, buffer.clone());
         let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
