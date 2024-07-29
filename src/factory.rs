@@ -10,27 +10,28 @@ use log::{debug, info};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 
 #[derive(Debug, Default)]
 pub struct PageFactory {
-    buffer: Bytes,
-    buflen: usize,
+    buf: Arc<Bytes>,
+    len: usize,
     page_no: usize,
 }
 
 impl PageFactory {
     pub fn new(buffer: Bytes) -> PageFactory {
         Self {
-            buflen: buffer.len(),
-            buffer,
+            len: buffer.len(),
+            buf: Arc::new(buffer),
             ..PageFactory::default()
         }
     }
 
     pub fn fil_hdr(&self) -> FilePageHeader {
-        FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE))
+        FilePageHeader::new(self.buf.clone())
     }
 
     pub fn parse<P>(&self) -> BasePage<P>
@@ -38,9 +39,9 @@ impl PageFactory {
         P: BasePageOperation,
     {
         BasePage::new(
-            FilePageHeader::new(self.buffer.slice(..FIL_HEADER_SIZE)),
-            self.buffer.slice(FIL_HEADER_SIZE..self.buflen - FIL_TRAILER_SIZE),
-            FilePageTrailer::new(self.buffer.slice(self.buflen - FIL_TRAILER_SIZE..)),
+            FilePageHeader::new(self.buf.clone()),
+            self.buf.slice(FIL_HEADER_SIZE..self.len - FIL_TRAILER_SIZE),
+            FilePageTrailer::new(self.buf.slice(self.len - FIL_TRAILER_SIZE..)),
         )
     }
 }

@@ -72,15 +72,21 @@ pub enum PageTypes {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilePageHeader {
-    #[derivative(Debug(format_with = "util::fmt_hex"))]
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub check_sum: u32, // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
-    pub page_no: u32,         // page_number/offset, FIL_PAGE_OFFSET
-    pub prev_page: u32,       // Previous Page, FIL_PAGE_PREV
-    pub next_page: u32,       // Next Page, FIL_PAGE_NEXT
-    pub lsn: u64,             // LSN for last page modification, FIL_PAGE_LSN
+    pub page_no: u32, // page_number/offset, FIL_PAGE_OFFSET
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub prev_page: u32, // Previous Page, FIL_PAGE_PREV
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub next_page: u32, // Next Page, FIL_PAGE_NEXT
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
+    pub lsn: u64, // LSN for last page modification, FIL_PAGE_LSN
     pub page_type: PageTypes, // Page Type, FIL_PAGE_TYPE
-    pub flush_lsn: u64,       // Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
-    pub space_id: u32,        // Space ID, FIL_PAGE_SPACE_ID
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
+    pub flush_lsn: u64, // Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
+    pub space_id: u32, // Space ID, FIL_PAGE_SPACE_ID
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 // impl fmt::Debug for FilePageHeader {
@@ -99,10 +105,7 @@ pub struct FilePageHeader {
 // }
 
 impl FilePageHeader {
-    pub fn new<B>(buffer: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
+    pub fn new(buffer: Arc<Bytes>) -> Self {
         Self {
             check_sum: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
             page_no: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
@@ -112,6 +115,7 @@ impl FilePageHeader {
             page_type: u16::from_be_bytes(buffer.as_ref()[24..26].try_into().unwrap()).into(),
             flush_lsn: u64::from_be_bytes(buffer.as_ref()[26..34].try_into().unwrap()),
             space_id: u32::from_be_bytes(buffer.as_ref()[34..38].try_into().unwrap()),
+            buf: buffer,
         }
     }
 }
