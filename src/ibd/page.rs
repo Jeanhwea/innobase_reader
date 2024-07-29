@@ -331,8 +331,8 @@ impl FileSpaceHeaderPageBody {
         // sdi_addr, page offset = 10505
         let sdi_addr = self.addr + FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
 
-        // info!("len = {}, sdi_addr = {}", len, sdi_addr);
         let sdi_meta = SdiMetaData::new(sdi_addr, self.buf.clone());
+        debug!("sdi_meta={:?}", sdi_meta);
 
         self.sdi_meta_data = Some(sdi_meta);
     }
