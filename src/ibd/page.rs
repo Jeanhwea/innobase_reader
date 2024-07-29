@@ -177,17 +177,23 @@ impl FilePageTrailer {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstBaseNode {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub len: u32,
     pub first: FilAddr,
     pub last: FilAddr,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl FlstBaseNode {
-    pub fn new(buffer: &[u8]) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            len: u32::from_be_bytes(buffer[..4].try_into().unwrap()),
-            first: FilAddr::new(&buffer[4..10]),
-            last: FilAddr::new(&buffer[10..16]),
+            len: util::u32_val(&buf, addr),
+            first: FilAddr::new(addr + 4, buf.clone()),
+            last: FilAddr::new(addr + 10, buf.clone()),
+            buf,
+            addr,
         }
     }
 }
@@ -200,10 +206,10 @@ pub struct FlstNode {
 }
 
 impl FlstNode {
-    pub fn new(buffer: &[u8]) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            prev: FilAddr::new(&buffer[..6]),
-            next: FilAddr::new(&buffer[6..12]),
+            prev: FilAddr::new(addr, buf.clone()),
+            next: FilAddr::new(addr + 6, buf.clone()),
         }
     }
 }
@@ -216,10 +222,10 @@ pub struct FilAddr {
 }
 
 impl FilAddr {
-    pub fn new(buffer: &[u8]) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            page: u32::from_be_bytes(buffer[..4].try_into().unwrap()),
-            boffset: u16::from_be_bytes(buffer[4..6].try_into().unwrap()),
+            page: util::u32_val(&buf, addr),
+            boffset: util::u16_val(&buf, addr + 4),
         }
     }
 }
@@ -261,21 +267,21 @@ pub struct FileSpaceHeader {
 }
 
 impl FileSpaceHeader {
-    pub fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            space_id: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
-            notused: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
-            fsp_size: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
-            free_limit: u32::from_be_bytes(buffer.as_ref()[12..16].try_into().unwrap()),
-            fsp_flags: u32::from_be_bytes(buffer.as_ref()[16..20].try_into().unwrap()),
-            fsp_frag_n_used: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()),
-            fsp_free: FlstBaseNode::new(&buffer.as_ref()[24..40]),
-            free_frag: FlstBaseNode::new(&buffer.as_ref()[40..56]),
-            full_frag: FlstBaseNode::new(&buffer.as_ref()[56..72]),
-            segid: u64::from_be_bytes(buffer.as_ref()[72..80].try_into().unwrap()),
-            inodes_full: FlstBaseNode::new(&buffer.as_ref()[80..96]),
-            inodes_free: FlstBaseNode::new(&buffer.as_ref()[96..112]),
-            buf: buffer,
+            space_id: util::u32_val(&buf, addr),
+            notused: util::u32_val(&buf, addr + 4),
+            fsp_size: util::u32_val(&buf, addr + 8),
+            free_limit: util::u32_val(&buf, addr + 12),
+            fsp_flags: util::u32_val(&buf, addr + 16),
+            fsp_frag_n_used: util::u32_val(&buf, addr + 20),
+            fsp_free: FlstBaseNode::new(addr + 24, buf.clone()),
+            free_frag: FlstBaseNode::new(addr + 40, buf.clone()),
+            full_frag: FlstBaseNode::new(addr + 56, buf.clone()),
+            segid: util::u64_val(&buf, addr + 72),
+            inodes_full: FlstBaseNode::new(addr + 80, buf.clone()),
+            inodes_free: FlstBaseNode::new(addr + 96, buf.clone()),
+            buf,
             addr,
         }
     }
@@ -365,14 +371,14 @@ pub struct XDesEntry {
 }
 
 impl XDesEntry {
-    pub fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            seg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
-            flst_node: FlstNode::new(&buffer.as_ref()[8..20]),
-            state: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()).into(),
-            bitmap: buffer.slice(24..40),
+            seg_id: util::u64_val(&buf, addr),
+            flst_node: FlstNode::new(addr + 8, buf.clone()),
+            state: util::u32_val(&buf, addr + 20).into(),
+            bitmap: buf.clone().slice(addr + 24..addr + 40),
+            buf,
             addr,
-            buf: buffer,
         }
     }
 }
@@ -394,19 +400,24 @@ impl SdiMetaInfo {
 }
 
 // File Segment Inode, see fsp0fsp.h
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct INodePage {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub inode_flst_node: FlstNode,
     pub inode_ent_list: Vec<INodeEntry>,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl BasePageOperation for INodePage {
-    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let mut entries = Vec::new();
         for offset in 0..INODE_ENTRY_MAX_COUNT {
-            let beg = INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
+            let beg = addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
             let end = beg + INODE_ENTRY_SIZE;
-            let entry = INodeEntry::new(buffer.slice(beg..end));
+            let entry = INodeEntry::new(beg, buf.clone());
             info!("0x{:08x}", &entry.fseg_magic_n);
             if entry.fseg_magic_n == 0 || entry.fseg_id == 0 {
                 break;
@@ -414,14 +425,20 @@ impl BasePageOperation for INodePage {
             entries.push(entry);
         }
         Self {
-            inode_flst_node: FlstNode::new(&buffer.as_ref()[0..INODE_FLST_NODE_SIZE]),
+            inode_flst_node: FlstNode::new(addr, buf.clone()),
             inode_ent_list: entries,
+            buf,
+            addr,
         }
     }
 }
 
 // INode Entry, see fsp0fsp.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct INodeEntry {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     fseg_id: u64,
     fseg_not_full_n_used: u32,
     fseg_free: FlstBaseNode,
@@ -429,45 +446,29 @@ pub struct INodeEntry {
     fseg_full: FlstBaseNode,
     fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
     fseg_frag_arr: [u32; INODE_ENTRY_ARR_COUNT],
-}
-
-impl fmt::Debug for INodeEntry {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let frag_arr_str = &self
-            .fseg_frag_arr
-            .iter()
-            .map(|e| format!("0x{:08x}", e))
-            .collect::<Vec<_>>()
-            .join(", ");
-        f.debug_struct("INodeEntry")
-            .field("fseg_id", &self.fseg_id)
-            .field("fseg_not_full_n_used", &self.fseg_not_full_n_used)
-            .field("fseg_free", &self.fseg_free)
-            .field("fseg_not_full", &self.fseg_not_full)
-            .field("fseg_full", &self.fseg_full)
-            .field("fseg_magic_n", &self.fseg_magic_n)
-            .field("fseg_frag_arr", &format!("[{}]", frag_arr_str))
-            .finish()
-    }
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl INodeEntry {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let mut arr = [0u32; INODE_ENTRY_ARR_COUNT];
         for (offset, element) in arr.iter_mut().enumerate() {
-            let beg = 64 + offset * FRAG_ARR_ENTRY_SIZE;
+            let beg = addr + 64 + offset * FRAG_ARR_ENTRY_SIZE;
             let end = beg + FRAG_ARR_ENTRY_SIZE;
-            *element = u32::from_be_bytes(buffer.as_ref()[beg..end].try_into().unwrap());
+            *element = util::u32_val(&buf, beg);
         }
 
         Self {
-            fseg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
-            fseg_not_full_n_used: u32::from_be_bytes(buffer.as_ref()[8..12].try_into().unwrap()),
-            fseg_free: FlstBaseNode::new(&buffer.as_ref()[12..28]),
-            fseg_not_full: FlstBaseNode::new(&buffer.as_ref()[28..44]),
-            fseg_full: FlstBaseNode::new(&buffer.as_ref()[44..60]),
-            fseg_magic_n: u32::from_be_bytes(buffer.as_ref()[60..64].try_into().unwrap()),
+            fseg_id: util::u64_val(&buf, addr),
+            fseg_not_full_n_used: util::u32_val(&buf, addr + 8),
+            fseg_free: FlstBaseNode::new(addr + 12, buf.clone()),
+            fseg_not_full: FlstBaseNode::new(addr + 28, buf.clone()),
+            fseg_full: FlstBaseNode::new(addr + 44, buf.clone()),
+            fseg_magic_n: util::u32_val(&buf, addr + 60),
             fseg_frag_arr: arr,
+            buf,
+            addr,
         }
     }
 }
