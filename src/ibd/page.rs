@@ -68,6 +68,39 @@ pub enum PageTypes {
     UNDEF,
 }
 
+// Base Page Structure
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct BasePage<P> {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
+    pub fil_hdr: FilePageHeader,
+    pub page_body: P,
+    pub fil_trl: FilePageTrailer,
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+}
+
+pub trait BasePageOperation {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self;
+}
+
+impl<P> BasePage<P>
+where
+    P: BasePageOperation,
+{
+    pub fn new(addr: usize, header: FilePageHeader, buf: Arc<Bytes>, trailer: FilePageTrailer) -> BasePage<P> {
+        let body = BasePageOperation::new(FIL_HEADER_SIZE, buf.clone());
+        Self {
+            fil_hdr: header,
+            page_body: body,
+            fil_trl: trailer,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// FIL Header, see fil0types.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -92,7 +125,7 @@ pub struct FilePageHeader {
 }
 
 impl FilePageHeader {
-    pub fn new(buf: Arc<Bytes>, addr: usize) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             check_sum: util::u32_val(&buf, addr),
             page_no: util::u32_val(&buf, addr + 4),
@@ -123,7 +156,7 @@ pub struct FilePageTrailer {
 }
 
 impl FilePageTrailer {
-    pub fn new(buf: Arc<Bytes>, addr: usize) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             check_sum: util::u32_val(&buf, addr),
             lsn_low32bit: util::u32_val(&buf, addr + 4),
@@ -133,7 +166,8 @@ impl FilePageTrailer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FlstBaseNode {
     pub len: u32,
     pub first: FilAddr,
@@ -150,7 +184,8 @@ impl FlstBaseNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FlstNode {
     pub prev: FilAddr,
     pub next: FilAddr,
@@ -165,19 +200,11 @@ impl FlstNode {
     }
 }
 
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FilAddr {
     pub page: u32,    // Page number within a space
     pub boffset: u16, // Byte offset within the page
-}
-
-impl fmt::Debug for FilAddr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "FilAddr{{page: \"0x{:08x} ({})\", boffset: {}}}",
-            self.page, self.page, self.boffset
-        )
-    }
 }
 
 impl FilAddr {
@@ -190,7 +217,11 @@ impl FilAddr {
 }
 
 /// FSP Header, see fsp0fsp.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FileSpaceHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     /// Table space ID
     pub space_id: u32,
     /// not used now
@@ -217,32 +248,12 @@ pub struct FileSpaceHeader {
     /// list of pages containing segment headers, where not all the segment
     /// header slots are reserved
     pub inodes_free: FlstBaseNode,
-}
-
-impl fmt::Debug for FileSpaceHeader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileSpaceHeader")
-            .field("space_id", &self.space_id)
-            .field("notused", &self.notused)
-            .field("fsp_size", &self.fsp_size)
-            .field("free_limit", &self.free_limit)
-            .field("fsp_flags", &format!("0x{:08x} ({})", self.fsp_flags, self.fsp_flags))
-            .field("fsp_frag_n_used", &self.fsp_frag_n_used)
-            .field("fsp_free", &self.fsp_free)
-            .field("free_frag", &self.free_frag)
-            .field("full_frag", &self.full_frag)
-            .field("segid", &self.segid)
-            .field("inodes_full", &self.inodes_full)
-            .field("inodes_free", &self.inodes_free)
-            .finish()
-    }
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl FileSpaceHeader {
-    pub fn new<B>(buffer: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
+    pub fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         Self {
             space_id: u32::from_be_bytes(buffer.as_ref()[..4].try_into().unwrap()),
             notused: u32::from_be_bytes(buffer.as_ref()[4..8].try_into().unwrap()),
@@ -256,63 +267,23 @@ impl FileSpaceHeader {
             segid: u64::from_be_bytes(buffer.as_ref()[72..80].try_into().unwrap()),
             inodes_full: FlstBaseNode::new(&buffer.as_ref()[80..96]),
             inodes_free: FlstBaseNode::new(&buffer.as_ref()[96..112]),
-        }
-    }
-}
-
-// Base Page Structure
-pub struct BasePage<P> {
-    pub fil_hdr: FilePageHeader,
-    pub page_body: P,
-    pub fil_trl: FilePageTrailer,
-}
-
-impl<P> fmt::Debug for BasePage<P>
-where
-    P: BasePageOperation + Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BasePage")
-            .field("fil_hdr", &self.fil_hdr)
-            .field("page_body", &self.page_body)
-            .field("fil_trl", &self.fil_trl)
-            .finish()
-    }
-}
-
-pub trait BasePageOperation {
-    fn new(buffer: Bytes) -> Self;
-}
-
-impl<P> BasePage<P>
-where
-    P: BasePageOperation,
-{
-    pub fn new(header: FilePageHeader, buffer: Bytes, trailer: FilePageTrailer) -> BasePage<P> {
-        Self {
-            fil_hdr: header,
-            page_body: BasePageOperation::new(buffer),
-            fil_trl: trailer,
+            buf: buffer,
+            addr,
         }
     }
 }
 
 // File Space Header Page
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FileSpaceHeaderPage {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     pub fsp_hdr: FileSpaceHeader,
     pub xdes_ent_list: Vec<XDesEntry>,
     pub sdi_meta_data: Option<SdiMetaInfo>,
-    buf: Bytes,
-}
-
-impl fmt::Debug for FileSpaceHeaderPage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileSpaceHeaderPage")
-            .field("fsp_hdr", &self.fsp_hdr)
-            .field("xdes_ent_list", &self.xdes_ent_list)
-            .field("sdi_info", &self.sdi_meta_data)
-            .finish()
-    }
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
 }
 
 impl FileSpaceHeaderPage {
@@ -336,8 +307,8 @@ impl FileSpaceHeaderPage {
 }
 
 impl BasePageOperation for FileSpaceHeaderPage {
-    fn new(buffer: Bytes) -> Self {
-        let hdr = FileSpaceHeader::new(buffer.slice(..FSP_HEADER_SIZE));
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let hdr = FileSpaceHeader::new(addr, buf.clone());
         let mut entries = Vec::new();
         let len: usize =
             (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
@@ -345,14 +316,15 @@ impl BasePageOperation for FileSpaceHeaderPage {
         for offset in 0..len {
             let beg = FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE;
             let end = beg + XDES_ENTRY_SIZE;
-            entries.push(XDesEntry::new(buffer.slice(beg..end)));
+            entries.push(XDesEntry::new(beg, buf.clone()));
         }
 
         Self {
             fsp_hdr: hdr,
             xdes_ent_list: entries,
             sdi_meta_data: None,
-            buf: buffer,
+            buf,
+            addr,
         }
     }
 }
@@ -371,26 +343,34 @@ pub enum XDesStates {
 }
 
 // Extent Descriptor Entry, see fsp0fsp.h
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct XDesEntry {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     seg_id: u64,         // seg_id
     flst_node: FlstNode, // list node data
     state: XDesStates,   // state information
     bitmap: Bytes,       // bitmap
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
 }
 
 impl XDesEntry {
-    pub fn new(buffer: Bytes) -> Self {
+    pub fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         Self {
             seg_id: u64::from_be_bytes(buffer.as_ref()[..8].try_into().unwrap()),
             flst_node: FlstNode::new(&buffer.as_ref()[8..20]),
             state: u32::from_be_bytes(buffer.as_ref()[20..24].try_into().unwrap()).into(),
             bitmap: buffer.slice(24..40),
+            addr,
+            buf: buffer,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct SdiMetaInfo {
     pub sdi_version: u32, // SDI Version
     pub sdi_page_no: u32, // SDI Page Number
@@ -413,7 +393,7 @@ pub struct INodePage {
 }
 
 impl BasePageOperation for INodePage {
-    fn new(buffer: Bytes) -> Self {
+    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         let mut entries = Vec::new();
         for offset in 0..INODE_ENTRY_MAX_COUNT {
             let beg = INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE;
@@ -506,7 +486,7 @@ pub struct IndexPage {
     /// Page Directory, grows up
     dir_slots: Vec<u16>, // page directory slots
 
-    buf: Bytes,
+    buf: Arc<Bytes>,
 }
 
 impl fmt::Debug for IndexPage {
@@ -523,7 +503,7 @@ impl fmt::Debug for IndexPage {
 }
 
 impl BasePageOperation for IndexPage {
-    fn new(buffer: Bytes) -> Self {
+    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(buffer.slice(0..36));
 
         // Parse Page Directory Slots
@@ -713,8 +693,8 @@ impl fmt::Debug for SdiIndexPage {
 }
 
 impl BasePageOperation for SdiIndexPage {
-    fn new(buffer: Bytes) -> Self {
-        let index = IndexPage::new(buffer.clone());
+    fn new(addr: usize, buffer: Arc<Bytes>) -> Self {
+        let index = IndexPage::new(addr, buffer.clone());
         let beg = PAGE_ADDR_INF - FIL_HEADER_SIZE + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
         let hdr = SdiDataHeader::new(buffer.slice(beg..end));
