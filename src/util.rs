@@ -27,11 +27,11 @@ pub fn init() {
     })
 }
 
-pub fn fmt_addr_hex<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+pub fn fmt_hex<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display + LowerHex,
 {
-    write!(f, "0x{:08x} ({})", d, d)
+    write!(f, "0x{:08x}({})", d, d)
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {

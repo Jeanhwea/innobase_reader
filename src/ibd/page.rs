@@ -72,7 +72,7 @@ pub enum PageTypes {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilePageHeader {
-    #[derivative(Debug(format_with = "util::fmt_addr_hex"))]
+    #[derivative(Debug(format_with = "util::fmt_hex"))]
     pub check_sum: u32, // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
     pub page_no: u32,         // page_number/offset, FIL_PAGE_OFFSET
     pub prev_page: u32,       // Previous Page, FIL_PAGE_PREV
