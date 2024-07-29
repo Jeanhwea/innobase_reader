@@ -74,6 +74,7 @@ pub enum PageTypes {
 pub struct BasePage<P> {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
+    pub page_size: usize, // page size
     pub fil_hdr: FilePageHeader,
     pub page_body: P,
     pub fil_trl: FilePageTrailer,
@@ -89,14 +90,21 @@ impl<P> BasePage<P>
 where
     P: BasePageOperation,
 {
-    pub fn new(addr: usize, header: FilePageHeader, buf: Arc<Bytes>, trailer: FilePageTrailer) -> BasePage<P> {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<P> {
+        let page_size = buf.len();
+        let header = FilePageHeader::new(0, buf.clone());
+        let trailer = FilePageTrailer::new(page_size - FIL_TRAILER_SIZE, buf.clone());
+        assert_eq!(header.check_sum, trailer.check_sum);
+
         let body = BasePageOperation::new(FIL_HEADER_SIZE, buf.clone());
+
         Self {
             fil_hdr: header,
             page_body: body,
             fil_trl: trailer,
             buf: buf.clone(),
             addr,
+            page_size,
         }
     }
 }

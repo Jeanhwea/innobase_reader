@@ -1,5 +1,5 @@
 use crate::ibd::page::{
-    SdiIndexPage, BasePage, BasePageOperation, FilePageHeader, FilePageTrailer, FileSpaceHeaderPage, PageTypes, FIL_TRAILER_SIZE, PAGE_SIZE,
+    SdiIndexPage, BasePage, BasePageOperation, FilePageHeader, FileSpaceHeaderPage, PageTypes, PAGE_SIZE,
 };
 use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
@@ -36,10 +36,10 @@ impl PageFactory {
     where
         P: BasePageOperation,
     {
-        let hdr = FilePageHeader::new(0, self.buf.clone());
-        let trl = FilePageTrailer::new(self.len - FIL_TRAILER_SIZE, self.buf.clone());
-        assert_eq!(hdr.check_sum, trl.check_sum);
-        BasePage::new(0, hdr, self.buf.clone(), trl)
+        // let hdr = FilePageHeader::new(0, self.buf.clone());
+        // let trl = FilePageTrailer::new(self.len - FIL_TRAILER_SIZE, self.buf.clone());
+        // assert_eq!(hdr.check_sum, trl.check_sum);
+        BasePage::new(0, self.buf.clone())
     }
 }
 
