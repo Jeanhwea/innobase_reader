@@ -72,6 +72,8 @@ pub enum PageTypes {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilePageHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub check_sum: u32, // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
     pub page_no: u32, // page_number/offset, FIL_PAGE_OFFSET
@@ -87,8 +89,6 @@ pub struct FilePageHeader {
     pub space_id: u32, // Space ID, FIL_PAGE_SPACE_ID
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
 }
 
 impl FilePageHeader {
