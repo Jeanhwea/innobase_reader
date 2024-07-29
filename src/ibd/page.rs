@@ -5,6 +5,7 @@ use crate::util;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use colored::Colorize;
+use derivative::Derivative;
 use log::{debug, info};
 use num_enum::FromPrimitive;
 use std::fmt::{Formatter, Debug};
@@ -68,9 +69,11 @@ pub enum PageTypes {
 }
 
 /// FIL Header, see fil0types.h
-#[derive(Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct FilePageHeader {
-    pub check_sum: u32,       // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
+    #[derivative(Debug(format_with = "util::fmt_addr_hex"))]
+    pub check_sum: u32, // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
     pub page_no: u32,         // page_number/offset, FIL_PAGE_OFFSET
     pub prev_page: u32,       // Previous Page, FIL_PAGE_PREV
     pub next_page: u32,       // Next Page, FIL_PAGE_NEXT
@@ -80,20 +83,20 @@ pub struct FilePageHeader {
     pub space_id: u32,        // Space ID, FIL_PAGE_SPACE_ID
 }
 
-impl fmt::Debug for FilePageHeader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FilePageHeader")
-            .field("check_sum", &format!("0x{:08x}", self.check_sum))
-            .field("page_no", &self.page_no)
-            .field("prev_page", &format!("0x{:08x} ({})", self.prev_page, self.prev_page))
-            .field("next_page", &format!("0x{:08x} ({})", self.next_page, self.next_page))
-            .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
-            .field("page_type", &self.page_type)
-            .field("flush_lsn", &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn))
-            .field("space_id", &self.space_id)
-            .finish()
-    }
-}
+// impl fmt::Debug for FilePageHeader {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("FilePageHeader")
+//             .field("check_sum", &format!("0x{:08x}", self.check_sum))
+//             .field("page_no", &self.page_no)
+//             .field("prev_page", &format!("0x{:08x} ({})", self.prev_page, self.prev_page))
+//             .field("next_page", &format!("0x{:08x} ({})", self.next_page, self.next_page))
+//             .field("lsn", &format!("0x{:016x} ({})", self.lsn, self.lsn))
+//             .field("page_type", &self.page_type)
+//             .field("flush_lsn", &format!("0x{:016x} ({})", self.flush_lsn, self.flush_lsn))
+//             .field("space_id", &self.space_id)
+//             .finish()
+//     }
+// }
 
 impl FilePageHeader {
     pub fn new<B>(buffer: B) -> Self

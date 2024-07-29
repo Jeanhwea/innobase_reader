@@ -2,6 +2,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use chrono::Local;
 use flate2::read::ZlibDecoder;
+use std::fmt::{Display, LowerHex};
 use std::io::{Read, Write};
 use std::sync::Once;
 
@@ -24,6 +25,13 @@ pub fn init() {
             })
             .init();
     })
+}
+
+pub fn fmt_addr_hex<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + LowerHex,
+{
+    write!(f, "0x{:08x} ({})", d, d)
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
