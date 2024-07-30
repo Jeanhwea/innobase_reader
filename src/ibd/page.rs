@@ -28,6 +28,7 @@ pub const INODE_FLST_NODE_SIZE: usize = 12;
 pub const INODE_ENTRY_SIZE: usize = 192;
 pub const INODE_ENTRY_MAX_COUNT: usize = 85;
 pub const INODE_ENTRY_ARR_COUNT: usize = 32;
+pub const FSEG_MAGIC_NUMBER: u32 = 97937874;
 pub const FSEG_FRAG_ARR_OFFSET: usize = 64;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
@@ -451,12 +452,10 @@ pub struct INodePageBody {
 }
 
 impl BasePageBody for INodePageBody {
-    const FSEG_MAGIC_NUMBER: u32 = 97937874;
-
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let entries = (0..INODE_ENTRY_MAX_COUNT)
             .map(|offset| INodeEntry::new(addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE, buf.clone()))
-            .filter(|entry| entry.fseg_magic_n == Self::FSEG_MAGIC_NUMBER)
+            .filter(|entry| entry.fseg_magic_n == FSEG_MAGIC_NUMBER)
             .collect();
 
         Self {
