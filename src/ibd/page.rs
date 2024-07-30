@@ -61,7 +61,10 @@ where
     pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<B> {
         let header = FilePageHeader::new(0, buf.clone());
         let trailer = FilePageTrailer::new(buf.len() - FIL_TRAILER_SIZE, buf.clone());
-        assert_eq!(header.check_sum, trailer.check_sum);
+        assert_eq!(
+            header.check_sum, trailer.check_sum,
+            "file header and trailer checksum should same"
+        );
 
         let body = BasePageBody::new(FIL_HEADER_SIZE, buf.clone());
 
@@ -541,13 +544,28 @@ impl BasePageBody for IndexPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(addr, buf.clone());
         debug!("idx_hdr={:?}", &idx_hdr);
-        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT);
+        assert_eq!(
+            idx_hdr.page_format,
+            PageFormats::COMPACT,
+            "only support compact row format"
+        );
 
         // Parse Page Directory Slots
         let slots = (0..idx_hdr.page_n_dir_slots as usize)
             .map(|offset| util::u16_val(&buf, buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE))
             .collect();
         debug!("slots={:?}", &slots);
+
+        assert_eq!(
+            buf.slice(PAGE_ADDR_INF..PAGE_ADDR_INF + 8).to_vec(),
+            vec!['i' as u8, 'n' as u8, 'f' as u8, 'i' as u8, 'm' as u8, 'u' as u8, 'm' as u8, 0],
+            "infimum string checking"
+        );
+        assert_eq!(
+            buf.slice(PAGE_ADDR_SUP..PAGE_ADDR_SUP + 8).to_vec(),
+            vec!['s' as u8, 'u' as u8, 'p' as u8, 'r' as u8, 'e' as u8, 'm' as u8, 'u' as u8, 'm' as u8],
+            "supremum string checking"
+        );
 
         Self {
             index_header: idx_hdr,
@@ -565,7 +583,7 @@ impl BasePageBody for IndexPageBody {
 impl IndexPageBody {
     pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let idxdef = &tabdef.idx_defs[0];
-        assert_eq!(idxdef.idx_name, "PRIMARY");
+        assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
 
         let inf = &self.infimum;
         let mut cursor = PAGE_ADDR_INF as i16 + inf.next_rec_offset;
@@ -591,7 +609,7 @@ impl IndexPageBody {
             let rec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
             urecs.push(rec);
         }
-        assert_eq!(cursor as usize, PAGE_ADDR_SUP);
+        assert_eq!(cursor as usize, PAGE_ADDR_SUP, "cursor should reach supremum");
 
         Ok(())
     }
