@@ -451,10 +451,12 @@ pub struct INodePageBody {
 }
 
 impl BasePageBody for INodePageBody {
+    const FSEG_MAGIC_NUMBER: u32 = 97937874;
+
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let entries = (0..INODE_ENTRY_MAX_COUNT)
             .map(|offset| INodeEntry::new(addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE, buf.clone()))
-            .filter(|entry| entry.fseg_magic_n == 0 || entry.fseg_id == 0)
+            .filter(|entry| entry.fseg_magic_n == Self::FSEG_MAGIC_NUMBER)
             .collect();
 
         Self {
