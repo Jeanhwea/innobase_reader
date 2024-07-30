@@ -1,9 +1,9 @@
 use anyhow::Result;
 use bytes::Bytes;
-use chrono::{Local, NaiveDate};
+use chrono::{Local, NaiveDate, NaiveDateTime, DateTime};
 use colored::Colorize;
 use flate2::read::ZlibDecoder;
-use log::trace;
+use log::{trace, debug};
 use std::fmt::{Display, LowerHex, Binary, Debug};
 use std::io::{Read, Write};
 use std::sync::Once;
@@ -170,15 +170,34 @@ pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     let month = (val >> 5) & 0xf;
     let year = (val >> (4 + 5)) & 0x3fff;
     let _signed = ((val >> (4 + 5 + 14)) & 0x1) > 0;
-    trace!(
-        "arr={:?}, val=0x{:0x?}, year={}, month={}, day={}",
-        arr,
-        val,
-        year,
-        month,
-        day
-    );
+    trace!("arr={:?}, val=0x{:0x?}", arr, val,);
     NaiveDate::from_ymd_opt(year as i32, month, day)
+}
+
+// u32 => unix timestamp
+pub fn unpack_timestamp2_val(b: &Bytes) -> DateTime<Local> {
+    let arr = [b[0], b[1], b[2], b[3]];
+    let val = u32::from_be_bytes(arr);
+    DateTime::from_timestamp(val.into(), 0).unwrap().into()
+}
+
+// signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
+pub fn unpack_datetime_val(b: &Bytes) -> Option<NaiveDateTime> {
+    let arr = [0, 0, 0, b[0], b[1], b[2], b[3], b[4]];
+    let val = u64::from_be_bytes(arr);
+    let sec = val & 0x3f;
+    let min = (val >> 6) & 0x3f;
+    let hour = (val >> (6 + 6)) & 0x1f;
+    let day = (val >> (5 + 6 + 6)) & 0x1f;
+    let year_month = (val >> (5 + 5 + 6 + 6)) & 0x1ffff;
+    let year = year_month / 13;
+    let month = year_month % 13;
+    let _signed = ((val >> (17 + 5 + 5 + 6 + 6)) & 0x1) > 0;
+    debug!("arr={:?}, val=0x{:0x?}", arr, val);
+    match NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32) {
+        Some(d) => d.and_hms_opt(hour as u32, min as u32, sec as u32),
+        None => None,
+    }
 }
 
 pub fn unpack_u48_val(b: &Bytes) -> u64 {

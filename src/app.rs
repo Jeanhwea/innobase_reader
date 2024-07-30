@@ -245,6 +245,14 @@ impl App {
                                     util::unpack_newdate_val(datum).unwrap().to_string().cyan(),
                                 );
                             }
+                            ColumnTypes::TIMESTAMP2 => {
+                                println!(
+                                    "{:>12} => {:?} [{}]",
+                                    &col.col_name.magenta(),
+                                    datum,
+                                    util::unpack_timestamp2_val(datum).to_string().blue(),
+                                );
+                            }
                             ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                                 let barr = &datum.to_vec();
                                 let text = std::str::from_utf8(barr).unwrap();
