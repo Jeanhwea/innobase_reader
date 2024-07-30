@@ -151,6 +151,17 @@ pub fn unpack_i32_val(buf: &[u8]) -> i32 {
     }
 }
 
+pub fn unpack_i64_val(buf: &[u8]) -> i64 {
+    let signed = (buf[0] & 0x80) > 0;
+    if signed {
+        let b = [buf[0] & 0x7f, buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]];
+        i64::from_be_bytes(b)
+    } else {
+        let b = [buf[0] | 0x80, buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]];
+        i64::from_be_bytes(b)
+    }
+}
+
 // signed(1), year(14), month(4), day(5)
 pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     let arr = [0, b[0], b[1], b[2]];

@@ -229,6 +229,14 @@ impl App {
                                     util::unpack_i32_val(datum).to_string().blue(),
                                 );
                             }
+                            ColumnTypes::LONGLONG => {
+                                println!(
+                                    "{:>12} => {:?} [{}]",
+                                    &col.col_name.magenta(),
+                                    datum,
+                                    util::unpack_i64_val(datum).to_string().blue(),
+                                );
+                            }
                             ColumnTypes::NEWDATE => {
                                 println!(
                                     "{:>12} => {:?} [{}]",
