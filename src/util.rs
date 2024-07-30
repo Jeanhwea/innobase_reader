@@ -1,8 +1,9 @@
 use anyhow::Result;
 use bytes::Bytes;
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 use colored::Colorize;
 use flate2::read::ZlibDecoder;
+use log::trace;
 use std::fmt::{Display, LowerHex, Binary, Debug};
 use std::io::{Read, Write};
 use std::sync::Once;
@@ -106,12 +107,42 @@ pub fn u32_val(buf: &[u8], addr: usize) -> u32 {
     u32::from_be_bytes(buf[addr..addr + 4].try_into().expect("ERR_READ_VALUE_u32"))
 }
 
+pub fn u48_val(buf: &[u8], addr: usize) -> u64 {
+    let arr = [
+        buf[addr],
+        buf[addr + 1],
+        buf[addr + 2],
+        buf[addr + 3],
+        buf[addr + 4],
+        buf[addr + 5],
+        0u8,
+        0u8,
+    ];
+    u64::from_be_bytes(arr)
+}
+
+pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
+    let arr = [
+        buf[addr],
+        buf[addr + 1],
+        buf[addr + 2],
+        buf[addr + 3],
+        buf[addr + 4],
+        buf[addr + 5],
+        buf[addr + 6],
+        0u8,
+    ];
+    u64::from_be_bytes(arr)
+}
+
 pub fn u64_val(buf: &[u8], addr: usize) -> u64 {
     u64::from_be_bytes(buf[addr..addr + 8].try_into().expect("ERR_READ_VALUE_u64"))
 }
 
+// https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
 pub fn unpack_i32_val(buf: &[u8]) -> i32 {
-    if (buf[0] & 0x80) > 0 {
+    let signed = (buf[0] & 0x80) > 0;
+    if signed {
         let b = [buf[0] & 0x7f, buf[1], buf[2], buf[3]];
         i32::from_be_bytes(b)
     } else {
@@ -120,15 +151,34 @@ pub fn unpack_i32_val(buf: &[u8]) -> i32 {
     }
 }
 
-pub fn from_bytes6(b: Bytes) -> u64 {
+// signed(1), year(14), month(4), day(5)
+pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
+    let arr = [0, b[0], b[1], b[2]];
+    let val = u32::from_be_bytes(arr);
+    let day = val & 0x1f;
+    let month = (val >> 5) & 0xf;
+    let year = (val >> (4 + 5)) & 0x3fff;
+    let _signed = ((val >> (4 + 5 + 14)) & 0x1) > 0;
+    trace!(
+        "arr={:?}, val=0x{:0x?}, year={}, month={}, day={}",
+        arr,
+        val,
+        year,
+        month,
+        day
+    );
+    NaiveDate::from_ymd_opt(year as i32, month, day)
+}
+
+pub fn unpack_u48_val(b: &Bytes) -> u64 {
     assert_eq!(b.len(), 6);
-    let arr = [b[0], b[1], b[2], b[3], b[4], b[5], 0u8, 0u8];
+    let arr = [0, 0, b[0], b[1], b[2], b[3], b[4], b[5]];
     u64::from_be_bytes(arr)
 }
 
-pub fn from_bytes7(b: Bytes) -> u64 {
+pub fn unpack_u56_val(b: &Bytes) -> u64 {
     assert_eq!(b.len(), 7);
-    let arr = [b[0], b[1], b[2], b[3], b[4], b[5], b[6], 0u8];
+    let arr = [0, b[0], b[1], b[2], b[3], b[4], b[5], b[6]];
     u64::from_be_bytes(arr)
 }
 

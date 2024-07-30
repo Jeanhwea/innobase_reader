@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ibd::record::ColumnTypes;
+use crate::ibd::record::{ColumnTypes, HiddenTypes};
 
 #[derive(Debug)]
 pub struct App {
@@ -184,39 +184,72 @@ impl App {
                 &urec.row_data.addr.to_string().yellow(),
                 "hdr".cyan(),
                 &urec.rec_hdr,
-                "data".green(),
-                &urec.row_data,
                 "info".magenta(),
                 &urec.row_info,
+                "data".green(),
+                &urec.row_data,
             );
             println!(
                 "****************************** Row {} ******************************",
-                seq.to_string().yellow()
+                seq
             );
             for row in &urec.row_data.row_tuple {
                 let col = &tabdef.clone().col_defs[row.0];
                 match &row.2 {
+                    Some(datum) => {
+                        if col.hidden == HiddenTypes::HT_HIDDEN_SE {
+                            match col.col_name.as_str() {
+                                "DB_ROW_ID" | "DB_TRX_ID" => {
+                                    println!(
+                                        "{:>12} => {:?} [{}]",
+                                        &col.col_name.magenta(),
+                                        &datum,
+                                        &format!("0x{:012x?}", util::unpack_u48_val(datum)).green()
+                                    );
+                                }
+                                "DB_ROLL_PTR" => {
+                                    println!(
+                                        "{:>12} => {:?} [{}]",
+                                        &col.col_name.magenta(),
+                                        &datum,
+                                        &format!("0x{:014x?}", util::unpack_u56_val(datum)).green()
+                                    );
+                                }
+                                _ => todo!("ERR_HIDDEN_SE_COL: {}", col.col_name),
+                            }
+                            continue;
+                        }
+
+                        match &col.dd_type {
+                            ColumnTypes::LONG => {
+                                println!(
+                                    "{:>12} => {:?} [{}]",
+                                    &col.col_name.magenta(),
+                                    datum,
+                                    util::unpack_i32_val(datum).to_string().blue(),
+                                );
+                            }
+                            ColumnTypes::NEWDATE => {
+                                println!(
+                                    "{:>12} => {:?} [{}]",
+                                    &col.col_name.magenta(),
+                                    datum,
+                                    util::unpack_newdate_val(datum).unwrap().to_string().cyan(),
+                                );
+                            }
+                            ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                                let barr = &datum.to_vec();
+                                let text = std::str::from_utf8(barr).unwrap();
+                                println!("{:>12} => {:?} [{}]", &col.col_name.magenta(), &datum, text.yellow());
+                            }
+                            _ => {
+                                println!("{:>12} => {:?}", &col.col_name.magenta(), datum);
+                            }
+                        }
+                    }
                     None => {
                         println!("{:>12} => {}", &col.col_name.magenta(), "NULL".red());
                     }
-                    Some(datum) => match &col.dd_type {
-                        ColumnTypes::LONG => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_i32_val(datum).to_string().blue(),
-                            );
-                        }
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
-                            let barr = &datum.to_vec();
-                            let text = std::str::from_utf8(barr).unwrap();
-                            println!("{:>12} => {:?} [{}]", &col.col_name.magenta(), &datum, text.yellow());
-                        }
-                        _ => {
-                            println!("{:>12} => {:?}", &col.col_name.magenta(), datum);
-                        }
-                    },
                 }
             }
         }

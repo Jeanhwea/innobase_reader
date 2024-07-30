@@ -793,8 +793,8 @@ impl SdiDataHeader {
         Self {
             data_type: util::u32_val(&buf, addr),
             data_id: util::u64_val(&buf, addr + 4),
-            trx_id: util::from_bytes6(buf.slice(12..18)),
-            roll_ptr: util::from_bytes7(buf.slice(18..25)),
+            trx_id: util::u48_val(&buf, addr + 12),
+            roll_ptr: util::u56_val(&buf, addr + 18),
             uncomp_len: util::u32_val(&buf, addr + 25),
             comp_len: util::u32_val(&buf, addr + 29),
             buf: buf.clone(),
