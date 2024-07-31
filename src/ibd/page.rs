@@ -589,12 +589,12 @@ impl BasePageBody for IndexPageBody {
 
         assert_eq!(
             buf.slice(PAGE_ADDR_INF..PAGE_ADDR_INF + 8).to_vec(),
-            vec!['i' as u8, 'n' as u8, 'f' as u8, 'i' as u8, 'm' as u8, 'u' as u8, 'm' as u8, 0],
+            vec![b'i', b'n', b'f', b'i', b'm', b'u', b'm', 0],
             "infimum string checking"
         );
         assert_eq!(
             buf.slice(PAGE_ADDR_SUP..PAGE_ADDR_SUP + 8).to_vec(),
-            vec!['s' as u8, 'u' as u8, 'p' as u8, 'r' as u8, 'e' as u8, 'm' as u8, 'u' as u8, 'm' as u8],
+            vec![b's', b'u', b'p', b'r', b'e', b'm', b'u', b'm'],
             "supremum string checking"
         );
 
