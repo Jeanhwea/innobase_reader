@@ -71,6 +71,13 @@ where
     write!(f, "{}", d.to_string().magenta())
 }
 
+pub fn fmt_oneline<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Debug,
+{
+    write!(f, "{:?}", d)
+}
+
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     let input_buffer = input.to_vec();
     let mut decoder = ZlibDecoder::new(&*input_buffer);

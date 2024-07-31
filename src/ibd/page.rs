@@ -10,6 +10,8 @@ use num_enum::FromPrimitive;
 use std::fmt::Debug;
 use std::sync::Arc;
 use strum::{Display, EnumString};
+use crate::ibd::page::CleanBit::{Clean, Dirty};
+use crate::ibd::page::FreeBit::{Free, Taken};
 
 // page
 pub const PAGE_SIZE: usize = 16 * 1024;
@@ -22,6 +24,7 @@ pub const FIL_TRAILER_SIZE: usize = 8;
 pub const FSP_HEADER_SIZE: usize = 112;
 pub const XDES_ENTRY_SIZE: usize = 40;
 pub const XDES_ENTRY_MAX_COUNT: usize = 256;
+pub const XDES_PAGE_COUNT: usize = 64;
 
 // inode
 pub const INODE_FLST_NODE_SIZE: usize = 12;
@@ -402,20 +405,48 @@ pub struct XDesEntry {
     pub flst_node: FlstNode, // list node data
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub state: XDesStates, // state information
-    pub bitmap: Bytes,       // bitmap
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub bitmap: [(u32, FreeBit, CleanBit); XDES_PAGE_COUNT], // bitmap
 }
 
 impl XDesEntry {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let bits = (0..XDES_PAGE_COUNT)
+            .map(|page_no| {
+                let nth = page_no >> 2;
+                let off = page_no & 0x3;
+                let val = buf[addr + 24 + nth];
+                (
+                    page_no as u32,
+                    if val & (1 << off) > 0 { Free } else { Taken },
+                    if val & (1 << (off + 1)) > 0 { Clean } else { Dirty },
+                )
+            })
+            .collect::<Vec<_>>();
+
         Self {
             seg_id: util::u64_val(&buf, addr),
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
-            bitmap: buf.clone().slice(addr + 24..addr + 40),
+            bitmap: bits.try_into().unwrap(),
             buf: buf.clone(),
             addr,
         }
     }
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum FreeBit {
+    Free,
+    Taken,
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum CleanBit {
+    Clean,
+    Dirty,
 }
 
 #[derive(Clone, Derivative)]
