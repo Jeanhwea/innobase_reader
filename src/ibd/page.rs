@@ -200,7 +200,9 @@ pub struct FlstBaseNode {
     pub buf: Arc<Bytes>, // page data buffer
 
     pub len: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub first: FilAddr,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub last: FilAddr,
 }
 
@@ -225,7 +227,9 @@ pub struct FlstNode {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub prev: FilAddr,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub next: FilAddr,
 }
 
@@ -556,7 +560,9 @@ pub struct IndexPageBody {
     pub fseg_header: FSegHeader, // FSEG Header
 
     /// System Record
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub infimum: RecordHeader, // infimum_extra[], see page0page.h
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
     /// User Records, grow down
