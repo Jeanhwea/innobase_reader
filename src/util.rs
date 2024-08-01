@@ -44,13 +44,6 @@ where
     write!(f, "0x{:08x}({})", d, d.to_string().blue())
 }
 
-pub fn fmt_arr32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
-where
-    T: Debug,
-{
-    write!(f, "{:08x?}", d)
-}
-
 pub fn fmt_hex64<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display + LowerHex,
@@ -67,7 +60,7 @@ where
 
 pub fn fmt_page_no(d: &u32, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
     if *d == 0xffffffff {
-        write!(f, "{}", "NONE")
+        write!(f, "NONE")
     } else {
         write!(f, "{}", d)
     }

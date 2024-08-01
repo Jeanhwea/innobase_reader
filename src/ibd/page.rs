@@ -527,14 +527,15 @@ pub struct INodeEntry {
     pub fseg_not_full: FlstBaseNode,
     pub fseg_full: FlstBaseNode,
     pub fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
-    #[derivative(Debug(format_with = "util::fmt_arr32"))]
-    pub fseg_frag_arr: Vec<u32>,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub fseg_frag_arr: Vec<Option<u32>>, // frag page number
 }
 
 impl INodeEntry {
     pub fn new(addr: usize, buf: Arc<Bytes>, pos: usize) -> Self {
         let arr = (0..INODE_ENTRY_ARR_COUNT)
             .map(|offset| util::u32_val(&buf, addr + FSEG_FRAG_ARR_OFFSET + offset * FRAG_ARR_ENTRY_SIZE))
+            .map(|page_no| if page_no == 0xffffffff { None } else { Some(page_no) })
             .collect();
         debug!("INodeEntry::arr={:?}", arr);
 

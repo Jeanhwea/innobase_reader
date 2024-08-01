@@ -217,10 +217,10 @@ pub struct Record {
     pub buf: Arc<Bytes>, // page data buffer
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub row_info: RowInfo,     // row information
+    pub row_info: RowInfo, // row information
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub rec_hdr: RecordHeader, // record header
-    pub row_data: Row,         // row data
+    pub row_data: Row, // row data
 }
 
 impl Record {
