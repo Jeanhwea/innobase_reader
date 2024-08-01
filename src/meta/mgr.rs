@@ -2,7 +2,7 @@ use crate::ibd::page::{BasePage, SdiPageBody};
 use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
-use log::debug;
+use log::{debug, info};
 use crate::meta::cst::coll_find;
 
 #[derive(Debug, Default)]
@@ -21,7 +21,7 @@ impl MetaDataManager {
 
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
         let ddobj = self.sdi.as_ref().unwrap().page_body.get_sdi_object().dd_object;
-        debug!("ddobj = {:#?}", &ddobj);
+        debug!("ddobj={:#?}", &ddobj);
 
         let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
 
@@ -47,6 +47,7 @@ impl MetaDataManager {
 
             idxdefs.push(IndexDef::from(idx, ele_defs, nullflag_size));
         }
+        info!("idxdefs={:?}", &idxdefs);
 
         let coll = coll_find(ddobj.collation_id);
 

@@ -18,10 +18,11 @@ pub fn init() {
             .format(|buf, record| {
                 writeln!(
                     buf,
-                    "[{} {:<5} {}] {}",
+                    "[{} {:<5} {}:{}] {}",
                     Local::now().format("%Y-%m-%d %H:%M:%S"),
                     record.level(),
-                    record.module_path().unwrap(),
+                    record.file().unwrap(),
+                    record.line().unwrap(),
                     record.args()
                 )
             })

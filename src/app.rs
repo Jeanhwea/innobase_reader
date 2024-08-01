@@ -319,17 +319,13 @@ mod app_tests {
     use super::*;
     use crate::util;
     use std::env::set_var;
-    use std::sync::Once;
 
     const IBD_01: &str = "data/departments.ibd";
     const IBD_02: &str = "data/dept_manager.ibd";
-    static INIT_ONCE: Once = Once::new();
 
     fn setup() {
-        INIT_ONCE.call_once(|| {
-            set_var("RUST_LOG", "info");
-            util::init();
-        });
+        set_var("RUST_LOG", "debug");
+        util::init();
     }
 
     #[test]

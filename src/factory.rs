@@ -74,7 +74,6 @@ impl DatafileFactory {
     fn do_open_file(&mut self) -> Result<(), Error> {
         let file = File::open(&self.target)?;
         let size = file.metadata().unwrap().len() as usize;
-
         info!("load {:?}, size = {}", file, size);
 
         self.file = Some(file);
@@ -103,7 +102,7 @@ impl DatafileFactory {
 
         let sdi_page_no = sdi_meta_data.sdi_page_no as usize;
         assert_ne!(sdi_page_no, 0);
-        info!("sdi_page_no = {}", sdi_page_no);
+        debug!("sdi_page_no = {}", sdi_page_no);
 
         let buffer = self.do_read_bytes(sdi_page_no)?;
         let sdi_page: BasePage<SdiPageBody> = PageFactory::new(buffer, sdi_page_no).parse();
