@@ -369,7 +369,7 @@ impl BasePageBody for FileSpaceHeaderPageBody {
             (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
                 as usize;
         let entries = (0..len)
-            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone()))
+            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
             .collect();
 
         Self {
@@ -403,7 +403,7 @@ pub struct XDesEntry {
     pub addr: usize, // page address
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
-
+    pub ent_pos: usize,
     pub seg_id: u64,         // seg_id
     pub flst_node: FlstNode, // list node data
     #[derivative(Debug(format_with = "util::fmt_enum"))]
@@ -413,7 +413,7 @@ pub struct XDesEntry {
 }
 
 impl XDesEntry {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, pos: usize) -> Self {
         let bits = (0..XDES_PAGE_COUNT)
             .map(|page_no| {
                 let nth = page_no >> 2;
@@ -428,6 +428,7 @@ impl XDesEntry {
             .collect::<Vec<_>>();
 
         Self {
+            ent_pos: pos,
             seg_id: util::u64_val(&buf, addr),
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
@@ -491,7 +492,13 @@ pub struct INodePageBody {
 impl BasePageBody for INodePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let entries = (0..INODE_ENTRY_MAX_COUNT)
-            .map(|offset| INodeEntry::new(addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE, buf.clone()))
+            .map(|offset| {
+                INodeEntry::new(
+                    addr + INODE_FLST_NODE_SIZE + offset * INODE_ENTRY_SIZE,
+                    buf.clone(),
+                    offset,
+                )
+            })
             .filter(|entry| entry.fseg_magic_n == FSEG_MAGIC_NUMBER)
             .collect();
 
@@ -513,6 +520,7 @@ pub struct INodeEntry {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    pub ent_pos: usize,
     pub fseg_id: u64,
     pub fseg_not_full_n_used: u32,
     pub fseg_free: FlstBaseNode,
@@ -524,13 +532,14 @@ pub struct INodeEntry {
 }
 
 impl INodeEntry {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, pos: usize) -> Self {
         let arr = (0..INODE_ENTRY_ARR_COUNT)
             .map(|offset| util::u32_val(&buf, addr + FSEG_FRAG_ARR_OFFSET + offset * FRAG_ARR_ENTRY_SIZE))
             .collect();
         debug!("INodeEntry::arr={:?}", arr);
 
         Self {
+            ent_pos: pos,
             fseg_id: util::u64_val(&buf, addr),
             fseg_not_full_n_used: util::u32_val(&buf, addr + 8),
             fseg_free: FlstBaseNode::new(addr + 12, buf.clone()),
