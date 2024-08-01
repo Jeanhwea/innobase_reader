@@ -564,9 +564,9 @@ pub struct IndexPageBody {
     pub buf: Arc<Bytes>, // page data buffer
 
     /// Index Header
-    pub index_header: IndexHeader, // Index Header
+    pub idx_hdr: IndexHeader, // Index Header
     /// FSEG Header
-    pub fseg_header: FSegHeader, // FSEG Header
+    pub fseg_hdr: FSegHeader, // FSEG Header
 
     /// System Record
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
@@ -614,8 +614,8 @@ impl BasePageBody for IndexPageBody {
         );
 
         Self {
-            index_header: idx_hdr,
-            fseg_header: FSegHeader::new(addr + 36, buf.clone()),
+            idx_hdr,
+            fseg_hdr: FSegHeader::new(addr + 36, buf.clone()),
             infimum: RecordHeader::new(addr + 56, buf.clone()),
             supremum: RecordHeader::new(addr + 69, buf.clone()),
             records: Vec::new(),
@@ -635,7 +635,7 @@ impl IndexPageBody {
         let mut cursor = PAGE_ADDR_INF as i16 + inf.next_rec_offset;
 
         let urecs = &mut self.records;
-        for nrec in 0..self.index_header.page_n_recs {
+        for nrec in 0..self.idx_hdr.page_n_recs {
             debug!("nrec={}, cursor={}", nrec, cursor);
             let mut addr = cursor as usize;
 
