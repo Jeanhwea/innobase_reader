@@ -253,16 +253,15 @@ pub struct FilAddr {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub page: u32, // Page number within a space
-    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    #[derivative(Debug(format_with = "util::fmt_page_no"))]
+    pub page_no: u32, // Page number within a space
     pub boffset: u16, // Byte offset within the page
 }
 
 impl FilAddr {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            page: util::u32_val(&buf, addr),
+            page_no: util::u32_val(&buf, addr),
             boffset: util::u16_val(&buf, addr + 4),
             buf: buf.clone(),
             addr,

@@ -64,6 +64,14 @@ where
     write!(f, "0x{:04x}@({})", d, d.to_string().yellow())
 }
 
+pub fn fmt_page_no(d: &u32, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    if *d == 0xffffffff {
+        write!(f, "{}", "NONE")
+    } else {
+        write!(f, "{}", d)
+    }
+}
+
 pub fn fmt_enum<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display,
