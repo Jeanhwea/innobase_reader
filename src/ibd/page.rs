@@ -583,7 +583,7 @@ pub struct IndexPageBody {
     //
     ////////////////////////////////////////
     /// Page Directory, grows up
-    pub dir_slots: Vec<u16>, // page directory slots
+    pub page_dirs: Vec<u16>, // page directory slots
 }
 
 impl BasePageBody for IndexPageBody {
@@ -619,7 +619,7 @@ impl BasePageBody for IndexPageBody {
             infimum: RecordHeader::new(addr + 56, buf.clone()),
             supremum: RecordHeader::new(addr + 69, buf.clone()),
             records: Vec::new(),
-            dir_slots: slots,
+            page_dirs: slots,
             buf: buf.clone(),
             addr,
         }
