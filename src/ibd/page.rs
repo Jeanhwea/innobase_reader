@@ -1,5 +1,5 @@
 use super::record::{Record, SdiObject};
-use crate::ibd::record::{RecordHeader, Row, RowInfo, INF_PAGE_BYTE_OFF, SUP_PAGE_BYTE_OFF};
+use crate::ibd::record::{RecordHeader, Row, RowInfo};
 use crate::meta::def::TableDef;
 use crate::util;
 use anyhow::{Error, Result};
@@ -36,7 +36,9 @@ pub const FSEG_FRAG_ARR_OFFSET: usize = 64;
 pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
-// record
+// index & record
+pub const INF_PAGE_BYTE_OFF: usize = 99;
+pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
 // Base Page Structure
@@ -616,8 +618,14 @@ impl BasePageBody for IndexPageBody {
         Self {
             idx_hdr,
             fseg_hdr: FSegHeader::new(addr + 36, buf.clone()),
-            infimum: RecordHeader::new(addr + 56, buf.clone()),
-            supremum: RecordHeader::new(addr + 69, buf.clone()),
+            infimum: RecordHeader::new(
+                addr + INF_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
+                buf.clone(),
+            ),
+            supremum: RecordHeader::new(
+                addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
+                buf.clone(),
+            ),
             records: Vec::new(),
             page_dirs: slots,
             buf: buf.clone(),
