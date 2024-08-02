@@ -122,6 +122,9 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    pub var_area: Bytes, // variadic field size area
+    pub nil_area: Bytes, // nullable field flag area
+
     // calculated dynamic info
     pub row_dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
@@ -192,6 +195,8 @@ impl RowInfo {
         Self {
             row_dyn_info,
             table_def: tabdef.clone(),
+            nil_area: buf.clone().slice(nilptr - idxdef.null_size..nilptr),
+            var_area: buf.clone().slice(varptr..nilptr - idxdef.null_size),
             buf: buf.clone(),
             addr,
         }
