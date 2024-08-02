@@ -2,7 +2,7 @@ use crate::meta::def::{IndexDef, TableDef};
 use crate::util;
 use bytes::Bytes;
 use derivative::Derivative;
-use log::debug;
+use log::{debug, info, trace};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -56,40 +56,42 @@ impl RecordHeader {
     // only if the record is the first user record on a non-leaf B-tree page
     // that is the leftmost page on its level (PAGE_LEVEL is nonzero and
     // FIL_PAGE_PREV is FIL_NULL).
-    const REC_INFO_MIN_REC_FLAG: u8 = 1;
+    const REC_INFO_MIN_REC_FLAG: u8 = 0x10;
     // The deleted flag in info bits; when bit is set to 1, it means the record
     // has been delete marked
-    const REC_INFO_DELETED_FLAG: u8 = 2;
+    const REC_INFO_DELETED_FLAG: u8 = 0x20;
     // Use this bit to indicate record has version
-    const REC_INFO_VERSION_FLAG: u8 = 4;
+    const REC_INFO_VERSION_FLAG: u8 = 0x40;
     // The instant ADD COLUMN flag. When it is set to 1, it means this record
     // was inserted/updated after an instant ADD COLUMN.
-    const REC_INFO_INSTANT_FLAG: u8 = 8;
+    const REC_INFO_INSTANT_FLAG: u8 = 0x80;
 
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let b0 = buf[addr + 0];
         let b1 = util::u16_val(&buf, addr + 1);
-        let status = (b1 & 0x0007) as u8;
-        let bits = (buf[0] & 0xf0) >> 4;
+        debug!("rec_hdr, b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
 
         let mut flags = Vec::new();
-        if (bits & Self::REC_INFO_MIN_REC_FLAG) > 0 {
+        if (b0 & Self::REC_INFO_MIN_REC_FLAG) > 0 {
             flags.push(RecInfoFlag::MIN_REC);
         }
-        if (bits & Self::REC_INFO_DELETED_FLAG) > 0 {
+        if (b0 & Self::REC_INFO_DELETED_FLAG) > 0 {
             flags.push(RecInfoFlag::DELETED);
         }
-        if (bits & Self::REC_INFO_VERSION_FLAG) > 0 {
+        if (b0 & Self::REC_INFO_VERSION_FLAG) > 0 {
             flags.push(RecInfoFlag::VERSION);
         }
-        if (bits & Self::REC_INFO_INSTANT_FLAG) > 0 {
+        if (b0 & Self::REC_INFO_INSTANT_FLAG) > 0 {
             flags.push(RecInfoFlag::INSTANT);
         }
 
+        let status = ((b1 & 0x0007) as u8).into();
+
         Self {
             info_bits: flags,
-            n_owned: (buf[0] & 0x0f),
+            n_owned: (b0 & 0x0f),
             heap_no: (b1 & 0xfff8) >> 3,
-            rec_status: status.into(),
+            rec_status: status,
             next_rec_offset: util::i16_val(&buf, addr + 3),
             buf: buf.clone(),
             addr,
