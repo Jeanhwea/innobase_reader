@@ -37,7 +37,7 @@ release-linux:
 	$(CARGO) build --release $(CFLAG) --target=x86_64-unknown-linux-musl
 
 release-win:
-	$(CARGO) build --release $(CFLAG) --target=stable-x86_64-pc-windows-gnu
+	$(CARGO) build --release $(CFLAG) --target=x86_64-pc-windows-gnu
 
 clean:
 	rm -rf target
