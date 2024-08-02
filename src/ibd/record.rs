@@ -2,7 +2,7 @@ use crate::meta::def::{IndexDef, TableDef};
 use crate::util;
 use bytes::Bytes;
 use derivative::Derivative;
-use log::{debug, info, trace};
+use log::debug;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
