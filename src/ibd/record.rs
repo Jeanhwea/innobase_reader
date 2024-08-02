@@ -27,8 +27,7 @@ pub enum RecordStatus {
     UNDEF,
 }
 
-#[repr(u8)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecInfoFlag {
     MIN_REC,
     DELETED,
@@ -87,7 +86,7 @@ impl RecordHeader {
         }
 
         Self {
-            info_bits: (buf[0] & 0xf0) >> 4,
+            info_bits: flags,
             n_owned: (buf[0] & 0x0f),
             heap_no: (b1 & 0xfff8) >> 3,
             rec_status: status.into(),
