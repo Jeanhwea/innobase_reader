@@ -30,6 +30,9 @@ fix: format
 install:
 	$(CARGO) install $(CFLAG) --path .
 
+release:
+	$(CARGO) build --release $(CFLAG) --target=x86_64-unknown-linux-musl
+
 clean:
 	rm -rf target
 
