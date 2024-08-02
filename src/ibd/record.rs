@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use strum::{Display, EnumString};
 
-pub const PAGE_ADDR_INF: usize = 99;
-pub const PAGE_ADDR_SUP: usize = 112;
+pub const INF_PAGE_BYTE_OFF: usize = 99;
+pub const SUP_PAGE_BYTE_OFF: usize = 112;
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 

@@ -1,5 +1,5 @@
 use super::record::{Record, SdiObject};
-use crate::ibd::record::{RecordHeader, Row, RowInfo, PAGE_ADDR_INF, PAGE_ADDR_SUP};
+use crate::ibd::record::{RecordHeader, Row, RowInfo, INF_PAGE_BYTE_OFF, SUP_PAGE_BYTE_OFF};
 use crate::meta::def::TableDef;
 use crate::util;
 use anyhow::{Error, Result};
@@ -603,12 +603,12 @@ impl BasePageBody for IndexPageBody {
         debug!("slots={:?}", &slots);
 
         assert_eq!(
-            buf.slice(PAGE_ADDR_INF..PAGE_ADDR_INF + 8).to_vec(),
+            buf.slice(INF_PAGE_BYTE_OFF..INF_PAGE_BYTE_OFF + 8).to_vec(),
             vec![b'i', b'n', b'f', b'i', b'm', b'u', b'm', 0],
             "infimum string checking"
         );
         assert_eq!(
-            buf.slice(PAGE_ADDR_SUP..PAGE_ADDR_SUP + 8).to_vec(),
+            buf.slice(SUP_PAGE_BYTE_OFF..SUP_PAGE_BYTE_OFF + 8).to_vec(),
             vec![b's', b'u', b'p', b'r', b'e', b'm', b'u', b'm'],
             "supremum string checking"
         );
@@ -632,7 +632,7 @@ impl IndexPageBody {
         assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
 
         let inf = &self.infimum;
-        let mut cursor = PAGE_ADDR_INF as i16 + inf.next_rec_offset;
+        let mut cursor = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
 
         let urecs = &mut self.records;
         for nrec in 0..self.idx_hdr.page_n_recs {
@@ -655,7 +655,7 @@ impl IndexPageBody {
             let rec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
             urecs.push(rec);
         }
-        assert_eq!(cursor as usize, PAGE_ADDR_SUP, "cursor should reach supremum");
+        assert_eq!(cursor as usize, SUP_PAGE_BYTE_OFF, "cursor should reach supremum");
 
         Ok(())
     }
@@ -803,7 +803,7 @@ pub struct SdiPageBody {
 impl BasePageBody for SdiPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let index = IndexPageBody::new(addr, buf.clone());
-        let beg = PAGE_ADDR_INF + index.infimum.next_rec_offset as usize;
+        let beg = INF_PAGE_BYTE_OFF + index.infimum.next_rec_offset as usize;
         let end = beg + 33;
         let hdr = SdiDataHeader::new(beg, buf.clone());
         debug!("sdi_hdr={:?}", &hdr);
