@@ -27,6 +27,15 @@ pub enum RecordStatus {
     UNDEF,
 }
 
+#[repr(u8)]
+#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum RecInfoFlag {
+    MIN_REC,
+    DELETED,
+    VERSION,
+    INSTANT,
+}
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordHeader {
@@ -35,29 +44,15 @@ pub struct RecordHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    pub info_bits: u8, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
-    pub n_owned: u8,   // 4 bits
-    pub heap_no: u16,  // 13 bits
+    pub info_bits: Vec<RecInfoFlag>, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
+    pub n_owned: u8,                 // 4 bits
+    pub heap_no: u16,                // 13 bits
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub rec_status: RecordStatus, // 3 bits, see rec.h
-    pub next_rec_offset: i16, // next record offset
+    pub next_rec_offset: i16,        // next record offset
 }
 
 impl RecordHeader {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let b1 = util::u16_val(&buf, addr + 1);
-        let status = (b1 & 0x0007) as u8;
-        Self {
-            info_bits: (buf[0] & 0xf0) >> 4,
-            n_owned: (buf[0] & 0x0f),
-            heap_no: (b1 & 0xfff8) >> 3,
-            rec_status: status.into(),
-            next_rec_offset: util::i16_val(&buf, addr + 3),
-            buf: buf.clone(),
-            addr,
-        }
-    }
-
     // Info bit denoting the predefined minimum record: this bit is set if and
     // only if the record is the first user record on a non-leaf B-tree page
     // that is the leftmost page on its level (PAGE_LEVEL is nonzero and
@@ -72,12 +67,34 @@ impl RecordHeader {
     // was inserted/updated after an instant ADD COLUMN.
     const REC_INFO_INSTANT_FLAG: u8 = 8;
 
-    pub fn is_min_rec(&self) -> bool {
-        (self.info_bits & Self::REC_INFO_MIN_REC_FLAG) > 0
-    }
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let b1 = util::u16_val(&buf, addr + 1);
+        let status = (b1 & 0x0007) as u8;
+        let bits = (buf[0] & 0xf0) >> 4;
 
-    pub fn is_deleted(&self) -> bool {
-        (self.info_bits & Self::REC_INFO_DELETED_FLAG) > 0
+        let mut flags = Vec::new();
+        if (bits & Self::REC_INFO_MIN_REC_FLAG) > 0 {
+            flags.push(RecInfoFlag::MIN_REC);
+        }
+        if (bits & Self::REC_INFO_DELETED_FLAG) > 0 {
+            flags.push(RecInfoFlag::DELETED);
+        }
+        if (bits & Self::REC_INFO_VERSION_FLAG) > 0 {
+            flags.push(RecInfoFlag::VERSION);
+        }
+        if (bits & Self::REC_INFO_INSTANT_FLAG) > 0 {
+            flags.push(RecInfoFlag::INSTANT);
+        }
+
+        Self {
+            info_bits: (buf[0] & 0xf0) >> 4,
+            n_owned: (buf[0] & 0x0f),
+            heap_no: (b1 & 0xfff8) >> 3,
+            rec_status: status.into(),
+            next_rec_offset: util::i16_val(&buf, addr + 3),
+            buf: buf.clone(),
+            addr,
+        }
     }
 }
 
