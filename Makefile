@@ -30,7 +30,7 @@ fix: format
 install:
 	$(CARGO) install $(CFLAG) --path .
 
-release: release-linux release-win
+release: release-linux
 
 # rustup target add x86_64-unknown-linux-musl
 release-linux:
