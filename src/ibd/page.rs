@@ -660,14 +660,17 @@ impl IndexPageBody {
         addr = self.idx_hdr.page_free as i16;
         loop {
             let rec_addr = addr as usize;
-            let drec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-            addr += drec.rec_hdr.next_rec_offset;
-            free_records.push(drec);
+            if rec_addr < INF_PAGE_BYTE_OFF {
+                break;
+            }
+            let frec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+            addr += frec.rec_hdr.next_rec_offset;
+            free_records.push(frec);
             if addr as usize == rec_addr {
                 break;
             }
         }
-        self.records = Some(free_records);
+        self.free_records = Some(free_records);
 
         Ok(())
     }
