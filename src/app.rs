@@ -37,7 +37,11 @@ impl App {
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_pretty_print_sdi_json()?,
-            Commands::Dump { page: page_no, limit } => self.do_dump(page_no, limit)?,
+            Commands::Dump {
+                page: page_no,
+                limit,
+                verbose,
+            } => self.do_dump(page_no, limit, verbose)?,
             Commands::View { page: page_no } => self.do_view(page_no)?,
         }
 
@@ -151,7 +155,7 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(&mut self, page_no: usize, limit: usize) -> Result<(), Error> {
+    fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
         let df_fact = &mut self.factory;
         if page_no >= df_fact.page_count() {
             return Err(Error::msg("Page number out of range"));
@@ -193,6 +197,9 @@ impl App {
                 "****************************** Row {} ******************************",
                 seq
             );
+            if verbose {
+                println!("addr={}, rec_hdr={:?}", urec.row_data.addr, urec.rec_hdr,);
+            }
             for row in &urec.row_data.row_tuple {
                 let col = &tabdef.clone().col_defs[row.0];
                 match &row.2 {
