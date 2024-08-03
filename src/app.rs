@@ -177,7 +177,7 @@ impl App {
 
         index_page.page_body.parse_records(tabdef.clone())?;
 
-        for (cur, urec) in index_page.page_body.records().iter().enumerate() {
+        for (cur, urec) in index_page.page_body.records.unwrap().iter().enumerate() {
             if cur >= limit {
                 break;
             }
@@ -383,7 +383,13 @@ mod app_tests {
     fn view_dump_simple_page() {
         setup();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app.run(Commands::Dump { page: 4, limit: 10 }).is_ok());
+        assert!(app
+            .run(Commands::Dump {
+                page: 4,
+                limit: 10,
+                verbose: false
+            })
+            .is_ok());
     }
 
     #[test]
@@ -391,6 +397,12 @@ mod app_tests {
         setup();
         let mut app = App::new(PathBuf::from(IBD_02));
         assert!(app.run(Commands::Desc).is_ok());
-        assert!(app.run(Commands::Dump { page: 4, limit: 3 }).is_ok());
+        assert!(app
+            .run(Commands::Dump {
+                page: 4,
+                limit: 3,
+                verbose: false
+            })
+            .is_ok());
     }
 }

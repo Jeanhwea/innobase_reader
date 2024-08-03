@@ -1,6 +1,6 @@
 use super::record::{Record, SdiObject};
 use crate::ibd::record::{RecordHeader, Row, RowInfo};
-use crate::meta::def::TableDef;
+use crate::meta::def::{IndexDef, TableDef};
 use crate::util;
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -577,7 +577,8 @@ pub struct IndexPageBody {
     pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
     /// User Records, grow down
-    pub records: Vec<Record>, // User Record List
+    pub records: Option<Vec<Record>>, // User Record List
+    pub free_records: Option<Vec<Record>>, // Free Record List
 
     ////////////////////////////////////////
     //
@@ -626,7 +627,8 @@ impl BasePageBody for IndexPageBody {
                 addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
                 buf.clone(),
             ),
-            records: Vec::new(),
+            records: None,
+            free_records: None,
             page_dirs: slots,
             buf: buf.clone(),
             addr,
@@ -640,36 +642,34 @@ impl IndexPageBody {
         assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
 
         let inf = &self.infimum;
-        let mut cursor = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
+        let mut addr = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
 
-        let urecs = &mut self.records;
+        let mut records = Vec::new();
         for nrec in 0..self.idx_hdr.page_n_recs {
-            debug!("nrec={}, cursor={}", nrec, cursor);
-            let mut addr = cursor as usize;
-
-            // Record Header
-            addr -= RECORD_HEADER_SIZE;
-            let rec_hdr = RecordHeader::new(addr, self.buf.clone());
-
-            // Record Information
-            let row_info = RowInfo::new(addr, self.buf.clone(), tabdef.clone(), idxdef);
-
-            // Row
-            addr = cursor as usize;
-            let row = Row::new(addr, self.buf.clone(), tabdef.clone());
-            cursor += rec_hdr.next_rec_offset;
-
-            // Record
-            let rec = Record::new(addr, self.buf.clone(), rec_hdr, row_info, row);
-            urecs.push(rec);
+            let rec_addr = addr as usize;
+            debug!("nrec={}, rec_addr={}", nrec, rec_addr);
+            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+            addr += rec.rec_hdr.next_rec_offset;
+            records.push(rec);
         }
-        assert_eq!(cursor as usize, SUP_PAGE_BYTE_OFF, "cursor should reach supremum");
+        assert_eq!(addr as usize, SUP_PAGE_BYTE_OFF, "cursor should reach supremum");
+
+        self.records = Some(records);
 
         Ok(())
     }
 
-    pub fn records(&self) -> &Vec<Record> {
-        &self.records
+    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Record {
+        // Record Header
+        let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
+
+        // Row Info
+        let row_info = RowInfo::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone(), tabdef.clone(), idxdef);
+
+        // Row Data
+        let row = Row::new(rec_addr, self.buf.clone(), tabdef.clone());
+
+        Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row)
     }
 }
 
