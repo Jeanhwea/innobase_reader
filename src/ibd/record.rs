@@ -13,13 +13,14 @@ use strum::{Display, EnumString};
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
+// rec.h:152
 #[repr(u8)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
-    REC_STATUS_ORDINARY = 0,
-    REC_STATUS_NODE_PTR = 1,
-    REC_STATUS_INFIMUM = 2,
-    REC_STATUS_SUPREMUM = 3,
+    ORDINARY = 0,
+    NODE_PTR = 1,
+    INFIMUM = 2,
+    SUPREMUM = 3,
     #[default]
     UNDEF,
 }
