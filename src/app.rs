@@ -199,7 +199,8 @@ impl App {
             );
             if verbose {
                 println!("rec_hdr={:?}", urec.rec_hdr);
-                println!("rec_addr={}", urec.row_data.addr.to_string().yellow());
+                let rec_addr = urec.row_data.addr;
+                println!("rec_addr=0x{:0x?}@({})", rec_addr, rec_addr.to_string().yellow());
             }
             for row in &urec.row_data.row_tuple {
                 let col = &tabdef.clone().col_defs[row.0];
