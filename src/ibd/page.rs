@@ -644,17 +644,30 @@ impl IndexPageBody {
         let inf = &self.infimum;
         let mut addr = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
 
-        let mut records = Vec::new();
-        for nrec in 0..self.idx_hdr.page_n_recs {
-            let rec_addr = addr as usize;
-            debug!("nrec={}, rec_addr={}", nrec, rec_addr);
-            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-            addr += rec.rec_hdr.next_rec_offset;
-            records.push(rec);
-        }
+        let records = (0..self.idx_hdr.page_n_recs)
+            .map(|nrec| {
+                let rec_addr = addr as usize;
+                debug!("nrec={}, rec_addr={}", nrec, rec_addr);
+                let urec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+                addr += urec.rec_hdr.next_rec_offset;
+                urec
+            })
+            .collect();
         assert_eq!(addr as usize, SUP_PAGE_BYTE_OFF, "cursor should reach supremum");
-
         self.records = Some(records);
+
+        let mut free_records = Vec::new();
+        addr = self.idx_hdr.page_free as i16;
+        loop {
+            let rec_addr = addr as usize;
+            let drec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+            addr += drec.rec_hdr.next_rec_offset;
+            free_records.push(drec);
+            if addr as usize == rec_addr {
+                break;
+            }
+        }
+        self.records = Some(free_records);
 
         Ok(())
     }
