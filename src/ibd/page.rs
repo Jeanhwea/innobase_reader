@@ -601,7 +601,7 @@ impl BasePageBody for IndexPageBody {
 
         // Parse Page Directory Slots
         let slots = (0..idx_hdr.page_n_dir_slots as usize)
-            .map(|offset| util::u16_val(&buf, buf.len() - (offset + 1) * PAGE_DIR_ENTRY_SIZE))
+            .map(|offset| util::u16_val(&buf, buf.len() - FIL_TRAILER_SIZE - (offset + 1) * PAGE_DIR_ENTRY_SIZE))
             .collect();
         debug!("slots={:?}", &slots);
 
