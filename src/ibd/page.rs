@@ -661,22 +661,22 @@ impl IndexPageBody {
     }
 
     pub fn read_free_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
-        let mut addr = self.idx_hdr.page_free as usize;
+        let mut rec_addr = self.idx_hdr.page_free as usize;
         let mut free_records = Vec::new();
         loop {
             // if addr is invalid, just break
-            if addr < SUP_PAGE_BYTE_OFF {
+            if rec_addr < SUP_PAGE_BYTE_OFF {
                 break;
             }
 
             // parse the garbage record
-            let rec = self.parse_record(addr, tabdef.clone(), &idxdef);
+            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
             let next_addr = rec.next_addr();
             free_records.push(rec);
 
             // update next record address
-            if next_addr != addr {
-                addr = next_addr;
+            if next_addr != rec_addr {
+                rec_addr = next_addr;
             } else {
                 break;
             }
