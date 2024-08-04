@@ -647,32 +647,37 @@ impl IndexPageBody {
 
     pub fn read_user_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
-        let mut addr = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
+        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
         let records = (0..self.idx_hdr.page_n_recs)
             .map(|nrec| {
-                let rec_addr = addr as usize;
-                debug!("nrec={}, rec_addr={}", nrec, rec_addr);
+                debug!("nrec={}, rec_addr={}", &nrec, &rec_addr);
                 let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-                addr += rec.rec_hdr.next_rec_offset;
+                rec_addr = rec.next_addr();
                 rec
             })
             .collect();
-        assert_eq!(addr as usize, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
         Ok(records)
     }
 
     pub fn read_free_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
-        let mut addr = self.idx_hdr.page_free as i16;
+        let mut addr = self.idx_hdr.page_free as usize;
         let mut free_records = Vec::new();
         loop {
-            let rec_addr = addr as usize;
-            if rec_addr < SUP_PAGE_BYTE_OFF {
+            // if addr is invalid, just break
+            if addr < SUP_PAGE_BYTE_OFF {
                 break;
             }
-            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-            addr += rec.rec_hdr.next_rec_offset;
+
+            // parse the garbage record
+            let rec = self.parse_record(addr, tabdef.clone(), &idxdef);
+            let next_addr = rec.next_addr();
             free_records.push(rec);
-            if addr as usize == rec_addr {
+
+            // update next record address
+            if next_addr != addr {
+                addr = next_addr;
+            } else {
                 break;
             }
         }

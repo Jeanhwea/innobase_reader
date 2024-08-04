@@ -266,6 +266,10 @@ impl Record {
             addr,
         }
     }
+
+    pub fn next_addr(&self) -> usize {
+        ((self.addr as i16) + self.rec_hdr.next_rec_offset) as usize
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
