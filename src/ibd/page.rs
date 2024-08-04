@@ -1,4 +1,4 @@
-use super::record::{Record, SdiObject};
+use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
 use crate::ibd::record::{RecordHeader, Row, RowInfo};
 use crate::meta::def::{IndexDef, TableDef};
 use crate::util;
@@ -40,6 +40,9 @@ pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
+
+// sdi
+pub const SDI_DATA_HEADER_SIZE: usize = 33;
 
 // Base Page Structure
 #[derive(Clone, Derivative)]
@@ -640,8 +643,8 @@ impl IndexPageBody {
     pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let idxdef = &tabdef.idx_defs[0];
         assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
-        self.records = Some(self.read_user_records(tabdef.clone(), &idxdef)?);
-        self.free_records = Some(self.read_free_records(tabdef.clone(), &idxdef)?);
+        self.records = Some(self.read_user_records(tabdef.clone(), idxdef)?);
+        self.free_records = Some(self.read_free_records(tabdef.clone(), idxdef)?);
         Ok(())
     }
 
@@ -651,8 +654,8 @@ impl IndexPageBody {
         let records = (0..self.idx_hdr.page_n_recs)
             .map(|nrec| {
                 debug!("nrec={}, rec_addr={}", &nrec, &rec_addr);
-                let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-                rec_addr = rec.next_addr();
+                let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef);
+                rec_addr = rec.rec_hdr.next_addr();
                 rec
             })
             .collect();
@@ -670,8 +673,8 @@ impl IndexPageBody {
             }
 
             // parse the garbage record
-            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-            let next_addr = rec.next_addr();
+            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef);
+            let next_addr = rec.rec_hdr.next_addr();
             free_records.push(rec);
 
             // update next record address
@@ -827,28 +830,25 @@ pub struct SdiPageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    pub index: IndexPageBody,   // common Index Page
-    pub sdi_hdr: SdiDataHeader, // SDI Data Header
-    #[derivative(Debug = "ignore")]
-    pub uncomp_data: String, // unzipped SDI Data, a JSON string
+    pub index: IndexPageBody,            // common Index Page
+    pub sdi_rec_hdrs: Vec<RecordHeader>, // SDI Record Header List
 }
 
 impl BasePageBody for SdiPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let index = IndexPageBody::new(addr, buf.clone());
-        let beg = INF_PAGE_BYTE_OFF + index.infimum.next_rec_offset as usize;
-        let end = beg + 33;
-        let hdr = SdiDataHeader::new(beg, buf.clone());
-        debug!("sdi_hdr={:?}", &hdr);
-
-        let comped_data = buf.slice(end..end + (hdr.comp_len as usize));
-        let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
-        assert_eq!(uncomped_data.len(), hdr.uncomp_len as usize);
+        let idx = IndexPageBody::new(addr, buf.clone());
+        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + idx.infimum.next_rec_offset) as usize;
+        let records = (0..idx.idx_hdr.page_n_recs)
+            .map(|_nrec| {
+                let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, buf.clone());
+                rec_addr = rec_hdr.next_addr();
+                rec_hdr
+            })
+            .collect();
 
         Self {
-            index,
-            sdi_hdr: hdr,
-            uncomp_data: uncomped_data,
+            index: idx,
+            sdi_rec_hdrs: records,
             buf: buf.clone(),
             addr,
         }
@@ -856,47 +856,40 @@ impl BasePageBody for SdiPageBody {
 }
 
 impl SdiPageBody {
-    pub fn get_sdi_object(&self) -> SdiObject {
-        if self.uncomp_data.is_empty() {
-            panic!("ERR_SID_UNCOMP_STRING_EMPTY");
-        }
-        serde_json::from_str(&self.uncomp_data).expect("ERR_SDI_STRING")
+    pub fn read_sdi_objects(&self) -> Result<Vec<SdiRecord>, Error> {
+        let inf = &self.index.infimum;
+        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
+        let records = (0..self.index.idx_hdr.page_n_recs)
+            .map(|nrec| {
+                debug!("nrec={}, rec_addr={}", &nrec, &rec_addr);
+                let rec = self.parse_sdi_record(rec_addr);
+                rec_addr = rec.rec_hdr.next_addr();
+                rec
+            })
+            .collect();
+        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        Ok(records)
     }
-}
 
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct SdiDataHeader {
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    fn parse_sdi_record(&self, rec_addr: usize) -> SdiRecord {
+        // Record Header
+        let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
 
-    /// Length of TYPE field in record of SDI Index.
-    pub data_type: u32, // 4 bytes
-    /// Length of ID field in record of SDI Index.
-    pub data_id: u64, // 8 bytes
-    /// trx id
-    pub trx_id: u64, // 6 bytes
-    /// 7-byte roll-ptr.
-    pub roll_ptr: u64, // 7 bytes
-    /// Length of UNCOMPRESSED_LEN field in record of SDI Index.
-    pub uncomp_len: u32, // 4 bytes
-    /// Length of COMPRESSED_LEN field in record of SDI Index.
-    pub comp_len: u32, // 4 bytes
-}
+        // SDI Header
+        let hdr = SdiDataHeader::new(rec_addr, self.buf.clone());
+        debug!("sdi_hdr={:?}", &hdr);
 
-impl SdiDataHeader {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        Self {
-            data_type: util::u32_val(&buf, addr),
-            data_id: util::u64_val(&buf, addr + 4),
-            trx_id: util::u48_val(&buf, addr + 12),
-            roll_ptr: util::u56_val(&buf, addr + 18),
-            uncomp_len: util::u32_val(&buf, addr + 25),
-            comp_len: util::u32_val(&buf, addr + 29),
-            buf: buf.clone(),
-            addr,
-        }
+        SdiRecord::new(rec_addr, self.buf.clone(), rec_hdr, hdr)
+    }
+
+    pub fn get_table_string(&self) -> Result<String> {
+        let sdi_objects = self.read_sdi_objects().expect("SDI_OBJECTS_NOT_FOUND");
+        Ok(sdi_objects[0].sdi_str.clone())
+    }
+
+    pub fn get_table_sdiobj(&self) -> SdiObject {
+        let sdi_objects = self.read_sdi_objects().expect("SDI_OBJECTS_NOT_FOUND");
+        let sdi_rec = &sdi_objects[0];
+        serde_json::from_str(&sdi_rec.sdi_str).expect("ERR_SDI_STRING")
     }
 }

@@ -15,12 +15,12 @@ impl MetaDataManager {
         Self { sdi: Some(sdi_page) }
     }
 
-    pub fn raw_sdi_str(&self) -> Option<String> {
-        self.sdi.as_ref().map(|pg| pg.page_body.uncomp_data.clone())
+    pub fn raw_sdi_str(&self) -> Result<String> {
+        self.sdi.as_ref().unwrap().page_body.get_table_string()
     }
 
     pub fn load_tabdef(&self) -> Result<TableDef, Error> {
-        let ddobj = self.sdi.as_ref().unwrap().page_body.get_sdi_object().dd_object;
+        let ddobj = self.sdi.as_ref().unwrap().page_body.get_table_sdiobj().dd_object;
         debug!("ddobj={:#?}", &ddobj);
 
         let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();

@@ -10,6 +10,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use std::sync::Arc;
 use strum::{Display, EnumString};
+use crate::ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE};
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
@@ -65,7 +66,7 @@ impl RecordHeader {
     const REC_INFO_INSTANT_FLAG: u8 = 0x80;
 
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let b0 = buf[addr + 0];
+        let b0 = buf[addr];
         let b1 = util::u16_val(&buf, addr + 1);
         debug!("rec_hdr, b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
 
@@ -94,6 +95,10 @@ impl RecordHeader {
             buf: buf.clone(),
             addr,
         }
+    }
+
+    pub fn next_addr(&self) -> usize {
+        ((self.addr as i16) + self.next_rec_offset) as usize + RECORD_HEADER_SIZE
     }
 }
 
@@ -266,9 +271,72 @@ impl Record {
             addr,
         }
     }
+}
 
-    pub fn next_addr(&self) -> usize {
-        ((self.addr as i16) + self.rec_hdr.next_rec_offset) as usize
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct SdiRecord {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub rec_hdr: RecordHeader, // record header
+    pub sdi_hdr: SdiDataHeader, // SDI Data Header
+    pub sdi_str: String,        // SDI Data String, uncompressed string
+}
+
+impl SdiRecord {
+    pub fn new(addr: usize, buf: Arc<Bytes>, rec_hdr: RecordHeader, hdr: SdiDataHeader) -> Self {
+        let beg = addr + SDI_DATA_HEADER_SIZE;
+        let comped_data = buf.slice(beg..beg + (hdr.comp_len as usize));
+        let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
+        assert_eq!(uncomped_data.len(), hdr.uncomp_len as usize);
+        Self {
+            rec_hdr,
+            sdi_hdr: hdr,
+            sdi_str: uncomped_data,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct SdiDataHeader {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>, // page data buffer
+
+    /// Length of TYPE field in record of SDI Index.
+    pub data_type: u32, // 4 bytes
+    /// Length of ID field in record of SDI Index.
+    pub data_id: u64, // 8 bytes
+    /// trx id
+    pub trx_id: u64, // 6 bytes
+    /// 7-byte roll-ptr.
+    pub roll_ptr: u64, // 7 bytes
+    /// Length of UNCOMPRESSED_LEN field in record of SDI Index.
+    pub uncomp_len: u32, // 4 bytes
+    /// Length of COMPRESSED_LEN field in record of SDI Index.
+    pub comp_len: u32, // 4 bytes
+}
+
+impl SdiDataHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            data_type: util::u32_val(&buf, addr),
+            data_id: util::u64_val(&buf, addr + 4),
+            trx_id: util::u48_val(&buf, addr + 12),
+            roll_ptr: util::u56_val(&buf, addr + 18),
+            uncomp_len: util::u32_val(&buf, addr + 25),
+            comp_len: util::u32_val(&buf, addr + 29),
+            buf: buf.clone(),
+            addr,
+        }
     }
 }
 
