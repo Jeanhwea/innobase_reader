@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
-use chrono::{Local, NaiveDate, NaiveDateTime, DateTime};
+use chrono::{Local, NaiveDate, DateTime, NaiveDateTime};
 use colored::Colorize;
 use flate2::read::ZlibDecoder;
 use log::{trace, debug};
@@ -191,7 +191,7 @@ pub fn unpack_timestamp2_val(b: &Bytes) -> DateTime<Local> {
 }
 
 // signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
-pub fn unpack_datetime_val(b: &Bytes) -> Option<NaiveDateTime> {
+pub fn unpack_datetime2_val(b: &Bytes) -> Option<NaiveDateTime> {
     let arr = [0, 0, 0, b[0], b[1], b[2], b[3], b[4]];
     let val = u64::from_be_bytes(arr);
     let sec = val & 0x3f;

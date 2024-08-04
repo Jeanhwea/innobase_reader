@@ -56,6 +56,7 @@ impl ColumnDef {
                     ColumnTypes::LONGLONG => 8,
                     ColumnTypes::DATE | ColumnTypes::TIMESTAMP | ColumnTypes::TIMESTAMP2 => 4,
                     ColumnTypes::DATETIME => 8,
+                    ColumnTypes::DATETIME2 => 5,
                     ColumnTypes::ENUM => (if ddc.elements.len() < 256 { 1 } else { 2 }) as u32,
                     ColumnTypes::JSON => ddc.char_length,
                     _ => todo!(

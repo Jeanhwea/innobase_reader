@@ -272,6 +272,14 @@ impl App {
                                 util::unpack_newdate_val(datum).unwrap().to_string().cyan(),
                             );
                         }
+                        ColumnTypes::DATETIME2 => {
+                            println!(
+                                "{:>12} => {:?} [{}]",
+                                &col.col_name.magenta(),
+                                datum,
+                                util::unpack_datetime2_val(datum).unwrap().to_string().cyan(),
+                            );
+                        }
                         ColumnTypes::TIMESTAMP2 => {
                             println!(
                                 "{:>12} => {:?} [{}]",
