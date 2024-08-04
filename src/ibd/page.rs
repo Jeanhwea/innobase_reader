@@ -640,39 +640,43 @@ impl IndexPageBody {
     pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
         let idxdef = &tabdef.idx_defs[0];
         assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
+        self.records = Some(self.read_user_records(tabdef.clone(), &idxdef)?);
+        self.free_records = Some(self.read_free_records(tabdef.clone(), &idxdef)?);
+        Ok(())
+    }
 
+    pub fn read_user_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
         let mut addr = INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset;
-
         let records = (0..self.idx_hdr.page_n_recs)
             .map(|nrec| {
                 let rec_addr = addr as usize;
                 debug!("nrec={}, rec_addr={}", nrec, rec_addr);
-                let urec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-                addr += urec.rec_hdr.next_rec_offset;
-                urec
+                let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+                addr += rec.rec_hdr.next_rec_offset;
+                rec
             })
             .collect();
-        assert_eq!(addr as usize, SUP_PAGE_BYTE_OFF, "cursor should reach supremum");
-        self.records = Some(records);
+        assert_eq!(addr as usize, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        Ok(records)
+    }
 
+    pub fn read_free_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
+        let mut addr = self.idx_hdr.page_free as i16;
         let mut free_records = Vec::new();
-        addr = self.idx_hdr.page_free as i16;
         loop {
             let rec_addr = addr as usize;
-            if rec_addr < INF_PAGE_BYTE_OFF {
+            if rec_addr < SUP_PAGE_BYTE_OFF {
                 break;
             }
-            let frec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
-            addr += frec.rec_hdr.next_rec_offset;
-            free_records.push(frec);
+            let rec = self.parse_record(rec_addr, tabdef.clone(), &idxdef);
+            addr += rec.rec_hdr.next_rec_offset;
+            free_records.push(rec);
             if addr as usize == rec_addr {
                 break;
             }
         }
-        self.free_records = Some(free_records);
-
-        Ok(())
+        Ok(free_records)
     }
 
     fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Record {
