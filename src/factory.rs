@@ -28,12 +28,13 @@ impl DatafileFactory {
         }
 
         let file = File::open(&target)?;
+        let size = if let md = file.metadata()? {
+            md.len() as usize
+        } else {
+            0
+        };
 
-        Ok(Self {
-            target,
-            size: file.metadata().unwrap().len() as usize,
-            file,
-        })
+        Ok(Self { target, size, file })
     }
 
     pub fn page_count(&self) -> usize {
