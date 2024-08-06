@@ -1,5 +1,5 @@
 use crate::factory::DatafileFactory;
-use crate::ibd::page::{BasePage, IndexPageBody, PageTypes, RECORD_HEADER_SIZE};
+use crate::ibd::page::{BasePage, IndexPageBody, PAGE_SIZE, PageTypes, RECORD_HEADER_SIZE};
 use crate::{Commands, util};
 use anyhow::{Error, Result};
 use colored::Colorize;
@@ -49,28 +49,31 @@ impl App {
     }
 
     fn do_info(&self) -> Result<()> {
-        let mut df_fact = DatafileFactory::from_file(self.input.clone())?;
-        let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
-        for page_no in 0..df_fact.page_count() {
-            let hdr = df_fact.parse_fil_hdr(page_no)?;
-            *stats.entry(hdr.page_type).or_insert(0) += 1;
-        }
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let hdr0 = fact.parse_fil_hdr(0)?;
 
+        // 基础信息
         println!("Meta Information:");
-        // println!(
-        //     "{:>12} => server({}), space({})",
-        //     "version".green(),
-        //     &df_fact.server_version.to_string().blue(),
-        //     &df_fact.space_version.to_string().blue()
-        // );
-        // println!("{:>12} => {}", "space_id".green(), &df_fact.space_id.to_string().blue());
+        println!(
+            "{:>12} => server({}), space({})",
+            "version".green(),
+            &hdr0.server_version().to_string().blue(),
+            &hdr0.space_version().to_string().blue()
+        );
+        println!("{:>12} => {}", "space_id".green(), &hdr0.space_id.to_string().blue());
         println!(
             "{:>12} => {}",
             "page_count".green(),
-            &df_fact.page_count().to_string().blue()
+            &fact.page_count().to_string().blue()
         );
-        println!("{:>12} => {}", "file_size".green(), df_fact.size.to_string().blue());
+        println!("{:>12} => {}", "file_size".green(), fact.size.to_string().blue());
 
+        // 页面类型统计
+        let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
+        for page_no in 0..fact.page_count() {
+            let hdr = fact.parse_fil_hdr(page_no)?;
+            *stats.entry(hdr.page_type).or_insert(0) += 1;
+        }
         println!("PageTypes Statistics:");
         for entry in &stats {
             println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
@@ -79,16 +82,19 @@ impl App {
     }
 
     fn do_list(&self) -> Result<()> {
-        let mut df_fact = DatafileFactory::from_file(self.input.clone())?;
-        for page_no in 0..df_fact.page_count() {
-            let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        for page_no in 0..fact.page_count() {
+            let fil_hdr = fact.parse_fil_hdr(page_no)?;
             let page_type = &fil_hdr.page_type;
+            let offset = page_no * PAGE_SIZE;
             println!(
-                "page_no={}, page_type={}, space_id={}, lsn={}",
+                "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
                 &page_no.to_string().magenta(),
                 &page_type.to_string().yellow(),
                 &fil_hdr.space_id.to_string().blue(),
                 &fil_hdr.lsn.to_string().green(),
+                offset,
+                offset.to_string().blue(),
             );
         }
         Ok(())
