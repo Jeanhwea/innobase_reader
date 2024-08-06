@@ -354,7 +354,6 @@ pub struct FileSpaceHeaderPageBody {
 
     pub fsp_hdr: FileSpaceHeader,
     pub xdes_ent_list: Vec<XDesEntry>,
-    pub sdi_meta_data: Option<SdiMetaData>,
 }
 
 impl FileSpaceHeaderPageBody {
@@ -366,14 +365,10 @@ impl FileSpaceHeaderPageBody {
     // static constexpr size_t INFO_MAX_SIZE = INFO_SIZE + sizeof(uint32);
     const INFO_MAX_SIZE: usize = 115;
 
-    pub fn parse_sdi_meta(&mut self) {
+    pub fn sdi_meta(&self) -> SdiMetaData {
         // sdi_addr, page offset = 10505
         let sdi_addr = self.addr + FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
-
-        let sdi_meta = SdiMetaData::new(sdi_addr, self.buf.clone());
-        debug!("sdi_meta={:?}", sdi_meta);
-
-        self.sdi_meta_data = Some(sdi_meta);
+        SdiMetaData::new(sdi_addr, self.buf.clone())
     }
 }
 
@@ -390,7 +385,6 @@ impl BasePageBody for FileSpaceHeaderPageBody {
         Self {
             fsp_hdr: hdr,
             xdes_ent_list: entries,
-            sdi_meta_data: None,
             buf: buf.clone(),
             addr,
         }

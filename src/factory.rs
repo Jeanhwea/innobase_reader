@@ -69,17 +69,15 @@ impl DatafileFactory {
         let page_no = 0;
 
         let buf0 = self.page_buffer(page_no)?;
-        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = self.parse_page(buf0)?;
+        let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.parse_page(buf0)?;
 
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
-        debug!("load fsg_page = {:?}", &fsp_page);
+        let sdi_meta = fsp_page.page_body.sdi_meta();
+        debug!("load sdi_meta = {:?}", &sdi_meta);
 
-        fsp_page.page_body.parse_sdi_meta();
-        let sdi_meta_data = fsp_page.page_body.sdi_meta_data.unwrap();
-
-        let sdi_page_no = sdi_meta_data.sdi_page_no as usize;
-        assert_ne!(sdi_page_no, 0);
+        let sdi_page_no = sdi_meta.sdi_page_no as usize;
         debug!("sdi_page_no = {}", sdi_page_no);
+        assert_ne!(sdi_page_no, 0);
 
         let buf = self.page_buffer(sdi_page_no)?;
         let sdi_page: BasePage<SdiPageBody> = self.parse_page(buf)?;
@@ -100,6 +98,7 @@ mod factory_tests {
     use anyhow::Error;
     use log::info;
     use crate::factory::DatafileFactory;
+    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, PageTypes};
 
     const IBD_FILE: &str = "data/departments.ibd";
 
@@ -115,6 +114,22 @@ mod factory_tests {
         let buf = fact.fil_hdr_buffer(0)?;
         assert!(buf.len() > 0);
         info!("{:?}", buf);
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_sdi_meta() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
+
+        let buf0 = fact.page_buffer(0)?;
+        let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.parse_page(buf0)?;
+
+        assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
+        let sdi_meta = fsp_page.page_body.sdi_meta();
+        info!("sdi_meta={:?}", sdi_meta);
+
+        assert_eq!(sdi_meta.sdi_page_no, 3);
         Ok(())
     }
 }
