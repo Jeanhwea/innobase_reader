@@ -1,7 +1,6 @@
 use crate::ibd::page::{
-    SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE, FIL_HEADER_SIZE,
+    SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PAGE_SIZE, FIL_HEADER_SIZE,
 };
-use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
@@ -84,7 +83,7 @@ impl DatafileFactory {
         sdi_page.page_body.get_table_string()
     }
 
-    pub fn load_table_def(&mut self) -> Result<TableDef> {
+    pub fn load_table_def(&mut self) -> Result<Arc<TableDef>> {
         let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(0)?;
         let sdi_meta = fsp_page.page_body.sdi_meta();
         let sdi_page_no = sdi_meta.sdi_page_no as usize;
@@ -122,7 +121,7 @@ impl DatafileFactory {
             .collect();
         info!("idxdefs={:?}", &idxdefs);
 
-        Ok(TableDef {
+        Ok(Arc::from(TableDef {
             schema_ref: ddobj.schema_ref.clone(),
             tab_name: ddobj.name.clone(),
             collation_id: ddobj.collation_id,
@@ -130,27 +129,7 @@ impl DatafileFactory {
             charset: coll.charset.into(),
             col_defs: coldefs,
             idx_defs: idxdefs,
-        })
-    }
-
-    pub fn init_meta_mgr(&mut self) -> Result<MetaDataManager, Error> {
-        let page_no = 0;
-
-        let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(page_no)?;
-
-        assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
-        let sdi_meta = fsp_page.page_body.sdi_meta();
-        debug!("load sdi_meta = {:?}", &sdi_meta);
-
-        let sdi_page_no = sdi_meta.sdi_page_no as usize;
-        debug!("sdi_page_no = {}", sdi_page_no);
-        assert_ne!(sdi_page_no, 0);
-
-        let sdi_page: BasePage<SdiPageBody> = self.read_page(sdi_page_no)?;
-        assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
-        debug!("load sdi_page = {:?}", &sdi_page);
-
-        Ok(MetaDataManager::new(sdi_page))
+        }))
     }
 }
 

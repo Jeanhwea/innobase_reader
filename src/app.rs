@@ -175,8 +175,7 @@ impl App {
             return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
         }
 
-        let mgr = fact.init_meta_mgr()?;
-        let tabdef = Arc::new(mgr.load_tabdef()?);
+        let tabdef = fact.load_table_def()?;
         debug!("tabdef = {:?}", &tabdef);
 
         let index_id = index_page.page_body.idx_hdr.page_index_id;
@@ -333,31 +332,31 @@ impl App {
     }
 
     fn do_view(&self, page_no: usize) -> Result<(), Error> {
-        let mut df_fact = DatafileFactory::from_file(self.input.clone())?;
-        if page_no >= df_fact.page_count() {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        if page_no >= fact.page_count() {
             return Err(Error::msg("页码范围溢出"));
         }
 
-        let fil_hdr = df_fact.read_fil_hdr(page_no)?;
+        let fil_hdr = fact.read_fil_hdr(page_no)?;
         match fil_hdr.page_type {
             PageTypes::ALLOCATED => {
                 println!("Freshly allocated page, fil_hdr = {:#?}", fil_hdr);
             }
             PageTypes::FSP_HDR => {
                 assert_eq!(page_no, fil_hdr.page_no as usize);
-                let fsp_page: BasePage<FileSpaceHeaderPageBody> = df_fact.read_page(page_no)?;
+                let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", fsp_page);
             }
             PageTypes::INODE => {
-                let inode_page: BasePage<INodePageBody> = df_fact.read_page(page_no)?;
+                let inode_page: BasePage<INodePageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", inode_page);
             }
             PageTypes::INDEX => {
-                let index_page: BasePage<IndexPageBody> = df_fact.read_page(page_no)?;
+                let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", index_page);
             }
             PageTypes::SDI => {
-                let sdi_page: BasePage<SdiPageBody> = df_fact.read_page(page_no)?;
+                let sdi_page: BasePage<SdiPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", sdi_page);
             }
             _ => {
