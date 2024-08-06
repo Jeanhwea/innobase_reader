@@ -138,4 +138,14 @@ mod factory_tests {
         assert_eq!(sdi_meta.sdi_page_no, 3);
         Ok(())
     }
+
+    #[test]
+    fn test_read_fsp_hdr_page() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
+        let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        info!("fsp_page={:#?}", fsp_page);
+        Ok(())
+    }
+
 }
