@@ -1,8 +1,10 @@
-use crate::ibd::page::{SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE};
+use crate::ibd::page::{
+    SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PageTypes, PAGE_SIZE, FIL_HEADER_SIZE,
+};
 use crate::meta::mgr::MetaDataManager;
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use log::{debug, info};
+use log::debug;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -10,90 +12,65 @@ use std::sync::Arc;
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 
-#[derive(Debug, Default)]
-pub struct PageFactory {
-    buf: Arc<Bytes>,
-    page_no: usize,
-}
-
-impl PageFactory {
-    pub fn new(buffer: Bytes, page_no: usize) -> PageFactory {
-        Self {
-            buf: Arc::new(buffer),
-            page_no,
-        }
-    }
-
-    pub fn fil_hdr(&self) -> FilePageHeader {
-        FilePageHeader::new(0, self.buf.clone())
-    }
-
-    pub fn parse<P>(&self) -> BasePage<P>
-    where
-        P: BasePageBody,
-    {
-        BasePage::new(0, self.buf.clone())
-    }
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DatafileFactory {
-    pub target: PathBuf,     // Target datafile
-    pub file: Option<File>,  // Tablespace file descriptor
-    pub filesize: usize,     // File size
-    pub server_version: u32, // on page 0, FIL_PAGE_SRV_VERSION
-    pub space_version: u32,  // on page 0, FIL_PAGE_SPACE_VERSION
-    pub space_id: u32,       // Space Id
+    pub target: PathBuf, // Target datafile
+    pub file: File,      // Tablespace file descriptor
+    pub size: usize,     // File size
 }
 
 impl DatafileFactory {
-    pub fn new(target: PathBuf) -> Self {
-        Self {
+    pub fn from_file(target: PathBuf) -> Result<Self> {
+        if !target.exists() {
+            return Err(Error::msg(format!("没有找到目标文件: {:?}", target)));
+        }
+
+        let file = File::open(&target)?;
+
+        Ok(Self {
             target,
-            ..DatafileFactory::default()
-        }
+            size: file.metadata().unwrap().len() as usize,
+            file,
+        })
     }
 
-    pub fn init(&mut self) -> Result<(), Error> {
-        if !self.target.exists() {
-            return Err(Error::msg(format!("TargetFileNotFound: {:?}", self.target)));
-        }
-
-        self.do_open_file()?;
-
-        let hdr0 = self.first_fil_hdr()?;
-        debug!("hdr0 = {:?}", hdr0);
-
-        self.server_version = hdr0.prev_page;
-        self.space_version = hdr0.next_page;
-        self.space_id = hdr0.space_id;
-
-        Ok(())
+    pub fn page_count(&self) -> usize {
+        self.size / PAGE_SIZE
     }
 
-    fn do_open_file(&mut self) -> Result<(), Error> {
-        let file = File::open(&self.target)?;
-        let size = file.metadata().unwrap().len() as usize;
-        info!("load {:?}, size = {}", file, size);
-
-        self.file = Some(file);
-        self.filesize = size;
-
-        Ok(())
+    pub fn page_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
+        self.file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
+        let mut buffer = vec![0; PAGE_SIZE];
+        self.file.read_exact(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
     }
 
-    fn do_read_bytes(&self, page_no: usize) -> Result<Bytes> {
-        let mut f = self.file.as_ref().unwrap();
-        f.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
-        let mut buf = vec![0; PAGE_SIZE];
-        f.read_exact(&mut buf)?;
-        Ok(Bytes::from(buf))
+    pub fn fil_hdr_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
+        self.file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
+        let mut buffer = vec![0; FIL_HEADER_SIZE];
+        self.file.read_exact(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
     }
 
-    pub fn init_meta_mgr(&self) -> Result<MetaDataManager, Error> {
+    pub fn parse_fil_hdr(&mut self, page_no: usize) -> Result<FilePageHeader> {
+        let buf = self.fil_hdr_buffer(page_no)?;
+        Ok(FilePageHeader::new(0, buf.clone()))
+    }
+
+    pub fn parse_page<P>(&self, buf: Arc<Bytes>) -> Result<BasePage<P>>
+    where
+        P: BasePageBody,
+    {
+        assert_eq!(buf.len(), PAGE_SIZE);
+        Ok(BasePage::new(0, buf.clone()))
+    }
+
+    pub fn init_meta_mgr(&mut self) -> Result<MetaDataManager, Error> {
         let page_no = 0;
-        let buffer = self.do_read_bytes(page_no)?;
-        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = PageFactory::new(buffer, page_no).parse();
+
+        let buf0 = self.page_buffer(page_no)?;
+        let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = self.parse_page(buf0)?;
+
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
         debug!("load fsg_page = {:?}", &fsp_page);
 
@@ -104,35 +81,12 @@ impl DatafileFactory {
         assert_ne!(sdi_page_no, 0);
         debug!("sdi_page_no = {}", sdi_page_no);
 
-        let buffer = self.do_read_bytes(sdi_page_no)?;
-        let sdi_page: BasePage<SdiPageBody> = PageFactory::new(buffer, sdi_page_no).parse();
+        let buf = self.page_buffer(sdi_page_no)?;
+        let sdi_page: BasePage<SdiPageBody> = self.parse_page(buf)?;
         assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
         debug!("load sdi_page = {:?}", &sdi_page);
 
         Ok(MetaDataManager::new(sdi_page))
-    }
-
-    pub fn page_count(&self) -> usize {
-        self.filesize / PAGE_SIZE
-    }
-
-    pub fn file_size(&self) -> usize {
-        self.filesize
-    }
-
-    pub fn read_page(&self, page_no: usize) -> Result<Bytes> {
-        self.do_read_bytes(page_no)
-    }
-
-    pub fn parse_fil_hdr(&self, page_no: usize) -> Result<FilePageHeader> {
-        let buffer = self.do_read_bytes(page_no)?;
-        Ok(PageFactory::new(buffer, page_no).fil_hdr())
-    }
-
-    pub fn first_fil_hdr(&self) -> Result<FilePageHeader> {
-        let page_no = 0;
-        let buffer = self.do_read_bytes(page_no)?;
-        Ok(PageFactory::new(buffer, page_no).fil_hdr())
     }
 }
 
@@ -142,6 +96,10 @@ mod factory_tests {
     use crate::util;
 
     use std::env::set_var;
+    use std::path::PathBuf;
+    use anyhow::Error;
+    use log::info;
+    use crate::factory::DatafileFactory;
 
     const IBD_FILE: &str = "data/departments.ibd";
 
@@ -151,7 +109,12 @@ mod factory_tests {
     }
 
     #[test]
-    fn load_table_definition() {
+    fn test_load_buffer() -> Result<(), Error> {
         setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
+        let buf = fact.fil_hdr_buffer(0)?;
+        assert!(buf.len() > 0);
+        info!("{:?}", buf);
+        Ok(())
     }
 }

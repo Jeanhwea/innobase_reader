@@ -167,6 +167,16 @@ impl FilePageHeader {
             addr,
         }
     }
+
+    pub fn server_version(&self) -> u32 {
+        assert_eq!(self.page_no, 0);
+        self.prev_page
+    }
+
+    pub fn space_version(&self) -> u32 {
+        assert_eq!(self.page_no, 0);
+        self.next_page
+    }
 }
 
 /// FIL Trailer, see fil0types.h
