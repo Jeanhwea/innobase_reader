@@ -1,9 +1,12 @@
 use crate::factory::DatafileFactory;
-use crate::ibd::page::{BasePage, IndexPageBody, PAGE_SIZE, PageTypes, RECORD_HEADER_SIZE};
+use crate::ibd::page::{
+    BasePage, FileSpaceHeaderPageBody, IndexPageBody, INodePageBody, PAGE_SIZE, PageTypes, RECORD_HEADER_SIZE,
+    SdiPageBody,
+};
 use crate::{Commands, util};
 use anyhow::{Error, Result};
 use colored::Colorize;
-use log::{debug, info};
+use log::{debug, error, info};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -36,7 +39,7 @@ impl App {
             Commands::Info => self.do_info()?,
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
-            Commands::Sdi => self.do_pretty_print_sdi_json()?,
+            Commands::Sdi => self.do_sdi_print()?,
             Commands::Dump {
                 page: page_no,
                 limit,
@@ -101,37 +104,34 @@ impl App {
     }
 
     fn do_desc(&mut self) -> Result<()> {
-        let mut df_fact = DatafileFactory::from_file(self.input.clone())?;
-        let mgr = df_fact.init_meta_mgr()?;
-
-        let tabdef = mgr.load_tabdef()?;
-
-        for c in &tabdef.col_defs {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let tabdef = fact.load_table_def()?;
+        for col in &tabdef.col_defs {
             println!(
                 "COL{}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
-                c.pos,
-                c.col_name.magenta(),
-                c.dd_type.to_string().blue(),
-                c.isnil.to_string().yellow(),
-                c.data_len.to_string().cyan(),
-                c.utf8_def.green(),
+                col.pos,
+                col.col_name.magenta(),
+                col.dd_type.to_string().blue(),
+                col.isnil.to_string().yellow(),
+                col.data_len.to_string().cyan(),
+                col.utf8_def.green(),
             );
-            info!("{:?}", c);
+            info!("{:?}", col);
         }
 
-        for i in &tabdef.idx_defs {
+        for idx in &tabdef.idx_defs {
             println!(
                 "IDX{}: idx_name={}, idx_type={}, algorithm={}",
-                i.pos,
-                i.idx_name.magenta(),
-                i.idx_type.to_string().blue(),
-                i.algorithm.to_string().cyan(),
+                idx.pos,
+                idx.idx_name.magenta(),
+                idx.idx_type.to_string().blue(),
+                idx.algorithm.to_string().cyan(),
             );
-            for e in &i.elements {
+            for e in &idx.elements {
                 let ref_col = &tabdef.col_defs[e.column_opx];
                 println!(
                     " ({}-{}): column_opx={}, col_name={}, order={}, ele_len={}, hidden={}, isnil={}, isvar={}",
-                    i.pos,
+                    idx.pos,
                     e.pos,
                     e.column_opx.to_string().green(),
                     ref_col.col_name.magenta(),
@@ -142,41 +142,40 @@ impl App {
                     ref_col.isvar.to_string().cyan(),
                 );
             }
-            info!("{:?}", i);
+            info!("{:?}", idx);
         }
 
         Ok(())
     }
 
-    fn do_pretty_print_sdi_json(&self) -> Result<()> {
-        let df_fact = DatafileFactory::from_file(self.input.clone())?;
-        // let mgr = df_fact.init_meta_mgr()?;
-        // let json_str = mgr.raw_sdi_str().unwrap();
-        // let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
-        // println!("{}", sdi_data);
+    fn do_sdi_print(&self) -> Result<()> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let json_str = fact.load_sdi_table()?;
+        let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
+        println!("{}", sdi_data);
         Ok(())
     }
 
     fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
-        let mut df_fact = DatafileFactory::from_file(self.input.clone())?;
-        if page_no >= df_fact.page_count() {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        if page_no >= fact.page_count() {
             return Err(Error::msg("页码范围溢出"));
         }
 
-        let fil_hdr = df_fact.read_fil_hdr(page_no)?;
+        let fil_hdr = fact.read_fil_hdr(page_no)?;
         let page_type = fil_hdr.page_type;
         if page_type != PageTypes::INDEX {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
 
-        let buf = df_fact.page_buffer(page_no)?;
-        let index_page: BasePage<IndexPageBody> = df_fact.parse_page(buf)?;
+        let buf = fact.page_buffer(page_no)?;
+        let index_page: BasePage<IndexPageBody> = fact.parse_page(buf)?;
         let page_level = index_page.page_body.idx_hdr.page_level;
         if page_level != 0 {
             return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
         }
 
-        let mgr = df_fact.init_meta_mgr()?;
+        let mgr = fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
         debug!("tabdef = {:?}", &tabdef);
 
@@ -340,34 +339,31 @@ impl App {
         }
 
         let fil_hdr = df_fact.read_fil_hdr(page_no)?;
-        // match fil_hdr.page_type {
-        //     PageTypes::ALLOCATED => {
-        //         println!("allocated only page, fil_hdr = {:#?}", fil_hdr);
-        //     }
-        //     PageTypes::FSP_HDR => {
-        //         assert_eq!(page_no, fil_hdr.page_no as usize);
-        //         let mut fsp_page: BasePage<FileSpaceHeaderPageBody> = pg_fact.parse();
-        //         if df_fact.server_version > SDI_META_INFO_MIN_VER {
-        //             fsp_page.page_body.parse_sdi_meta();
-        //         }
-        //         println!("{:#?}", fsp_page);
-        //     }
-        //     PageTypes::INODE => {
-        //         let inode_page: BasePage<INodePageBody> = pg_fact.parse();
-        //         println!("{:#?}", inode_page);
-        //     }
-        //     PageTypes::INDEX => {
-        //         let index_page: BasePage<IndexPageBody> = pg_fact.parse();
-        //         println!("{:#?}", index_page);
-        //     }
-        //     PageTypes::SDI => {
-        //         let sdi_page: BasePage<SdiPageBody> = pg_fact.parse();
-        //         println!("{:#?}", sdi_page);
-        //     }
-        //     _ => {
-        //         error!("Bad PageType, hdr = {:#?}", fil_hdr);
-        //     }
-        // }
+        match fil_hdr.page_type {
+            PageTypes::ALLOCATED => {
+                println!("Freshly allocated page, fil_hdr = {:#?}", fil_hdr);
+            }
+            PageTypes::FSP_HDR => {
+                assert_eq!(page_no, fil_hdr.page_no as usize);
+                let fsp_page: BasePage<FileSpaceHeaderPageBody> = df_fact.read_page(page_no)?;
+                println!("{:#?}", fsp_page);
+            }
+            PageTypes::INODE => {
+                let inode_page: BasePage<INodePageBody> = df_fact.read_page(page_no)?;
+                println!("{:#?}", inode_page);
+            }
+            PageTypes::INDEX => {
+                let index_page: BasePage<IndexPageBody> = df_fact.read_page(page_no)?;
+                println!("{:#?}", index_page);
+            }
+            PageTypes::SDI => {
+                let sdi_page: BasePage<SdiPageBody> = df_fact.read_page(page_no)?;
+                println!("{:#?}", sdi_page);
+            }
+            _ => {
+                error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
+            }
+        }
         Ok(())
     }
 }

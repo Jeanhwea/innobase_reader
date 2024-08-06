@@ -43,9 +43,9 @@ impl MetaDataManager {
             for (off, pos) in nullinfo.iter().enumerate() {
                 ele_defs[pos - 1].null_offset = off;
             }
-            let nullflag_size = util::align8(nullinfo.len());
+            let nil_size = util::align8(nullinfo.len());
 
-            idxdefs.push(IndexDef::from(idx, ele_defs, nullflag_size));
+            idxdefs.push(IndexDef::from(idx, ele_defs, nil_size));
         }
         info!("idxdefs={:?}", &idxdefs);
 
