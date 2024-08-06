@@ -142,9 +142,10 @@ mod factory_tests {
     use anyhow::Error;
     use log::info;
     use crate::factory::DatafileFactory;
-    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody};
+    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, IndexPageBody, INodePageBody};
 
     const IBD_FILE: &str = "data/departments.ibd";
+    const IBD_FILE_2: &str = "/opt/mysql/data/employees/employees.ibd";
 
     fn setup() {
         set_var("RUST_LOG", "info");
@@ -176,6 +177,166 @@ mod factory_tests {
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let tabdef = fact.load_table_def();
         info!("tabdef={:#?}", tabdef);
+        Ok(())
+    }
+
+    #[test]
+    fn test_btr_traverse() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+
+        let root_page: BasePage<IndexPageBody> = fact.read_page(4)?;
+        let fseg_hdr = root_page.page_body.fseg_hdr;
+        info!("fseg_hdr={:?}", &fseg_hdr);
+
+        let inode_page_no = fseg_hdr.leaf_page_no as usize;
+        let inode_page: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
+
+        let offset = fseg_hdr.leaf_offset as usize;
+        let head_inode = inode_page
+            .page_body
+            .inode_ent_list
+            .iter()
+            .find(|node| node.addr == offset)
+            .unwrap();
+        info!("head_inode={:#?}", head_inode);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_inode_leaf_walk_full() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+
+        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        // info!("xdes={:#?}", &page0.page_body);
+
+        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
+
+        let inode_page_no = inode_free_first.page as usize;
+        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
+        // info!("inode={:#?}", &page2.page_body);
+
+        let inode_nonleaf = &page2.page_body.inode_ent_list[2];
+        info!("inode_nonleaf={:#?}", &inode_nonleaf);
+        let inode_leaf = &page2.page_body.inode_ent_list[3];
+        info!("inode_leaf={:#?}", &inode_leaf);
+
+        let mut faddr = &inode_leaf.fseg_full.first;
+        let mut seq = 1;
+        loop {
+            assert_eq!(faddr.page, 0);
+
+            let boffset = faddr.boffset as usize;
+            let xdes = page0
+                .page_body
+                .xdes_ent_list
+                .iter()
+                .find(|xdes| xdes.flst_node.addr == boffset);
+            if xdes.is_none() {
+                break;
+            }
+            info!("seq={}, xdes={:?}", &seq, &xdes);
+
+            faddr = &xdes.unwrap().flst_node.next;
+            if faddr.boffset == 0 {
+                break;
+            }
+
+            seq += 1;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_inode_leaf_walk_frag() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+
+        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        // info!("xdes={:#?}", &page0.page_body);
+
+        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
+
+        let inode_page_no = inode_free_first.page as usize;
+        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
+        // info!("inode={:#?}", &page2.page_body);
+
+        let inode_leaf = &page2.page_body.inode_ent_list[3];
+        info!("inode_leaf={:#?}", &inode_leaf);
+
+        let mut faddr = &inode_leaf.fseg_not_full.first;
+        let mut seq = 1;
+        loop {
+            assert_eq!(faddr.page, 0);
+
+            let boffset = faddr.boffset as usize;
+            let xdes = page0
+                .page_body
+                .xdes_ent_list
+                .iter()
+                .find(|xdes| xdes.flst_node.addr == boffset);
+            if xdes.is_none() {
+                break;
+            }
+            info!("seq={}, xdes={:?}", &seq, &xdes);
+
+            faddr = &xdes.unwrap().flst_node.next;
+            if faddr.boffset == 0 {
+                break;
+            }
+
+            seq += 1;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_inode_nonleaf_walk_full() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+
+        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        // info!("xdes={:#?}", &page0.page_body);
+
+        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
+
+        let inode_page_no = inode_free_first.page as usize;
+        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
+        // info!("inode={:#?}", &page2.page_body);
+
+        let inode_nonleaf = &page2.page_body.inode_ent_list[2];
+        info!("inode_nonleaf={:#?}", &inode_nonleaf);
+        let inode_leaf = &page2.page_body.inode_ent_list[3];
+        info!("inode_leaf={:#?}", &inode_leaf);
+
+        let mut faddr = &inode_nonleaf.fseg_full.first;
+        let mut seq = 1;
+        loop {
+            assert_eq!(faddr.page, 0);
+
+            let boffset = faddr.boffset as usize;
+            let xdes = page0
+                .page_body
+                .xdes_ent_list
+                .iter()
+                .find(|xdes| xdes.flst_node.addr == boffset);
+            if xdes.is_none() {
+                break;
+            }
+            info!("seq={}, xdes={:?}", &seq, &xdes);
+
+            faddr = &xdes.unwrap().flst_node.next;
+            if faddr.boffset == 0 {
+                break;
+            }
+
+            seq += 1;
+        }
+
         Ok(())
     }
 }

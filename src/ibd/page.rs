@@ -353,6 +353,8 @@ pub struct FileSpaceHeaderPageBody {
     pub buf: Arc<Bytes>,
 
     pub fsp_hdr: FileSpaceHeader,
+
+    #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 }
 
@@ -375,9 +377,10 @@ impl FileSpaceHeaderPageBody {
 impl BasePageBody for FileSpaceHeaderPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(addr, buf.clone());
-        let len: usize =
-            (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
-                as usize;
+        // let len: usize =
+        //     (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
+        //         as usize;
+        let len = XDES_ENTRY_MAX_COUNT;
         let entries = (0..len)
             .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
             .collect();
