@@ -580,10 +580,13 @@ pub struct IndexPageBody {
     pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
     /// Record Headers
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub data_rec_hdrs: Vec<RecordHeader>, // Data Record Header List
 
     /// User Records, grow down
+    #[derivative(Debug = "ignore")]
     pub records: Option<Vec<Record>>, // User Record List
+    #[derivative(Debug = "ignore")]
     pub free_records: Option<Vec<Record>>, // Free Record List
 
     /// Page Directory, grows "downwards" from @16376 (16384 - 8)
@@ -600,6 +603,22 @@ impl BasePageBody for IndexPageBody {
             PageFormats::COMPACT,
             "only support compact row format"
         );
+
+        // Infimum
+        let inf = RecordHeader::new(
+            addr + INF_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
+            buf.clone(),
+        );
+
+        // Parse Record Headers
+        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
+        let hdrs = (0..idx_hdr.page_n_recs)
+            .map(|_nrec| {
+                let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, buf.clone());
+                rec_addr = rec_hdr.next_addr();
+                rec_hdr
+            })
+            .collect();
 
         // Parse Page Directory Slots
         let slots = (0..idx_hdr.page_n_dir_slots as usize)
@@ -621,14 +640,12 @@ impl BasePageBody for IndexPageBody {
         Self {
             idx_hdr,
             fseg_hdr: FSegHeader::new(addr + 36, buf.clone()),
-            infimum: RecordHeader::new(
-                addr + INF_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
-                buf.clone(),
-            ),
+            infimum: inf,
             supremum: RecordHeader::new(
                 addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
                 buf.clone(),
             ),
+            data_rec_hdrs: hdrs,
             records: None,
             free_records: None,
             page_dirs: slots,
@@ -829,25 +846,13 @@ pub struct SdiPageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    pub index: IndexPageBody,            // common Index Page
-    pub sdi_rec_hdrs: Vec<RecordHeader>, // SDI Record Header List
+    pub index: IndexPageBody, // common Index Page
 }
 
 impl BasePageBody for SdiPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let idx = IndexPageBody::new(addr, buf.clone());
-        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + idx.infimum.next_rec_offset) as usize;
-        let records = (0..idx.idx_hdr.page_n_recs)
-            .map(|_nrec| {
-                let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, buf.clone());
-                rec_addr = rec_hdr.next_addr();
-                rec_hdr
-            })
-            .collect();
-
         Self {
-            index: idx,
-            sdi_rec_hdrs: records,
+            index: IndexPageBody::new(addr, buf.clone()),
             buf: buf.clone(),
             addr,
         }

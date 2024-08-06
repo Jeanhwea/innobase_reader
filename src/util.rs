@@ -5,8 +5,8 @@ use colored::Colorize;
 use flate2::read::ZlibDecoder;
 use log::{trace, debug};
 use std::fmt::{Display, LowerHex, Binary, Debug};
-use std::io::{Read, Write};
 use std::sync::Once;
+use std::io::{Read, Write};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
@@ -78,6 +78,17 @@ where
     T: Debug,
 {
     write!(f, "{:?}", d)
+}
+
+pub fn fmt_oneline_vec<T>(d: &Vec<T>, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Debug,
+{
+    let _ = writeln!(f, "[");
+    for e in d {
+        let _ = writeln!(f, "    {:?},", e);
+    }
+    write!(f, "]")
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
