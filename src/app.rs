@@ -179,10 +179,18 @@ impl App {
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
-        info!("tabdef = {:?}", &tabdef);
+        debug!("tabdef = {:?}", &tabdef);
 
-        let idxdef = &tabdef.clone().idx_defs[0];
-        assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
+        let index_id = index_page.page_body.idx_hdr.page_index_id;
+        let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
+            None => {
+                return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
+            }
+            Some(v) => {
+                info!("index={}, {:?}", v.idx_name.to_string().green(), &v);
+                v
+            }
+        };
 
         let data_rec_list = index_page.page_body.read_user_records(tabdef.clone(), idxdef)?;
         for (i, urec) in data_rec_list.iter().enumerate() {

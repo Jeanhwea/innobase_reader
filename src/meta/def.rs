@@ -8,6 +8,7 @@ use crate::ibd::record::IndexAlgorithm;
 use crate::ibd::record::IndexOrder;
 use crate::ibd::record::IndexTypes;
 use crate::meta::cst::coll_find;
+use crate::util;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
@@ -87,6 +88,7 @@ impl ColumnDef {
 pub struct IndexDef {
     pub pos: usize,                     // ordinal position
     pub idx_name: String,               // index name
+    pub idx_id: u64,                    // index id
     pub hidden: bool,                   // hidden
     pub comment: String,                // Comment
     pub idx_type: IndexTypes,           // index type
@@ -97,9 +99,12 @@ pub struct IndexDef {
 
 impl IndexDef {
     pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>, null_size: usize) -> Self {
+        let priv_data = util::conv_strdata_to_map(&ddi.se_private_data);
+        let id: u64 = priv_data["id"].parse().unwrap_or(0);
         Self {
             pos: ddi.ordinal_position as usize,
             idx_name: ddi.name.clone(),
+            idx_id: id,
             hidden: ddi.hidden,
             comment: ddi.comment.clone(),
             idx_type: ddi.idx_type.clone(),

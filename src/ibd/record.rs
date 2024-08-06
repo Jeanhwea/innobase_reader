@@ -517,6 +517,7 @@ pub struct DataDictIndex {
     pub algorithm: IndexAlgorithm,
     pub is_visible: bool,
     pub engine: String,
+    pub se_private_data: String,
     pub elements: Vec<DataDictIndexElement>,
     #[serde(flatten)]
     extra: HashMap<String, Value>,

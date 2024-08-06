@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use anyhow::Result;
 use bytes::Bytes;
 use chrono::{Local, NaiveDate, DateTime, NaiveDateTime};
@@ -236,6 +237,21 @@ pub fn unpack_u56_val(b: &Bytes) -> u64 {
     u64::from_be_bytes(arr)
 }
 
+pub fn conv_strdata_to_map(str: &String) -> HashMap<String, String> {
+    let mut ret = HashMap::new();
+    if str.is_empty() {
+        return ret;
+    }
+
+    for entry in str.split(';') {
+        if let Some(i) = entry.find('=') {
+            ret.insert(entry[0..i].to_string(), entry[i + 1..].to_string());
+        }
+    }
+
+    ret
+}
+
 #[cfg(test)]
 mod util_tests {
 
@@ -256,6 +272,16 @@ mod util_tests {
         let n = 5;
         let ans: Vec<_> = (0..n).map(|x| x + 1).collect();
         info!("ans={:?}", ans);
+    }
+
+    #[test]
+    fn test_conv_string_to_map() {
+        setup();
+        let str01 = String::from("id=156;root=5;space_id=3;table_id=1065;trx_id=1298;");
+        let map01 = conv_strdata_to_map(&str01);
+        info!("map01={:?}", map01);
+        let id_val: u64 = map01["id"].clone().parse().unwrap();
+        assert_eq!(156, id_val);
     }
 
     #[test]
