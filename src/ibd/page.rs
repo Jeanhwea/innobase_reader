@@ -579,16 +579,15 @@ pub struct IndexPageBody {
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
+    /// Record Headers
+    pub data_rec_hdrs: Vec<RecordHeader>, // Data Record Header List
+
     /// User Records, grow down
     pub records: Option<Vec<Record>>, // User Record List
     pub free_records: Option<Vec<Record>>, // Free Record List
 
-    ////////////////////////////////////////
-    //
-    //  Free Space
-    //
-    ////////////////////////////////////////
-    /// Page Directory, grows up
+    /// Page Directory, grows "downwards" from @16376 (16384 - 8)
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub page_dirs: Vec<u16>, // page directory slots
 }
 
