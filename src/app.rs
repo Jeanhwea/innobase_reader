@@ -150,7 +150,7 @@ impl App {
 
     fn do_sdi_print(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        let json_str = fact.load_sdi_table()?;
+        let json_str = fact.load_sdi_string()?;
         let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
         println!("{}", sdi_data);
         Ok(())
@@ -204,8 +204,7 @@ impl App {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
 
-        let buf = fact.page_buffer(page_no)?;
-        let index_page: BasePage<IndexPageBody> = fact.parse_page(buf)?;
+        let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
         let page_level = index_page.page_body.idx_hdr.page_level;
         if page_level != 0 {
             return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));

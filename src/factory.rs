@@ -67,27 +67,23 @@ impl DatafileFactory {
         Ok(BasePage::new(0, buf.clone()))
     }
 
-    pub fn parse_page<P>(&self, buf: Arc<Bytes>) -> Result<BasePage<P>>
-    where
-        P: BasePageBody,
-    {
-        assert_eq!(buf.len(), PAGE_SIZE);
-        Ok(BasePage::new(0, buf.clone()))
-    }
-
-    pub fn load_sdi_table(&mut self) -> Result<String> {
+    fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {
         let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(0)?;
+        if fsp_page.fil_hdr.server_version() < SDI_META_INFO_MIN_VER {
+            return Err(Error::msg("MySQL 版本过低，没有 SDI 信息"));
+        }
         let sdi_meta = fsp_page.page_body.sdi_meta();
         let sdi_page_no = sdi_meta.sdi_page_no as usize;
-        let sdi_page: BasePage<SdiPageBody> = self.read_page(sdi_page_no)?;
+        self.read_page(sdi_page_no)
+    }
+
+    pub fn load_sdi_string(&mut self) -> Result<String, Error> {
+        let sdi_page = self.read_sdi_page()?;
         sdi_page.page_body.get_table_string()
     }
 
     pub fn load_table_def(&mut self) -> Result<Arc<TableDef>> {
-        let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(0)?;
-        let sdi_meta = fsp_page.page_body.sdi_meta();
-        let sdi_page_no = sdi_meta.sdi_page_no as usize;
-        let sdi_page: BasePage<SdiPageBody> = self.read_page(sdi_page_no)?;
+        let sdi_page = self.read_sdi_page()?;
 
         let ddobj = sdi_page.page_body.get_table_sdiobj().dd_object;
         debug!("ddobj={:#?}", &ddobj);
@@ -143,7 +139,7 @@ mod factory_tests {
     use anyhow::Error;
     use log::info;
     use crate::factory::DatafileFactory;
-    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, PageTypes};
+    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody};
 
     const IBD_FILE: &str = "data/departments.ibd";
 
@@ -159,22 +155,6 @@ mod factory_tests {
         let buf = fact.fil_hdr_buffer(0)?;
         assert!(buf.len() > 0);
         info!("{:?}", buf);
-        Ok(())
-    }
-
-    #[test]
-    fn test_load_sdi_meta() -> Result<(), Error> {
-        setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-
-        let buf0 = fact.page_buffer(0)?;
-        let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.parse_page(buf0)?;
-
-        assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
-        let sdi_meta = fsp_page.page_body.sdi_meta();
-        info!("sdi_meta={:?}", sdi_meta);
-
-        assert_eq!(sdi_meta.sdi_page_no, 3);
         Ok(())
     }
 
