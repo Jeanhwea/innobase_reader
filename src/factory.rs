@@ -28,11 +28,7 @@ impl DatafileFactory {
         }
 
         let file = File::open(&target)?;
-        let size = if let md = file.metadata()? {
-            md.len() as usize
-        } else {
-            0
-        };
+        let size = file.metadata()?.len() as usize;
 
         Ok(Self { target, size, file })
     }
@@ -56,6 +52,9 @@ impl DatafileFactory {
     }
 
     pub fn read_fil_hdr(&mut self, page_no: usize) -> Result<FilePageHeader> {
+        if page_no >= self.page_count() {
+            return Err(Error::msg("页码范围溢出"));
+        }
         let buf = self.fil_hdr_buffer(page_no)?;
         Ok(FilePageHeader::new(0, buf.clone()))
     }
@@ -64,6 +63,9 @@ impl DatafileFactory {
     where
         P: BasePageBody,
     {
+        if page_no >= self.page_count() {
+            return Err(Error::msg("页码范围溢出"));
+        }
         let buf = self.page_buffer(page_no)?;
         Ok(BasePage::new(0, buf.clone()))
     }

@@ -237,7 +237,7 @@ pub fn unpack_u56_val(b: &Bytes) -> u64 {
     u64::from_be_bytes(arr)
 }
 
-pub fn conv_strdata_to_map(str: &String) -> HashMap<String, String> {
+pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
     let mut ret = HashMap::new();
     if str.is_empty() {
         return ret;

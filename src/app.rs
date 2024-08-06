@@ -158,9 +158,6 @@ impl App {
 
     fn do_view(&self, page_no: usize) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        if page_no >= fact.page_count() {
-            return Err(Error::msg("页码范围溢出"));
-        }
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
         assert_eq!(page_no, fil_hdr.page_no as usize);
@@ -194,9 +191,6 @@ impl App {
 
     fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        if page_no >= fact.page_count() {
-            return Err(Error::msg("页码范围溢出"));
-        }
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
         let page_type = fil_hdr.page_type;
