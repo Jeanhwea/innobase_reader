@@ -170,30 +170,29 @@ impl App {
             )));
         }
         let buffer = df_fact.read_page(page_no)?;
-        let mut index_page: BasePage<IndexPageBody> = PageFactory::new(buffer, page_no).parse();
+        let index_page: BasePage<IndexPageBody> = PageFactory::new(buffer, page_no).parse();
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
         info!("tabdef = {:?}", &tabdef);
 
-        index_page.page_body.parse_records(tabdef.clone())?;
+        let idxdef = &tabdef.clone().idx_defs[0];
+        assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
 
-        if let Some(records) = index_page.page_body.records {
-            for (cur, urec) in records.iter().enumerate() {
-                if cur >= limit {
-                    break;
-                }
-                Self::do_dump_record(cur + 1, urec, &tabdef, verbose);
+        let data_rec_list = index_page.page_body.read_user_records(tabdef.clone(), idxdef)?;
+        for (i, urec) in data_rec_list.iter().enumerate() {
+            if i >= limit {
+                break;
             }
+            Self::do_dump_record(i + 1, urec, &tabdef, verbose);
         }
 
-        if let Some(records) = index_page.page_body.free_records {
-            for (cur, frec) in records.iter().enumerate() {
-                if cur >= limit {
-                    break;
-                }
-                Self::do_dump_record(cur + 1, frec, &tabdef, verbose);
+        let free_rec_list = index_page.page_body.read_free_records(tabdef.clone(), idxdef)?;
+        for (i, frec) in free_rec_list.iter().enumerate() {
+            if i >= limit {
+                break;
             }
+            Self::do_dump_record(i + 1, frec, &tabdef, verbose);
         }
 
         Ok(())

@@ -585,12 +585,6 @@ pub struct IndexPageBody {
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub free_rec_hdrs: Vec<RecordHeader>, // Free Record Header List
 
-    /// User Records, grow down
-    #[derivative(Debug = "ignore")]
-    pub records: Option<Vec<Record>>, // User Record List
-    #[derivative(Debug = "ignore")]
-    pub free_records: Option<Vec<Record>>, // Free Record List
-
     /// Page Directory, grows "downwards" from @16376 (16384 - 8)
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub page_dirs: Vec<u16>, // page directory slots
@@ -672,8 +666,6 @@ impl BasePageBody for IndexPageBody {
             ),
             data_rec_hdrs: data_hdrs,
             free_rec_hdrs: free_hdrs,
-            records: None,
-            free_records: None,
             page_dirs: slots,
             buf: buf.clone(),
             addr,
@@ -682,14 +674,6 @@ impl BasePageBody for IndexPageBody {
 }
 
 impl IndexPageBody {
-    pub fn parse_records(&mut self, tabdef: Arc<TableDef>) -> Result<(), Error> {
-        let idxdef = &tabdef.idx_defs[0];
-        assert_eq!(idxdef.idx_name, "PRIMARY", "only support primary index");
-        self.records = Some(self.read_user_records(tabdef.clone(), idxdef)?);
-        self.free_records = Some(self.read_free_records(tabdef.clone(), idxdef)?);
-        Ok(())
-    }
-
     pub fn read_user_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
