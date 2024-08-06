@@ -89,7 +89,7 @@ impl DatafileFactory {
         debug!("ddobj={:#?}", &ddobj);
 
         let coll = coll_find(ddobj.collation_id);
-        info!("coll={:#?}", &coll);
+        info!("coll={:?}", &coll);
 
         let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
         let idxdefs = ddobj
