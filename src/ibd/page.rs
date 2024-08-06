@@ -582,6 +582,8 @@ pub struct IndexPageBody {
     /// Record Headers
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub data_rec_hdrs: Vec<RecordHeader>, // Data Record Header List
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub free_rec_hdrs: Vec<RecordHeader>, // Free Record Header List
 
     /// User Records, grow down
     #[derivative(Debug = "ignore")]
@@ -611,14 +613,37 @@ impl BasePageBody for IndexPageBody {
         );
 
         // Parse Record Headers
-        let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
-        let hdrs = (0..idx_hdr.page_n_recs)
+        let mut free_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
+        let data_hdrs = (0..idx_hdr.page_n_recs)
             .map(|_nrec| {
-                let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, buf.clone());
-                rec_addr = rec_hdr.next_addr();
+                let rec_hdr = RecordHeader::new(free_addr - RECORD_HEADER_SIZE, buf.clone());
+                free_addr = rec_hdr.next_addr();
                 rec_hdr
             })
             .collect();
+
+        let mut free_hdrs = Vec::new();
+        if idx_hdr.page_garbage > 0 {
+            let mut free_addr = idx_hdr.page_free as usize;
+            loop {
+                // if addr is invalid, just break
+                if free_addr < SUP_PAGE_BYTE_OFF {
+                    break;
+                }
+
+                // parse the garbage record
+                let rec_hdr = RecordHeader::new(free_addr - RECORD_HEADER_SIZE, buf.clone());
+                let next_addr = rec_hdr.next_addr();
+                free_hdrs.push(rec_hdr);
+
+                // update next record address
+                if next_addr != free_addr {
+                    free_addr = next_addr;
+                } else {
+                    break;
+                }
+            }
+        }
 
         // Parse Page Directory Slots
         let slots = (0..idx_hdr.page_n_dir_slots as usize)
@@ -645,7 +670,8 @@ impl BasePageBody for IndexPageBody {
                 addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
                 buf.clone(),
             ),
-            data_rec_hdrs: hdrs,
+            data_rec_hdrs: data_hdrs,
+            free_rec_hdrs: free_hdrs,
             records: None,
             free_records: None,
             page_dirs: slots,

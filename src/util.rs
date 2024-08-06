@@ -84,11 +84,15 @@ pub fn fmt_oneline_vec<T>(d: &Vec<T>, f: &mut std::fmt::Formatter) -> Result<(),
 where
     T: Debug,
 {
-    let _ = writeln!(f, "[");
-    for e in d {
-        let _ = writeln!(f, "    {:?},", e);
+    if d.is_empty() {
+        write!(f, "[]")
+    } else {
+        let _ = writeln!(f, "[");
+        for e in d {
+            let _ = writeln!(f, "    {:?},", e);
+        }
+        write!(f, "]")
     }
-    write!(f, "]")
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
