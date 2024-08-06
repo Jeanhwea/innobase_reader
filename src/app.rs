@@ -1,5 +1,7 @@
 use crate::factory::{DatafileFactory, PageFactory, SDI_META_INFO_MIN_VER};
-use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody};
+use crate::ibd::page::{
+    BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, RECORD_HEADER_SIZE,
+};
 use crate::{Commands, util};
 use anyhow::{Error, Result};
 use colored::Colorize;
@@ -218,9 +220,26 @@ impl App {
             seq
         );
         if verbose {
-            println!("rec_hdr={:?}", rec.rec_hdr);
+            println!("rec_hdr: {:?}", rec.rec_hdr);
+            let mut data_size = 0;
+            for row in &rec.row_data.row_tuple {
+                data_size += row.1;
+            }
+            let var_area_size = rec.row_info.var_area.len();
+            let nil_area_size = rec.row_info.nil_area.len();
+            let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
             let rec_addr = rec.row_data.addr;
-            println!("rec_addr=0x{:0x?}@({})", rec_addr, rec_addr.to_string().yellow());
+            let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
+            println!(
+                "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
+                rec_addr,
+                rec_addr.to_string().yellow(),
+                data_size.to_string().magenta(),
+                var_area_size.to_string().blue(),
+                nil_area_size.to_string().blue(),
+                total_size.to_string().green(),
+                page_offset.to_string().yellow(),
+            );
         }
         for row in &rec.row_data.row_tuple {
             let col = &tabdef.clone().col_defs[row.0];
