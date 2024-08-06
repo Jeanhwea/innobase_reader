@@ -52,9 +52,17 @@ impl DatafileFactory {
         Ok(Arc::new(Bytes::from(buffer)))
     }
 
-    pub fn parse_fil_hdr(&mut self, page_no: usize) -> Result<FilePageHeader> {
+    pub fn read_fil_hdr(&mut self, page_no: usize) -> Result<FilePageHeader> {
         let buf = self.fil_hdr_buffer(page_no)?;
         Ok(FilePageHeader::new(0, buf.clone()))
+    }
+
+    pub fn read_page<P>(&mut self, page_no: usize) -> Result<BasePage<P>>
+    where
+        P: BasePageBody,
+    {
+        let buf = self.page_buffer(page_no)?;
+        Ok(BasePage::new(0, buf.clone()))
     }
 
     pub fn parse_page<P>(&self, buf: Arc<Bytes>) -> Result<BasePage<P>>
@@ -68,8 +76,7 @@ impl DatafileFactory {
     pub fn init_meta_mgr(&mut self) -> Result<MetaDataManager, Error> {
         let page_no = 0;
 
-        let buf0 = self.page_buffer(page_no)?;
-        let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.parse_page(buf0)?;
+        let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(page_no)?;
 
         assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
         let sdi_meta = fsp_page.page_body.sdi_meta();
@@ -79,8 +86,7 @@ impl DatafileFactory {
         debug!("sdi_page_no = {}", sdi_page_no);
         assert_ne!(sdi_page_no, 0);
 
-        let buf = self.page_buffer(sdi_page_no)?;
-        let sdi_page: BasePage<SdiPageBody> = self.parse_page(buf)?;
+        let sdi_page: BasePage<SdiPageBody> = self.read_page(sdi_page_no)?;
         assert_eq!(sdi_page.fil_hdr.page_type, PageTypes::SDI);
         debug!("load sdi_page = {:?}", &sdi_page);
 

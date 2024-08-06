@@ -50,7 +50,7 @@ impl App {
 
     fn do_info(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        let hdr0 = fact.parse_fil_hdr(0)?;
+        let hdr0 = fact.read_fil_hdr(0)?;
 
         // 基础信息
         println!("Meta Information:");
@@ -71,7 +71,7 @@ impl App {
         // 页面类型统计
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..fact.page_count() {
-            let hdr = fact.parse_fil_hdr(page_no)?;
+            let hdr = fact.read_fil_hdr(page_no)?;
             *stats.entry(hdr.page_type).or_insert(0) += 1;
         }
         println!("PageTypes Statistics:");
@@ -84,7 +84,7 @@ impl App {
     fn do_list(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         for page_no in 0..fact.page_count() {
-            let fil_hdr = fact.parse_fil_hdr(page_no)?;
+            let fil_hdr = fact.read_fil_hdr(page_no)?;
             let page_type = &fil_hdr.page_type;
             let offset = page_no * PAGE_SIZE;
             println!(
@@ -163,7 +163,7 @@ impl App {
             return Err(Error::msg("页码范围溢出"));
         }
 
-        let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
+        let fil_hdr = df_fact.read_fil_hdr(page_no)?;
         let page_type = fil_hdr.page_type;
         if page_type != PageTypes::INDEX {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
@@ -339,7 +339,7 @@ impl App {
             return Err(Error::msg("页码范围溢出"));
         }
 
-        let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
+        let fil_hdr = df_fact.read_fil_hdr(page_no)?;
         // match fil_hdr.page_type {
         //     PageTypes::ALLOCATED => {
         //         println!("allocated only page, fil_hdr = {:#?}", fil_hdr);
