@@ -28,7 +28,7 @@ fix: format
 	$(CARGO) fix $(CFLAG) --allow-dirty --allow-staged
 
 install:
-	$(CARGO) install $(CFLAG) --path .
+	$(CARGO) install $(CFLAG) --offline --path .
 
 release: release-linux
 
