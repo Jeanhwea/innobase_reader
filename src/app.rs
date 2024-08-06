@@ -159,18 +159,21 @@ impl App {
     fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
         let df_fact = &mut self.factory;
         if page_no >= df_fact.page_count() {
-            return Err(Error::msg("Page number out of range"));
+            return Err(Error::msg("页码范围溢出"));
         }
 
         let fil_hdr = df_fact.parse_fil_hdr(page_no)?;
-        if fil_hdr.page_type != PageTypes::INDEX {
-            return Err(Error::msg(format!(
-                "Only support dump INDEX page, but found {:?}",
-                fil_hdr.page_type
-            )));
+        let page_type = fil_hdr.page_type;
+        if page_type != PageTypes::INDEX {
+            return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
+
         let buffer = df_fact.read_page(page_no)?;
         let index_page: BasePage<IndexPageBody> = PageFactory::new(buffer, page_no).parse();
+        let page_level = index_page.page_body.idx_hdr.page_level;
+        if page_level != 0 {
+            return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
+        }
 
         let mgr = df_fact.init_meta_mgr()?;
         let tabdef = Arc::new(mgr.load_tabdef()?);
@@ -307,7 +310,7 @@ impl App {
     fn do_view(&self, page_no: usize) -> Result<(), Error> {
         let df_fact = &self.factory;
         if page_no >= df_fact.page_count() {
-            return Err(Error::msg("Page number out of range"));
+            return Err(Error::msg("页码范围溢出"));
         }
 
         let buffer = df_fact.read_page(page_no)?;
