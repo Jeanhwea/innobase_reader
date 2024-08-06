@@ -40,12 +40,12 @@ impl App {
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_sdi_print()?,
+            Commands::View { page: page_no } => self.do_view(page_no)?,
             Commands::Dump {
                 page: page_no,
                 limit,
                 verbose,
             } => self.do_dump(page_no, limit, verbose)?,
-            Commands::View { page: page_no } => self.do_view(page_no)?,
         }
 
         Ok(())
@@ -156,6 +156,41 @@ impl App {
         Ok(())
     }
 
+    fn do_view(&self, page_no: usize) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        if page_no >= fact.page_count() {
+            return Err(Error::msg("页码范围溢出"));
+        }
+
+        let fil_hdr = fact.read_fil_hdr(page_no)?;
+        match fil_hdr.page_type {
+            PageTypes::ALLOCATED => {
+                println!("Freshly allocated page, fil_hdr = {:#?}", fil_hdr);
+            }
+            PageTypes::FSP_HDR => {
+                assert_eq!(page_no, fil_hdr.page_no as usize);
+                let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", fsp_page);
+            }
+            PageTypes::INODE => {
+                let inode_page: BasePage<INodePageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", inode_page);
+            }
+            PageTypes::INDEX => {
+                let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", index_page);
+            }
+            PageTypes::SDI => {
+                let sdi_page: BasePage<SdiPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", sdi_page);
+            }
+            _ => {
+                error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
+            }
+        }
+        Ok(())
+    }
+
     fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         if page_no >= fact.page_count() {
@@ -194,7 +229,7 @@ impl App {
             if i >= limit {
                 break;
             }
-            Self::do_dump_record(i + 1, urec, &tabdef, verbose);
+            Self::dump_record_data(i + 1, urec, &tabdef, verbose);
         }
 
         let free_rec_list = index_page.page_body.read_free_records(tabdef.clone(), idxdef)?;
@@ -202,13 +237,13 @@ impl App {
             if i >= limit {
                 break;
             }
-            Self::do_dump_record(i + 1, frec, &tabdef, verbose);
+            Self::dump_record_data(i + 1, frec, &tabdef, verbose);
         }
 
         Ok(())
     }
 
-    fn do_dump_record(seq: usize, rec: &Record, tabdef: &Arc<TableDef>, verbose: bool) {
+    fn dump_record_data(seq: usize, rec: &Record, tabdef: &Arc<TableDef>, verbose: bool) {
         info!(
             "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
             seq.to_string().red(),
@@ -329,41 +364,6 @@ impl App {
                 }
             }
         }
-    }
-
-    fn do_view(&self, page_no: usize) -> Result<(), Error> {
-        let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        if page_no >= fact.page_count() {
-            return Err(Error::msg("页码范围溢出"));
-        }
-
-        let fil_hdr = fact.read_fil_hdr(page_no)?;
-        match fil_hdr.page_type {
-            PageTypes::ALLOCATED => {
-                println!("Freshly allocated page, fil_hdr = {:#?}", fil_hdr);
-            }
-            PageTypes::FSP_HDR => {
-                assert_eq!(page_no, fil_hdr.page_no as usize);
-                let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(page_no)?;
-                println!("{:#?}", fsp_page);
-            }
-            PageTypes::INODE => {
-                let inode_page: BasePage<INodePageBody> = fact.read_page(page_no)?;
-                println!("{:#?}", inode_page);
-            }
-            PageTypes::INDEX => {
-                let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
-                println!("{:#?}", index_page);
-            }
-            PageTypes::SDI => {
-                let sdi_page: BasePage<SdiPageBody> = fact.read_page(page_no)?;
-                println!("{:#?}", sdi_page);
-            }
-            _ => {
-                error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
-            }
-        }
-        Ok(())
     }
 }
 
