@@ -163,12 +163,13 @@ impl App {
         }
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
+        assert_eq!(page_no, fil_hdr.page_no as usize);
+
         match fil_hdr.page_type {
             PageTypes::ALLOCATED => {
-                println!("Freshly allocated page, fil_hdr = {:#?}", fil_hdr);
+                println!("新分配未使用的页, fil_hdr = {:#?}", fil_hdr);
             }
             PageTypes::FSP_HDR => {
-                assert_eq!(page_no, fil_hdr.page_no as usize);
                 let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", fsp_page);
             }
