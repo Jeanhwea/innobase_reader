@@ -71,7 +71,7 @@ impl ColumnDef {
             isnil: ddc.is_nullable,
             isvar: matches!(
                 &ddc.dd_type,
-                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
+                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING
             ),
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
