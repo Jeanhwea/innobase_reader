@@ -88,7 +88,7 @@ impl RecordHeader {
 
         Self {
             info_bits: flags,
-            n_owned: (b0 & 0x0f),
+            n_owned: b0 & 0x0f,
             heap_no: (b1 & 0xfff8) >> 3,
             rec_status: status,
             next_rec_offset: util::i16_val(&buf, addr + 3),
