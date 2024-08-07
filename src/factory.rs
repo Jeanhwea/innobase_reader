@@ -5,13 +5,13 @@ use crate::ibd::page::{
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
 use colored::Colorize;
-use crate::ibd::record::{ColumnTypes, HiddenTypes};
+use crate::ibd::record::{ColumnTypes, HiddenTypes, Record};
 use crate::meta::cst::coll_find;
 use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
@@ -36,6 +36,13 @@ pub enum DataValue {
     Timestamp(DateTime<Local>),
     Unknown(Bytes),
     Null,
+}
+
+#[derive(Debug)]
+pub struct ResultSet {
+    pub tabdef: Arc<TableDef>,
+    pub records: Vec<Record>,
+    pub tuples: Vec<Vec<(String, DataValue)>>,
 }
 
 #[derive(Debug)]
@@ -155,7 +162,7 @@ impl DatafileFactory {
         }))
     }
 
-    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<Vec<Vec<(String, DataValue)>>, Error> {
+    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<ResultSet, Error> {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
@@ -169,7 +176,7 @@ impl DatafileFactory {
             }
         };
         let data_rec_list = page.page_body.read_user_records(tabdef.clone(), idxdef)?;
-        info!("data_rec_list={:?}", data_rec_list);
+        trace!("data_rec_list={:?}", data_rec_list);
 
         let tuples = data_rec_list
             .iter()
@@ -215,7 +222,11 @@ impl DatafileFactory {
             })
             .collect();
 
-        Ok(tuples)
+        Ok(ResultSet {
+            tabdef: tabdef.clone(),
+            records: data_rec_list,
+            tuples,
+        })
     }
 }
 
@@ -300,7 +311,7 @@ mod factory_tests {
         let ans = fact.unpack_index_page(5);
         assert!(ans.is_ok());
 
-        for (ith, tuple) in ans.unwrap().iter().enumerate() {
+        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
             for _ in 0..40 {
                 print!("*");
             }
