@@ -1,6 +1,4 @@
-use crate::ibd::page::{
-    SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PAGE_SIZE, FIL_HEADER_SIZE,
-};
+use crate::ibd::page::{SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PAGE_SIZE, FIL_HEADER_SIZE, IndexPageBody};
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use log::{debug, info};
@@ -8,6 +6,7 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
+use colored::Colorize;
 use crate::meta::cst::coll_find;
 use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
@@ -130,6 +129,24 @@ impl DatafileFactory {
             idx_defs: idxdefs,
         }))
     }
+
+    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<(), Error> {
+        let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
+        let tabdef = self.load_table_def()?;
+        let index_id = page.page_body.idx_hdr.page_index_id;
+        let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
+            None => {
+                return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
+            }
+            Some(v) => {
+                info!("解析索引,  name={}, {:?}", v.idx_name.to_string().green(), &v);
+                v
+            }
+        };
+        let data_rec_list = page.page_body.read_user_records(tabdef.clone(), idxdef)?;
+        info!("data_rec_list={:#?}", data_rec_list);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -200,6 +217,17 @@ mod factory_tests {
             .find(|node| node.addr == offset)
             .unwrap();
         info!("head_inode={:#?}", head_inode);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unpack_5th_index_page() -> Result<(), Error> {
+        setup();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+        let ans = fact.unpack_index_page(5);
+        assert!(ans.is_ok());
 
         Ok(())
     }
