@@ -149,7 +149,7 @@ impl DatafileFactory {
                 IndexDef::from(idx, ele_defs, nil_size)
             })
             .collect();
-        info!("idxdefs={:?}", &idxdefs);
+        debug!("idxdefs={:?}", &idxdefs);
 
         Ok(Arc::from(TableDef {
             schema_ref: ddobj.schema_ref.clone(),
@@ -171,7 +171,7 @@ impl DatafileFactory {
                 return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
             }
             Some(v) => {
-                info!("解析索引,  name={}, {:?}", v.idx_name.to_string().green(), &v);
+                info!("当前页所引用的索引({})", v.idx_name.to_string().green());
                 v
             }
         };
