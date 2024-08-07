@@ -4,16 +4,21 @@ use crate::ibd::page::{
 };
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use chrono::NaiveDate;
-use log::{debug, info};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
+use log::{debug, info, warn};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
 use colored::Colorize;
+use crate::ibd::record::{ColumnTypes, HiddenTypes};
 use crate::meta::cst::coll_find;
 use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
+use crate::util::{
+    unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val, unpack_newdate_val, unpack_timestamp2_val,
+    unpack_u48_val, unpack_u56_val,
+};
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 
@@ -22,9 +27,13 @@ pub enum DataValue {
     RowId(u64),
     TrxId(u64),
     RollPtr(u64),
-    Int(i32),
-    String(String),
-    DateTime(NaiveDate),
+    I32(i32),
+    I64(i64),
+    Str(String),
+    Enum(u16),
+    Date(NaiveDate),
+    DateTime(NaiveDateTime),
+    Timestamp(DateTime<Local>),
     Unknown(Bytes),
     Null,
 }
@@ -169,10 +178,35 @@ impl DatafileFactory {
                     .data_list
                     .iter()
                     .map(|c| {
-                        let ele = &idxdef.elements[c.0];
-                        let col = &tabdef.col_defs[ele.column_opx];
+                        let col = &tabdef.col_defs[c.0];
                         let val = match &c.2 {
-                            Some(b) => DataValue::Unknown(b.clone()),
+                            Some(b) => match col.hidden {
+                                HiddenTypes::HT_VISIBLE => match col.dd_type {
+                                    ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
+                                    ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
+                                    ColumnTypes::NEWDATE => DataValue::Date(unpack_newdate_val(b).unwrap()),
+                                    ColumnTypes::DATETIME2 => DataValue::DateTime(unpack_datetime2_val(b).unwrap()),
+                                    ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
+                                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                                        let barr = b.to_vec();
+                                        let text = std::str::from_utf8(&barr).unwrap();
+                                        DataValue::Str(text.into())
+                                    }
+                                    ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
+                                    _ => {
+                                        warn!("不支持解析的类型: {:?}", &col);
+                                        DataValue::Unknown(b.clone())
+                                    }
+                                },
+                                HiddenTypes::HT_HIDDEN_SE => match col.col_name.as_str() {
+                                    "DB_ROW_ID" => DataValue::RowId(unpack_u48_val(b)),
+                                    "DB_TRX_ID" => DataValue::TrxId(unpack_u48_val(b)),
+                                    "DB_ROLL_PTR" => DataValue::RollPtr(unpack_u56_val(b)),
+                                    _ => todo!("不支持的隐藏字段名称: {:?}", col),
+                                },
+                                _ => todo!("不支持的隐藏字段类型: {:?}", col),
+                            },
+
                             None => DataValue::Null,
                         };
                         (col.col_name.clone(), val)
@@ -267,9 +301,9 @@ mod factory_tests {
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().iter().enumerate() {
-            println!("tuple={}", ith.to_string().yellow());
+            println!("ith={}", ith.to_string().yellow());
             for (name, value) in tuple {
-                println!("{}: {:?}", name, value);
+                println!("{:>12} => {:?}", name, value);
             }
         }
 

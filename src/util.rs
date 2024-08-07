@@ -221,6 +221,14 @@ pub fn unpack_i64_val(buf: &[u8]) -> i64 {
     }
 }
 
+pub fn unpack_enum_val(buf: &[u8]) -> u16 {
+    match buf.len() {
+        1 => u16::from_be_bytes([0, buf[0]]),
+        2 => u16::from_be_bytes([buf[0], buf[1]]),
+        _ => 0,
+    }
+}
+
 // signed(1), year(14), month(4), day(5)
 pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     let arr = [0, b[0], b[1], b[2]];
