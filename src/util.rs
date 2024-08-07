@@ -146,7 +146,7 @@ pub fn numoff(num: usize) -> usize {
     num & 0x7
 }
 
-pub fn numidx(num: usize) -> usize {
+pub fn numpos(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
@@ -359,11 +359,11 @@ mod util_tests {
     #[test]
     fn test_calc_number_index() {
         setup();
-        assert_eq!(numidx(0), 0);
-        assert_eq!(numidx(1), 0);
-        assert_eq!(numidx(7), 0);
-        assert_eq!(numidx(8), 1);
-        assert_eq!(numidx(15), 1);
-        assert_eq!(numidx(16), 2);
+        assert_eq!(numpos(0), 0);
+        assert_eq!(numpos(1), 0);
+        assert_eq!(numpos(7), 0);
+        assert_eq!(numpos(8), 1);
+        assert_eq!(numpos(15), 1);
+        assert_eq!(numpos(16), 2);
     }
 }

@@ -151,9 +151,9 @@ impl RowInfo {
             .map(|e| {
                 // debug!("nilptr={}, varptr={}", nilptr, varptr);
                 let isnull = if e.isnil {
-                    let null_index = util::numidx(e.null_offset);
+                    let null_pos = util::numpos(e.null_offset);
                     let null_mask = 1 << util::numoff(e.null_offset);
-                    let null_flag = buf[nilptr - null_index - 1];
+                    let null_flag = buf[nilptr - null_pos - 1];
                     (null_flag & null_mask) > 0
                 } else {
                     false
