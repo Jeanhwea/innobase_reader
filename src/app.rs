@@ -218,6 +218,8 @@ impl App {
                 &rec.addr.to_string().yellow(),
                 &rec,
             );
+
+            // 打印一些关键信息
             if verbose {
                 println!("row_info: {:?}", &rec.row_info);
                 println!("rec_hdr : {:?}", &rec.rec_hdr);
@@ -241,6 +243,8 @@ impl App {
                     page_offset.to_string().yellow(),
                 );
             }
+
+            // 打印记录
             for ent in tuple {
                 println!("{:>12} => {:?}", &ent.0.to_string().magenta(), &ent.1);
             }
