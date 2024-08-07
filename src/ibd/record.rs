@@ -135,7 +135,7 @@ pub struct RowInfo {
     pub nil_area: Bytes, // nullable field flag area
 
     // calculated dynamic info
-    pub row_dyn_info: Vec<DynamicInfo>,
+    pub dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
 }
@@ -202,7 +202,7 @@ impl RowInfo {
         debug!("row_dyn_info={:?}", row_dyn_info);
 
         Self {
-            row_dyn_info,
+            dyn_info: row_dyn_info,
             table_def: tabdef.clone(),
             nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
             var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
@@ -255,13 +255,13 @@ pub struct Record {
 impl Record {
     pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
         let mut dataptr = addr;
-        for x in &row_info.row_dyn_info {
-            if x.2 {
-                row.data_list.push(RowDatum(x.4, 0, None, x.3.clone()));
+        for e in &row_info.dyn_info {
+            if e.2 {
+                row.data_list.push(RowDatum(e.4, 0, None, e.3.clone()));
             } else {
-                let len = x.1;
+                let len = e.1;
                 let rbuf = buf.slice(dataptr..dataptr + len);
-                row.data_list.push(RowDatum(x.4, len, Some(rbuf), x.3.clone()));
+                row.data_list.push(RowDatum(e.4, len, Some(rbuf), e.3.clone()));
                 dataptr += len;
             }
         }
