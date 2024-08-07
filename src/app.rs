@@ -223,21 +223,18 @@ impl App {
             if i >= limit {
                 break;
             }
-            Self::dump_record_data(i + 1, urec, &tabdef, verbose);
+            Self::dump_record_data(i + 1, urec, tabdef.clone(), verbose);
         }
 
         let free_rec_list = index_page.page_body.read_free_records(tabdef.clone(), idxdef)?;
         for (i, frec) in free_rec_list.iter().enumerate() {
-            if i >= limit {
-                break;
-            }
-            Self::dump_record_data(i + 1, frec, &tabdef, verbose);
+            Self::dump_record_data(i + 1, frec, tabdef.clone(), verbose);
         }
 
         Ok(())
     }
 
-    fn dump_record_data(seq: usize, rec: &Record, tabdef: &Arc<TableDef>, verbose: bool) {
+    fn dump_record_data(seq: usize, rec: &Record, tabdef: Arc<TableDef>, verbose: bool) {
         info!(
             "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
             seq.to_string().red(),
@@ -256,7 +253,7 @@ impl App {
         if verbose {
             println!("rec_hdr: {:?}", rec.rec_hdr);
             let mut data_size = 0;
-            for row in &rec.row_data.row_tuple {
+            for row in &rec.row_data.row_data_vec {
                 data_size += row.1;
             }
             let var_area_size = rec.row_info.var_area.len();
@@ -275,7 +272,7 @@ impl App {
                 page_offset.to_string().yellow(),
             );
         }
-        for row in &rec.row_data.row_tuple {
+        for row in &rec.row_data.row_data_vec {
             let col = &tabdef.clone().col_defs[row.0];
             match &row.2 {
                 Some(datum) => {
