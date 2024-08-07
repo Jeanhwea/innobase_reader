@@ -301,9 +301,16 @@ mod factory_tests {
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().iter().enumerate() {
-            println!("ith={}", ith.to_string().yellow());
+            for _ in 0..40 {
+                print!("*");
+            }
+            print!(" Row {} ", ith);
+            for _ in 0..40 {
+                print!("*");
+            }
+            println!();
             for (name, value) in tuple {
-                println!("{:>12} => {:?}", name, value);
+                println!("{:>12} => {:?}", name.to_string().magenta(), value);
             }
         }
 
