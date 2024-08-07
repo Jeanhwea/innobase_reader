@@ -207,7 +207,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_load_buffer() -> Result<(), Error> {
+    fn load_buffer() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let buf = fact.fil_hdr_buffer(0)?;
@@ -217,7 +217,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_read_fsp_hdr_page() -> Result<(), Error> {
+    fn read_fsp_hdr_page() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
@@ -226,7 +226,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_load_table_def() -> Result<(), Error> {
+    fn load_table_def() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let tabdef = fact.load_table_def();
@@ -235,7 +235,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_btr_traverse() -> Result<(), Error> {
+    fn btr_traverse() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
 
@@ -259,7 +259,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_unpack_5th_index_page() -> Result<(), Error> {
+    fn unpack_5th_index_page() -> Result<(), Error> {
         setup();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
@@ -277,7 +277,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_inode_leaf_walk_full() -> Result<(), Error> {
+    fn leaf_walk_full() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
 
@@ -323,7 +323,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_inode_leaf_walk_frag() -> Result<(), Error> {
+    fn leaf_walk_frag() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
 
@@ -367,7 +367,7 @@ mod factory_tests {
     }
 
     #[test]
-    fn test_inode_nonleaf_walk_full() -> Result<(), Error> {
+    fn nonleaf_walk_full() -> Result<(), Error> {
         setup();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
 
