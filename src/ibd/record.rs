@@ -128,7 +128,9 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    #[derivative(Debug(format_with = "util::fmt_bytes_hex"))]
     pub var_area: Bytes, // variadic field size area
+    #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
     pub nil_area: Bytes, // nullable field flag area
 
     // calculated dynamic info

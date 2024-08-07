@@ -96,6 +96,40 @@ where
     }
 }
 
+pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    let vs = d.to_vec();
+    if vs.is_empty() {
+        write!(f, "")
+    } else {
+        let _ = write!(f, "[");
+        let n = d.len();
+        for (i, e) in d.iter().enumerate() {
+            let _ = write!(f, "0b{:08b}", e);
+            if i < n - 1 {
+                let _ = write!(f, ", ");
+            }
+        }
+        write!(f, "]")
+    }
+}
+
+pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    let vs = d.to_vec();
+    if vs.is_empty() {
+        write!(f, "")
+    } else {
+        let _ = write!(f, "[");
+        let n = d.len();
+        for (i, e) in d.iter().enumerate() {
+            let _ = write!(f, "0x{:02x}", e);
+            if i < n - 1 {
+                let _ = write!(f, ", ");
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     let input_buffer = input.to_vec();
     let mut decoder = ZlibDecoder::new(&*input_buffer);
