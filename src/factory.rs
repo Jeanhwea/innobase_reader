@@ -73,7 +73,7 @@ impl DatafileFactory {
     fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {
         let fsp_page: BasePage<FileSpaceHeaderPageBody> = self.read_page(0)?;
         if fsp_page.fil_hdr.server_version() < SDI_META_INFO_MIN_VER {
-            return Err(Error::msg("MySQL 版本过低，没有 SDI 信息"));
+            return Err(Error::msg("数据文件版本过低，没有表元信息"));
         }
         let sdi_meta = fsp_page.page_body.sdi_meta();
         let sdi_page_no = sdi_meta.sdi_page_no as usize;
