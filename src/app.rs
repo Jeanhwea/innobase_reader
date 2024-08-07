@@ -253,7 +253,7 @@ impl App {
         if verbose {
             println!("rec_hdr: {:?}", rec.rec_hdr);
             let mut data_size = 0;
-            for row in &rec.row_data.row_data_vec {
+            for row in &rec.row_data.data_list {
                 data_size += row.1;
             }
             let var_area_size = rec.row_info.var_area.len();
@@ -272,7 +272,7 @@ impl App {
                 page_offset.to_string().yellow(),
             );
         }
-        for row in &rec.row_data.row_data_vec {
+        for row in &rec.row_data.data_list {
             let col = &tabdef.clone().col_defs[row.0];
             match &row.2 {
                 Some(datum) => {
