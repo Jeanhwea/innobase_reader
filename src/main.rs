@@ -44,6 +44,7 @@ enum Commands {
         /// Dump the garbage list
         #[arg(short, long, default_value_t = false)]
         garbage: bool,
+        /// Print more information
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
     },
