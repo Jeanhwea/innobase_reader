@@ -1,6 +1,10 @@
-use crate::ibd::page::{SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PAGE_SIZE, FIL_HEADER_SIZE, IndexPageBody};
+use crate::ibd::page::{
+    SdiPageBody, BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, PAGE_SIZE, FIL_HEADER_SIZE,
+    IndexPageBody,
+};
 use anyhow::{Error, Result};
 use bytes::Bytes;
+use chrono::NaiveDate;
 use log::{debug, info};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -12,6 +16,18 @@ use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
 use crate::util;
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
+
+#[derive(Debug)]
+pub enum DataValue {
+    RowId(u64),
+    TrxId(u64),
+    RollPtr(u64),
+    Int(i32),
+    String(String),
+    DateTime(NaiveDate),
+    Unknown(Bytes),
+    Null,
+}
 
 #[derive(Debug)]
 pub struct DatafileFactory {
@@ -130,7 +146,7 @@ impl DatafileFactory {
         }))
     }
 
-    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<(), Error> {
+    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<Vec<Vec<(String, DataValue)>>, Error> {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
@@ -144,8 +160,28 @@ impl DatafileFactory {
             }
         };
         let data_rec_list = page.page_body.read_user_records(tabdef.clone(), idxdef)?;
-        info!("data_rec_list={:#?}", data_rec_list);
-        Ok(())
+        info!("data_rec_list={:?}", data_rec_list);
+
+        let tuples = data_rec_list
+            .iter()
+            .map(|rec| {
+                rec.row_data
+                    .data_list
+                    .iter()
+                    .map(|c| {
+                        let ele = &idxdef.elements[c.0];
+                        let col = &tabdef.col_defs[ele.column_opx];
+                        let val = match &c.2 {
+                            Some(b) => DataValue::Unknown(b.clone()),
+                            None => DataValue::Null,
+                        };
+                        (col.col_name.clone(), val)
+                    })
+                    .collect()
+            })
+            .collect();
+
+        Ok(tuples)
     }
 }
 
@@ -154,6 +190,7 @@ mod factory_tests {
 
     use crate::util;
 
+    use colored::Colorize;
     use std::env::set_var;
     use std::path::PathBuf;
     use anyhow::Error;
@@ -228,6 +265,13 @@ mod factory_tests {
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
         let ans = fact.unpack_index_page(5);
         assert!(ans.is_ok());
+
+        for (ith, tuple) in ans.unwrap().iter().enumerate() {
+            println!("tuple={}", ith.to_string().yellow());
+            for (name, value) in tuple {
+                println!("{}: {:?}", name, value);
+            }
+        }
 
         Ok(())
     }
