@@ -118,7 +118,7 @@ pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String, pub usize);
 ///    3. buf: row data buffer in bytes
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>);
+pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>, pub String);
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -254,11 +254,11 @@ impl Record {
         let mut dataptr = addr;
         for x in &row_info.row_dyn_info {
             if x.2 {
-                row.row_tuple.push(RowDatum(x.4, 0, None));
+                row.row_tuple.push(RowDatum(x.4, 0, None, x.3.clone()));
             } else {
                 let len = x.1;
                 let rbuf = buf.slice(dataptr..dataptr + len);
-                row.row_tuple.push(RowDatum(x.4, len, Some(rbuf)));
+                row.row_tuple.push(RowDatum(x.4, len, Some(rbuf), x.3.clone()));
                 dataptr += len;
             }
         }

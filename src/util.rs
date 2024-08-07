@@ -293,6 +293,16 @@ mod util_tests {
     }
 
     #[test]
+    fn test_conv_datetime() {
+        setup();
+        let buf = Bytes::from_static(&[0, 0, 0, 0, 0]);
+        info!("buf={:?}", buf);
+        let ans = unpack_datetime2_val(&buf);
+        info!("ans={:?}", ans);
+        assert_eq!(ans, None);
+    }
+
+    #[test]
     fn test_align_count() {
         setup();
         assert_eq!(align8(0), 0);
