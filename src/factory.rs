@@ -40,6 +40,7 @@ pub enum DataValue {
 
 #[derive(Debug)]
 pub struct ResultSet {
+    pub garbage: bool,
     pub tabdef: Arc<TableDef>,
     pub records: Vec<Record>,
     pub tuples: Vec<Vec<(String, DataValue)>>,
@@ -162,7 +163,7 @@ impl DatafileFactory {
         }))
     }
 
-    pub fn unpack_index_page(&mut self, page_no: usize) -> Result<ResultSet, Error> {
+    pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
@@ -175,10 +176,15 @@ impl DatafileFactory {
                 v
             }
         };
-        let data_rec_list = page.page_body.read_user_records(tabdef.clone(), idxdef)?;
-        trace!("data_rec_list={:?}", data_rec_list);
+        let rec_list = if garbage {
+            page.page_body.read_free_records(tabdef.clone(), idxdef)?
+        } else {
+            page.page_body.read_user_records(tabdef.clone(), idxdef)?
+        };
 
-        let tuples = data_rec_list
+        trace!("data_rec_list={:?}", rec_list);
+
+        let tuples = rec_list
             .iter()
             .map(|rec| {
                 rec.row_data
@@ -223,8 +229,9 @@ impl DatafileFactory {
             .collect();
 
         Ok(ResultSet {
+            garbage,
             tabdef: tabdef.clone(),
-            records: data_rec_list,
+            records: rec_list,
             tuples,
         })
     }
@@ -307,8 +314,8 @@ mod factory_tests {
     fn unpack_5th_index_page() -> Result<(), Error> {
         setup();
 
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
-        let ans = fact.unpack_index_page(5);
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
+        let ans = fact.unpack_index_page(4, false);
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
