@@ -1,18 +1,16 @@
+use std::cmp::min;
 use crate::factory::DatafileFactory;
 use crate::ibd::page::{
     BasePage, FileSpaceHeaderPageBody, IndexPageBody, INodePageBody, PAGE_SIZE, PageTypes, RECORD_HEADER_SIZE,
     SdiPageBody,
 };
-use crate::{Commands, util};
+use crate::Commands;
 use anyhow::{Error, Result};
 use colored::Colorize;
 use log::{debug, error, info};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use crate::ibd::record::{ColumnTypes, HiddenTypes, Record};
-use crate::meta::def::TableDef;
 
 #[derive(Debug)]
 pub struct App {
@@ -44,8 +42,9 @@ impl App {
             Commands::Dump {
                 page: page_no,
                 limit,
+                garbage,
                 verbose,
-            } => self.do_dump(page_no, limit, verbose)?,
+            } => self.do_dump(page_no, limit, garbage, verbose)?,
         }
 
         Ok(())
@@ -189,7 +188,7 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(&mut self, page_no: usize, limit: usize, verbose: bool) -> Result<(), Error> {
+    fn do_dump(&mut self, page_no: usize, limit: usize, garbage: bool, verbose: bool) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
@@ -198,163 +197,56 @@ impl App {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
 
-        let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
-        let page_level = index_page.page_body.idx_hdr.page_level;
-        if page_level != 0 {
-            return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
-        }
+        let rs = fact.unpack_index_page(page_no, garbage)?;
+        for (i, tuple) in rs.tuples[..min(rs.tuples.len(), limit)].iter().enumerate() {
+            let rec = &rs.records[i];
+            let seq = i + 1;
 
-        let tabdef = fact.load_table_def()?;
-        debug!("tabdef = {:?}", &tabdef);
-
-        let index_id = index_page.page_body.idx_hdr.page_index_id;
-        let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
-            None => {
-                return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
+            // 打印分割线
+            for _ in 0..40 {
+                print!("*");
             }
-            Some(v) => {
-                info!("index={}, {:?}", v.idx_name.to_string().green(), &v);
-                v
+            print!(" Row {} ", seq);
+            for _ in 0..40 {
+                print!("*");
             }
-        };
+            println!();
 
-        let data_rec_list = index_page.page_body.read_user_records(tabdef.clone(), idxdef)?;
-        for (i, urec) in data_rec_list.iter().enumerate() {
-            if i >= limit {
-                break;
+            info!(
+                "seq={}, addr=@{}, {:?}",
+                seq.to_string().red(),
+                &rec.addr.to_string().yellow(),
+                &rec,
+            );
+            if verbose {
+                println!("row_info: {:?}", &rec.row_info);
+                println!("rec_hdr : {:?}", &rec.rec_hdr);
+                let mut data_size = 0;
+                for row in &rec.row_data.data_list {
+                    data_size += row.1;
+                }
+                let var_area_size = rec.row_info.var_area.len();
+                let nil_area_size = rec.row_info.nil_area.len();
+                let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
+                let rec_addr = rec.row_data.addr;
+                let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
+                println!(
+                    "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
+                    rec_addr,
+                    rec_addr.to_string().yellow(),
+                    data_size.to_string().magenta(),
+                    var_area_size.to_string().blue(),
+                    nil_area_size.to_string().blue(),
+                    total_size.to_string().green(),
+                    page_offset.to_string().yellow(),
+                );
             }
-            Self::dump_record_data(i + 1, urec, tabdef.clone(), verbose);
-        }
-
-        let free_rec_list = index_page.page_body.read_free_records(tabdef.clone(), idxdef)?;
-        for (i, frec) in free_rec_list.iter().enumerate() {
-            Self::dump_record_data(i + 1, frec, tabdef.clone(), verbose);
+            for ent in tuple {
+                println!("{:>12} => {:?}", &ent.0.to_string().magenta(), &ent.1);
+            }
         }
 
         Ok(())
-    }
-
-    fn dump_record_data(seq: usize, rec: &Record, tabdef: Arc<TableDef>, verbose: bool) {
-        info!(
-            "seq={}, addr=@{}, {}={:?}, {}={:?}, {}={:?}",
-            seq.to_string().red(),
-            &rec.row_data.addr.to_string().yellow(),
-            "hdr".cyan(),
-            &rec.rec_hdr,
-            "info".magenta(),
-            &rec.row_info,
-            "data".green(),
-            &rec.row_data,
-        );
-        println!(
-            "****************************** Row {} ******************************",
-            seq
-        );
-        if verbose {
-            println!("rec_hdr: {:?}", rec.rec_hdr);
-            let mut data_size = 0;
-            for row in &rec.row_data.data_list {
-                data_size += row.1;
-            }
-            let var_area_size = rec.row_info.var_area.len();
-            let nil_area_size = rec.row_info.nil_area.len();
-            let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
-            let rec_addr = rec.row_data.addr;
-            let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
-            println!(
-                "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
-                rec_addr,
-                rec_addr.to_string().yellow(),
-                data_size.to_string().magenta(),
-                var_area_size.to_string().blue(),
-                nil_area_size.to_string().blue(),
-                total_size.to_string().green(),
-                page_offset.to_string().yellow(),
-            );
-        }
-        for row in &rec.row_data.data_list {
-            let col = &tabdef.clone().col_defs[row.0];
-            match &row.2 {
-                Some(datum) => {
-                    if col.hidden == HiddenTypes::HT_HIDDEN_SE {
-                        match col.col_name.as_str() {
-                            "DB_ROW_ID" | "DB_TRX_ID" => {
-                                println!(
-                                    "{:>12} => {:?} [{}]",
-                                    &col.col_name.magenta(),
-                                    &datum,
-                                    &format!("0x{:012x?}", util::unpack_u48_val(datum)).green()
-                                );
-                            }
-                            "DB_ROLL_PTR" => {
-                                println!(
-                                    "{:>12} => {:?} [{}]",
-                                    &col.col_name.magenta(),
-                                    &datum,
-                                    &format!("0x{:014x?}", util::unpack_u56_val(datum)).green()
-                                );
-                            }
-                            _ => todo!("ERR_HIDDEN_SE_COL: {}", col.col_name),
-                        }
-                        continue;
-                    }
-
-                    match &col.dd_type {
-                        ColumnTypes::LONG => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_i32_val(datum).to_string().blue(),
-                            );
-                        }
-                        ColumnTypes::LONGLONG => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_i64_val(datum).to_string().blue(),
-                            );
-                        }
-                        ColumnTypes::NEWDATE => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_newdate_val(datum).unwrap().to_string().cyan(),
-                            );
-                        }
-                        ColumnTypes::DATETIME2 => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_datetime2_val(datum).unwrap().to_string().cyan(),
-                            );
-                        }
-                        ColumnTypes::TIMESTAMP2 => {
-                            println!(
-                                "{:>12} => {:?} [{}]",
-                                &col.col_name.magenta(),
-                                datum,
-                                util::unpack_timestamp2_val(datum).to_string().blue(),
-                            );
-                        }
-                        ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
-                            let barr = &datum.to_vec();
-                            let text = std::str::from_utf8(barr).unwrap();
-                            println!("{:>12} => {:?} [{}]", &col.col_name.magenta(), &datum, text.yellow());
-                        }
-                        _ => {
-                            println!("{:>12} => {:?}", &col.col_name.magenta(), datum);
-                        }
-                    }
-                }
-                None => {
-                    println!("{:>12} => {}", &col.col_name.magenta(), "NULL".red());
-                }
-            }
-        }
     }
 }
 
@@ -422,7 +314,8 @@ mod app_tests {
             .run(Commands::Dump {
                 page: 4,
                 limit: 10,
-                verbose: false
+                garbage: false,
+                verbose: false,
             })
             .is_ok());
     }
@@ -436,6 +329,7 @@ mod app_tests {
             .run(Commands::Dump {
                 page: 4,
                 limit: 3,
+                garbage: false,
                 verbose: false
             })
             .is_ok());

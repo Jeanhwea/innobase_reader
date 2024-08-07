@@ -5,7 +5,7 @@ use crate::ibd::page::{
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use log::{debug, info, trace, warn};
+use log::{debug, info, warn};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -165,24 +165,27 @@ impl DatafileFactory {
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
+        let page_level = page.page_body.idx_hdr.page_level;
+        if page_level != 0 {
+            return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
+        }
+
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
         let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
             None => {
                 return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
             }
-            Some(v) => {
-                info!("当前页所引用的索引({})", v.idx_name.to_string().green());
-                v
-            }
+            Some(val) => val,
         };
+        info!("当前页所引用的索引({})", idxdef.idx_name.to_string().green());
+
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), idxdef)?
         } else {
             page.page_body.read_user_records(tabdef.clone(), idxdef)?
         };
-
-        trace!("data_rec_list={:?}", rec_list);
+        debug!("rec_list={:?}", rec_list);
 
         let tuples = rec_list
             .iter()

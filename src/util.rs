@@ -99,7 +99,7 @@ where
 pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
     let vs = d.to_vec();
     if vs.is_empty() {
-        write!(f, "")
+        write!(f, "[]")
     } else {
         let _ = write!(f, "[");
         let n = d.len();
@@ -116,7 +116,7 @@ pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
 pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
     let vs = d.to_vec();
     if vs.is_empty() {
-        write!(f, "")
+        write!(f, "[]")
     } else {
         let _ = write!(f, "[");
         let n = d.len();

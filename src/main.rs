@@ -41,6 +41,9 @@ enum Commands {
         /// Limit the total row in the dump
         #[arg(short, long, default_value_t = 9)]
         limit: usize,
+        /// Dump the garbage list
+        #[arg(short, long, default_value_t = false)]
+        garbage: bool,
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
     },

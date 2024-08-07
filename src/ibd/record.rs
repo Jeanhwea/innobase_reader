@@ -141,9 +141,9 @@ pub struct RowInfo {
 }
 
 impl RowInfo {
-    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
-        let nilptr = addr;
-        let mut varptr = addr - idxdef.nil_area_size;
+    pub fn new(rec_hdr_addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
+        let nilptr = rec_hdr_addr;
+        let mut varptr = rec_hdr_addr - idxdef.nil_area_size;
 
         let row_dyn_info = idxdef
             .elements
@@ -207,7 +207,7 @@ impl RowInfo {
             nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
             var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
             buf: buf.clone(),
-            addr,
+            addr: rec_hdr_addr - (nilptr - varptr),
         }
     }
 }
