@@ -3,10 +3,11 @@
 #![allow(clippy::upper_case_acronyms)]
 // #![allow(unused_imports)]
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use log::info;
-use std::path::PathBuf;
 
 mod app;
 mod factory;

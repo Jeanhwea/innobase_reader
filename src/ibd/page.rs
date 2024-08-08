@@ -1,15 +1,17 @@
-use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
-use crate::ibd::record::{RecordHeader, Row, RowInfo};
-use crate::meta::def::{IndexDef, TableDef};
-use crate::util;
+use std::fmt::Debug;
+use std::sync::Arc;
+
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use derivative::Derivative;
 use log::debug;
 use num_enum::FromPrimitive;
-use std::fmt::Debug;
-use std::sync::Arc;
 use strum::{Display, EnumString};
+
+use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
+use crate::ibd::record::{RecordHeader, Row, RowInfo};
+use crate::meta::def::{IndexDef, TableDef};
+use crate::util;
 use crate::ibd::page::CleanBit::{Clean, Dirty};
 use crate::ibd::page::FreeBit::{Free, Taken};
 

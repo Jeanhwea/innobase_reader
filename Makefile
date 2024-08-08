@@ -23,7 +23,7 @@ browse:
 	$(CARGO) doc $(CFLAG) --no-deps --open
 
 format:
-	$(CARGO) fmt $(CFLAG)
+	rustup run nightly $(CARGO) fmt $(CFLAG)
 
 lint: format
 	$(CARGO) clippy $(CFLAG)

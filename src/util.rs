@@ -1,13 +1,14 @@
 use std::collections::HashMap;
-use anyhow::Result;
-use bytes::Bytes;
-use chrono::{Local, NaiveDate, DateTime, NaiveDateTime};
-use colored::Colorize;
-use flate2::read::ZlibDecoder;
-use log::{trace, debug};
-use std::fmt::{Display, LowerHex, Binary, Debug};
+use std::fmt::{Binary, Debug, Display, LowerHex};
 use std::sync::Once;
 use std::io::{Read, Write};
+
+use anyhow::Result;
+use bytes::Bytes;
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
+use colored::Colorize;
+use flate2::read::ZlibDecoder;
+use log::{debug, trace};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 

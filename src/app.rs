@@ -1,16 +1,18 @@
 use std::cmp::min;
-use crate::factory::DatafileFactory;
-use crate::ibd::page::{
-    BasePage, FileSpaceHeaderPageBody, IndexPageBody, INodePageBody, PAGE_SIZE, PageTypes, RECORD_HEADER_SIZE,
-    SdiPageBody,
-};
-use crate::Commands;
-use anyhow::{Error, Result};
-use colored::Colorize;
-use log::{debug, error, info};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+use anyhow::{Error, Result};
+use colored::Colorize;
+use log::{debug, error, info};
+
+use crate::factory::DatafileFactory;
+use crate::ibd::page::{
+    BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE,
+    RECORD_HEADER_SIZE,
+};
+use crate::Commands;
 
 #[derive(Debug)]
 pub struct App {
@@ -256,9 +258,10 @@ impl App {
 
 #[cfg(test)]
 mod app_tests {
+    use std::env::set_var;
+
     use super::*;
     use crate::util;
-    use std::env::set_var;
 
     const IBD_01: &str = "data/departments.ibd";
     const IBD_02: &str = "data/dept_manager.ibd";

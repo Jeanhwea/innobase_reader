@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use lazy_static::lazy_static;
 
 #[derive(Debug)]
@@ -2601,9 +2602,10 @@ pub fn coll_find(id: u32) -> &'static Collation {
 mod meta_consts_tests {
 
     use std::env::set_var;
-    use log::info;
-    use crate::util;
 
+    use log::info;
+
+    use crate::util;
     use super::*;
 
     fn setup() {
