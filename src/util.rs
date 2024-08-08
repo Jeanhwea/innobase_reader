@@ -359,7 +359,7 @@ mod util_tests {
     #[test]
     fn test_conv_datetime() {
         init_unit_test();
-        let buf = Bytes::from_static(&[0, 0, 0, 0, 0]);
+        let buf = Bytes::from_static(&[0x99, 0xb4, 0x11, 0x77, 0x96]);
         info!("buf={:?}", buf);
         let ans = unpack_datetime2_val(&buf);
         info!("ans={:?}", ans);
