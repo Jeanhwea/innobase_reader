@@ -51,7 +51,7 @@ pub const RECORD_HEADER_SIZE: usize = 5;
 // sdi
 pub const SDI_DATA_HEADER_SIZE: usize = 33;
 
-// Base Page Structure
+/// Base Page Structure
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct BasePage<B> {
@@ -495,7 +495,7 @@ impl SdiMetaData {
     }
 }
 
-// File Segment Inode, see fsp0fsp.h
+/// File Segment Inode, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct INodePageBody {
@@ -530,7 +530,7 @@ impl BasePageBody for INodePageBody {
     }
 }
 
-// INode Entry, see fsp0fsp.h
+/// INode Entry, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct INodeEntry {
@@ -573,7 +573,7 @@ impl INodeEntry {
     }
 }
 
-// Index Page
+/// Index Page
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct IndexPageBody {
@@ -762,7 +762,7 @@ pub enum PageDirections {
     UNDEF,
 }
 
-// Index Page Header, see page0types.h
+/// Index Page Header, see page0types.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct IndexHeader {
@@ -827,7 +827,7 @@ impl IndexHeader {
     }
 }
 
-// File Segment Header, see fsp0types.h/page0types.h
+/// File Segment Header, see fsp0types.h/page0types.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FSegHeader {
@@ -861,7 +861,7 @@ impl FSegHeader {
     }
 }
 
-// SDI Index Page, see ibd2sdi.cc
+/// SDI Index Page, see ibd2sdi.cc
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiPageBody {
