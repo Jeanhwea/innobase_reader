@@ -278,7 +278,7 @@ mod factory_tests {
 
     #[test]
     fn load_buffer() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
         let buf = fact.fil_hdr_buffer(0)?;
         assert_eq!(buf.len(), FIL_HEADER_SIZE);
@@ -287,7 +287,7 @@ mod factory_tests {
 
     #[test]
     fn read_fsp_hdr_page() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
         let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
         // info!("fsp_page={:#?}", fsp_page);
@@ -299,7 +299,7 @@ mod factory_tests {
 
     // #[test]
     fn load_table_def() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
         let ans = fact.load_table_def();
         assert!(ans.is_ok());
@@ -312,7 +312,7 @@ mod factory_tests {
 
     #[test]
     fn check_unpack_data_01() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
         let ans = fact.unpack_index_page(4, false);
@@ -342,7 +342,7 @@ mod factory_tests {
 
     #[test]
     fn check_unpack_data_02() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT_MGR))?;
         let ans = fact.unpack_index_page(4, false);
@@ -394,7 +394,7 @@ mod factory_tests_run {
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let root_page: BasePage<IndexPageBody> = fact.read_page(4)?;
@@ -418,7 +418,7 @@ mod factory_tests_run {
 
     // #[test]
     fn leaf_walk_full() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
@@ -464,7 +464,7 @@ mod factory_tests_run {
 
     // #[test]
     fn leaf_walk_frag() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
@@ -508,7 +508,7 @@ mod factory_tests_run {
 
     // #[test]
     fn nonleaf_walk_full() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
@@ -554,7 +554,7 @@ mod factory_tests_run {
 
     #[test]
     fn unpack_5th_index_page() -> Result<(), Error> {
-        util::init_test();
+        util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let ans = fact.unpack_index_page(5, false);

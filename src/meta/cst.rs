@@ -2601,21 +2601,16 @@ pub fn coll_find(id: u32) -> &'static Collation {
 #[cfg(test)]
 mod meta_consts_tests {
 
-    use std::env::set_var;
+
 
     use log::info;
 
     use super::*;
     use crate::util;
 
-    fn setup() {
-        set_var("RUST_LOG", "info");
-        util::init();
-    }
-
     #[test]
     fn check_collection_id_consistent() {
-        setup();
+        util::init_unit_test();
         for (id, coll) in COLLMAP.iter() {
             info!("{:?}", &coll);
             assert_eq!(*id, coll.id);

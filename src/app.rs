@@ -262,7 +262,7 @@ impl App {
 
 #[cfg(test)]
 mod app_tests {
-    use std::env::set_var;
+
 
     use super::*;
     use crate::util;
@@ -270,56 +270,51 @@ mod app_tests {
     const IBD_01: &str = "data/departments.ibd";
     const IBD_02: &str = "data/dept_manager.ibd";
 
-    fn setup() {
-        set_var("RUST_LOG", "debug");
-        util::init();
-    }
-
     #[test]
     fn info_datafile() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::Info).is_ok());
     }
 
     #[test]
     fn list_pages() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::List).is_ok());
     }
 
     #[test]
     fn view_first_fsp_hdr_page() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 0 }).is_ok());
     }
 
     #[test]
     fn view_first_inode_page() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 
     #[test]
     fn view_first_index_page() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
     fn view_first_sdi_page() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 3 }).is_ok());
     }
 
     #[test]
     fn view_dump_simple_page() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app
             .run(Commands::Dump {
@@ -333,7 +328,7 @@ mod app_tests {
 
     #[test]
     fn it_works() {
-        setup();
+        util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_02));
         assert!(app.run(Commands::Desc).is_ok());
         assert!(app

@@ -35,7 +35,7 @@ pub fn init() {
     })
 }
 
-pub fn init_test() {
+pub fn init_unit_test() {
     set_var("RUST_LOG", "info");
     init()
 }
@@ -324,20 +324,15 @@ pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
 #[cfg(test)]
 mod util_tests {
 
-    use std::env::set_var;
+
 
     use log::info;
 
     use super::*;
 
-    fn setup() {
-        set_var("RUST_LOG", "info");
-        init();
-    }
-
     #[test]
     fn it_works() {
-        setup();
+        init_unit_test();
         let n = 5;
         let ans: Vec<_> = (0..n).map(|x| x + 1).collect();
         info!("ans={:?}", ans);
@@ -345,7 +340,7 @@ mod util_tests {
 
     #[test]
     fn test_conv_string_to_map() {
-        setup();
+        init_unit_test();
         let str01 = String::from("id=156;root=5;space_id=3;table_id=1065;trx_id=1298;");
         let map01 = conv_strdata_to_map(&str01);
         info!("map01={:?}", map01);
@@ -355,7 +350,7 @@ mod util_tests {
 
     #[test]
     fn test_conv_u32() {
-        setup();
+        init_unit_test();
         let buf = Bytes::from_static(&[1, 2, 3, 4, 5, 6, 7, 8]);
         info!("buf={:?}", buf);
         assert_eq!(u32_val(&buf[0..7], 2), 0x03040506);
@@ -363,7 +358,7 @@ mod util_tests {
 
     #[test]
     fn test_conv_datetime() {
-        setup();
+        init_unit_test();
         let buf = Bytes::from_static(&[0, 0, 0, 0, 0]);
         info!("buf={:?}", buf);
         let ans = unpack_datetime2_val(&buf);
@@ -373,7 +368,7 @@ mod util_tests {
 
     #[test]
     fn test_align_count() {
-        setup();
+        init_unit_test();
         assert_eq!(align8(0), 0);
         assert_eq!(align8(1), 1);
         assert_eq!(align8(8), 1);
@@ -384,7 +379,7 @@ mod util_tests {
 
     #[test]
     fn test_calc_number_offset() {
-        setup();
+        init_unit_test();
         assert_eq!(numoff(0), 0);
         assert_eq!(numoff(1), 1);
         assert_eq!(numoff(7), 7);
@@ -393,7 +388,7 @@ mod util_tests {
 
     #[test]
     fn test_calc_number_index() {
-        setup();
+        init_unit_test();
         assert_eq!(numpos(0), 0);
         assert_eq!(numpos(1), 0);
         assert_eq!(numpos(7), 0);
