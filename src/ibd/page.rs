@@ -350,7 +350,7 @@ impl FileSpaceHeader {
     }
 }
 
-// File Space Header Page
+/// File Space Header Page
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FileSpaceHeaderPageBody {
@@ -472,6 +472,7 @@ pub enum CleanBit {
     Dirty,
 }
 
+/// SDI Meta Data
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiMetaData {
