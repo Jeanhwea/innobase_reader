@@ -224,12 +224,17 @@ impl DatafileFactory {
                                 HiddenTypes::HT_VISIBLE => match col.dd_type {
                                     ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
                                     ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
-                                    ColumnTypes::NEWDATE => DataValue::Date(unpack_newdate_val(b).unwrap()),
-                                    ColumnTypes::DATETIME2 => DataValue::DateTime(unpack_datetime2_val(b).unwrap()),
+                                    ColumnTypes::NEWDATE => {
+                                        DataValue::Date(unpack_newdate_val(b).expect(&format!("日期格式错误: {:?}", b)))
+                                    }
+                                    ColumnTypes::DATETIME2 => DataValue::DateTime(
+                                        unpack_datetime2_val(b).expect(&format!("时间格式错误: {:?}", b)),
+                                    ),
                                     ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
                                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                                         let barr = b.to_vec();
-                                        let text = std::str::from_utf8(&barr).unwrap();
+                                        let text =
+                                            std::str::from_utf8(&barr).expect(&format!("字符串格式错误: {:?}", b));
                                         DataValue::Str(text.into())
                                     }
                                     ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
@@ -395,7 +400,8 @@ mod factory_tests_run {
         util,
     };
 
-    const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
+    // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
+    const IBD_FILE: &str = "data/datetime01.ibd";
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {
@@ -562,7 +568,7 @@ mod factory_tests_run {
         util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let ans = fact.unpack_index_page(5, false);
+        let ans = fact.unpack_index_page(4, false);
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().tuples[..5].iter().enumerate() {
