@@ -324,8 +324,6 @@ pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
 #[cfg(test)]
 mod util_tests {
 
-
-
     use log::info;
 
     use super::*;

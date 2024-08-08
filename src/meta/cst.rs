@@ -2601,8 +2601,6 @@ pub fn coll_find(id: u32) -> &'static Collation {
 #[cfg(test)]
 mod meta_consts_tests {
 
-
-
     use log::info;
 
     use super::*;

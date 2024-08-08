@@ -8,7 +8,6 @@ use std::{
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use colored::Colorize;
 use derivative::Derivative;
 use log::{debug, info, warn};
 
@@ -197,7 +196,7 @@ impl DatafileFactory {
             }
             Some(val) => val,
         };
-        info!("当前页所引用的索引({})", idxdef.idx_name.to_string().green());
+        info!("当前页所引用的索引: name={}", idxdef.idx_name);
 
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), idxdef)?
@@ -561,7 +560,7 @@ mod factory_tests_run {
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().tuples[..5].iter().enumerate() {
-            info!("[{}]=> {:?}", ith.to_string().magenta(), tuple);
+            info!("[{}]=> {:?}", ith.to_string().green(), tuple);
         }
 
         Ok(())

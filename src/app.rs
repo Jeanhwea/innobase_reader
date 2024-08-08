@@ -263,7 +263,6 @@ impl App {
 #[cfg(test)]
 mod app_tests {
 
-
     use super::*;
     use crate::util;
 
