@@ -285,6 +285,7 @@ mod factory_tests {
 
     const IBD_DEPT: &str = "data/departments.ibd";
     const IBD_DEPT_MGR: &str = "data/dept_manager.ibd";
+    const IBD_DATETIME01: &str = "data/datetime01.ibd";
 
     #[test]
     fn load_buffer() -> Result<(), Error> {
@@ -307,10 +308,10 @@ mod factory_tests {
         Ok(())
     }
 
-    // #[test]
+    #[test]
     fn load_table_def() -> Result<(), Error> {
         util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DATETIME01))?;
         let ans = fact.load_table_def();
         assert!(ans.is_ok());
 

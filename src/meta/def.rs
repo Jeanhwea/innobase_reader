@@ -20,24 +20,27 @@ pub struct TableDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub pos: usize,           // ordinal position
-    pub col_name: String,     // column name
-    pub data_len: u32,        // data length in bytes
-    pub isnil: bool,          // is nullable field
-    pub isvar: bool,          // is variadic field
-    pub dd_type: ColumnTypes, // data dictionary type
-    pub hidden: HiddenTypes,  // hidden type
-    pub col_key: ColumnKeys,  // column key type
-    pub utf8_def: String,     // utf8 column definition
-    pub comment: String,      // Comment
-    pub collation_id: u32,    // collation
-    pub collation: String,    // collation name
-    pub charset: String,      // character set name
+    pub pos: usize,                   // ordinal position
+    pub col_name: String,             // column name
+    pub data_len: u32,                // data length in bytes
+    pub isnil: bool,                  // is nullable field
+    pub isvar: bool,                  // is variadic field
+    pub dd_type: ColumnTypes,         // data dictionary type
+    pub hidden: HiddenTypes,          // hidden type
+    pub col_key: ColumnKeys,          // column key type
+    pub utf8_def: String,             // utf8 column definition
+    pub comment: String,              // Comment
+    pub collation_id: u32,            // collation
+    pub collation: String,            // collation name
+    pub charset: String,              // character set name
+    pub version_added: Option<u32>,   // which version this column was added
+    pub version_dropped: Option<u32>, // which version this column waw dropped
 }
 
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         let coll = coll_find(ddc.collation_id);
+        let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
@@ -77,6 +80,9 @@ impl ColumnDef {
             charset: coll.charset.into(),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
+            version_added: priv_data.get("version_added").map(|v| v.parse::<u32>().unwrap_or(0)),
+            version_dropped: priv_data.get("version_dropped").map(|v| v.parse::<u32>().unwrap_or(0)),
+            ..ColumnDef::default()
         }
     }
 }

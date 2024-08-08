@@ -508,6 +508,7 @@ pub struct DataDictColumn {
     pub collation_id: u32,
     pub column_key: ColumnKeys,
     pub column_type_utf8: String,
+    pub se_private_data: String,
     pub elements: Vec<DataDictColumnElement>,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
