@@ -414,7 +414,7 @@ pub enum XDesStates {
     UNDEF,
 }
 
-// Extent Descriptor Entry, see fsp0fsp.h
+/// Extent Descriptor Entry, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct XDesEntry {
