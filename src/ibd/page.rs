@@ -2,8 +2,9 @@ use std::{fmt::Debug, sync::Arc};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
+use colored::Colorize;
 use derivative::Derivative;
-use log::debug;
+use log::{debug, info};
 use num_enum::FromPrimitive;
 use strum::{Display, EnumString};
 
@@ -690,8 +691,9 @@ impl IndexPageBody {
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
         let records = (0..self.idx_hdr.page_n_recs)
             .map(|nrec| {
-                debug!("nrec={}, rec_addr={}", &nrec, &rec_addr);
+                // debug!("nrec={}, rec_addr={}", nrec, rec_addr);
                 let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef);
+                info!("nrec={}, rec={:?}", nrec.to_string().green(), &rec);
                 rec_addr = rec.rec_hdr.next_addr();
                 rec
             })
