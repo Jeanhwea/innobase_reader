@@ -320,7 +320,7 @@ mod app_tests {
                 page: 4,
                 limit: 10,
                 garbage: false,
-                verbose: false,
+                verbose: false
             })
             .is_ok());
     }

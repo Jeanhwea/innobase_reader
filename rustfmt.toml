@@ -1,9 +1,20 @@
 # https://github.com/rust-lang/rustfmt/blob/master/Configurations.md
 
-# common
+# Common
 max_width = 120
 edition = "2021"
 
-# imports style
+# Width
+# use_small_heuristics = "Max"
+# fn_call_width                  = 60
+# attr_fn_like_width             = 70
+# struct_lit_width               = 18
+# struct_variant_width           = 35
+# array_width                    = 120
+# chain_width                    = 60
+# single_line_if_else_max_width  = 50
+# single_line_let_else_max_width = 50
+
+# Imports
 group_imports = "StdExternalCrate"
 imports_granularity = "Crate"

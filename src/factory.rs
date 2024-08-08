@@ -85,7 +85,10 @@ impl DatafileFactory {
         if page_no >= self.page_count() {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
         }
-        self.file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
+
+        let offset = (page_no * PAGE_SIZE) as u64;
+        self.file.seek(SeekFrom::Start(offset))?;
+
         let mut buffer = vec![0; PAGE_SIZE];
         self.file.read_exact(&mut buffer)?;
         Ok(Arc::new(Bytes::from(buffer)))
@@ -95,7 +98,10 @@ impl DatafileFactory {
         if page_no >= self.page_count() {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
         }
-        self.file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))?;
+
+        let offset = (page_no * PAGE_SIZE) as u64;
+        self.file.seek(SeekFrom::Start(offset))?;
+
         let mut buffer = vec![0; FIL_HEADER_SIZE];
         self.file.read_exact(&mut buffer)?;
         Ok(Arc::new(Bytes::from(buffer)))

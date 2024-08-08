@@ -76,10 +76,7 @@ where
     pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<B> {
         let header = FilePageHeader::new(0, buf.clone());
         let trailer = FilePageTrailer::new(buf.len() - FIL_TRAILER_SIZE, buf.clone());
-        assert_eq!(
-            header.check_sum, trailer.check_sum,
-            "file header and trailer checksum should same"
-        );
+        assert_eq!(header.check_sum, trailer.check_sum, "fil_hdr 和 trl_hdr 校验和不一致");
 
         let body = BasePageBody::new(FIL_HEADER_SIZE, buf.clone());
 
@@ -612,11 +609,7 @@ impl BasePageBody for IndexPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(addr, buf.clone());
         debug!("idx_hdr={:?}", &idx_hdr);
-        assert_eq!(
-            idx_hdr.page_format,
-            PageFormats::COMPACT,
-            "only support compact row format"
-        );
+        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT, "只支持 COMPACT 行记录格式");
 
         // Infimum
         let inf = RecordHeader::new(
@@ -911,7 +904,7 @@ impl SdiPageBody {
                 rec
             })
             .collect();
-        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr 没有到达 supremum");
         Ok(records)
     }
 
