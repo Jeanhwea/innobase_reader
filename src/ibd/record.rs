@@ -32,9 +32,24 @@ pub enum RecordStatus {
 /// Record Info Flag, total 4 bits
 #[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecInfoFlag {
+    /// Mark current column is minimum record
     MIN_REC,
+
+    /// Mark current column is deleted
     DELETED,
+
+    /// Version flag,
+    /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
     VERSION,
+
+    /// Instant Column DDL flag
+    ///
+    /// WL#11250: Support Instant Add Column,
+    /// [1](https://dev.mysql.com/worklog/task/?id=11250)
+    ///
+    /// INSTANT ADD and DROP Column,
+    /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-drop-columns),
+    /// [2](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
     INSTANT,
 }
 
