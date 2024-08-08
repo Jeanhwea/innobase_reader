@@ -31,7 +31,7 @@ use crate::{
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum DataValue {
     RowId(u64),
     TrxId(u64),
@@ -258,12 +258,11 @@ impl DatafileFactory {
 }
 
 #[cfg(test)]
-mod factory_tests {
+mod factory_tests_run {
 
     use std::{env::set_var, path::PathBuf};
 
     use anyhow::Error;
-    use colored::Colorize;
     use log::info;
 
     use crate::{
@@ -272,46 +271,17 @@ mod factory_tests {
         util,
     };
 
-    const IBD_FILE: &str = "data/departments.ibd";
-    const IBD_FILE_2: &str = "/opt/mysql/data/employees/employees.ibd";
+    const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
 
     fn setup() {
         set_var("RUST_LOG", "info");
         util::init();
     }
 
-    #[test]
-    fn load_buffer() -> Result<(), Error> {
-        setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let buf = fact.fil_hdr_buffer(0)?;
-        assert!(buf.len() > 0);
-        info!("{:?}", buf);
-        Ok(())
-    }
-
-    #[test]
-    fn read_fsp_hdr_page() -> Result<(), Error> {
-        setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
-        info!("fsp_page={:#?}", fsp_page);
-        Ok(())
-    }
-
-    #[test]
-    fn load_table_def() -> Result<(), Error> {
-        setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let tabdef = fact.load_table_def();
-        info!("tabdef={:#?}", tabdef);
-        Ok(())
-    }
-
-    #[test]
+    // #[test]
     fn btr_traverse() -> Result<(), Error> {
         setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let root_page: BasePage<IndexPageBody> = fact.read_page(4)?;
         let fseg_hdr = root_page.page_body.fseg_hdr;
@@ -332,35 +302,10 @@ mod factory_tests {
         Ok(())
     }
 
-    #[test]
-    fn unpack_5th_index_page() -> Result<(), Error> {
-        setup();
-
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let ans = fact.unpack_index_page(4, false);
-        assert!(ans.is_ok());
-
-        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
-            for _ in 0..40 {
-                print!("*");
-            }
-            print!(" Row {} ", ith);
-            for _ in 0..40 {
-                print!("*");
-            }
-            println!();
-            for (name, value) in tuple {
-                println!("{:>12} => {:?}", name.to_string().magenta(), value);
-            }
-        }
-
-        Ok(())
-    }
-
-    #[test]
+    // #[test]
     fn leaf_walk_full() -> Result<(), Error> {
         setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
         // info!("xdes={:#?}", &page0.page_body);
@@ -403,10 +348,10 @@ mod factory_tests {
         Ok(())
     }
 
-    #[test]
+    // #[test]
     fn leaf_walk_frag() -> Result<(), Error> {
         setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
         // info!("xdes={:#?}", &page0.page_body);
@@ -447,10 +392,10 @@ mod factory_tests {
         Ok(())
     }
 
-    #[test]
+    // #[test]
     fn nonleaf_walk_full() -> Result<(), Error> {
         setup();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE_2))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
 
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
         // info!("xdes={:#?}", &page0.page_body);
@@ -488,6 +433,154 @@ mod factory_tests {
             }
 
             seq += 1;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod factory_tests {
+
+    use std::{env::set_var, path::PathBuf};
+
+    use anyhow::Error;
+
+    use colored::Colorize;
+    use log::{debug, info};
+
+    use crate::{
+        factory::{DataValue, DatafileFactory},
+        ibd::page::{BasePage, FileSpaceHeaderPageBody, PageTypes, FIL_HEADER_SIZE},
+        util,
+    };
+
+    const IBD_DEPT: &str = "data/departments.ibd";
+    const IBD_DEPT_MGR: &str = "data/dept_manager.ibd";
+
+    fn setup() {
+        set_var("RUST_LOG", "info");
+        util::init();
+    }
+
+    #[test]
+    fn load_buffer() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let buf = fact.fil_hdr_buffer(0)?;
+        assert_eq!(buf.len(), FIL_HEADER_SIZE);
+        Ok(())
+    }
+
+    #[test]
+    fn read_fsp_hdr_page() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        // info!("fsp_page={:#?}", fsp_page);
+        assert_eq!(fsp_page.fil_hdr.page_type, PageTypes::FSP_HDR);
+        assert_eq!(fsp_page.fil_hdr.server_version(), 80037);
+        assert_eq!(fsp_page.fil_hdr.space_version(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn load_table_def() -> Result<(), Error> {
+        setup();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let ans = fact.load_table_def();
+        assert!(ans.is_ok());
+
+        let tabdef = ans.unwrap();
+        info!("tabdef={:#?}", tabdef);
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_unpack_data_01() -> Result<(), Error> {
+        setup();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 9);
+
+        let tuples = rs.tuples;
+
+        debug!("tuples={:#?}", tuples);
+
+        // first row
+        assert_eq!(tuples[0][0].1, DataValue::Str("d001".into()));
+        assert!(matches!(tuples[0][1].1, DataValue::TrxId(_)));
+        assert!(matches!(tuples[0][2].1, DataValue::RollPtr(_)));
+        assert_eq!(tuples[0][3].1, DataValue::Str("Marketing".into()));
+
+        // last row
+        assert_eq!(tuples[8][0].1, DataValue::Str("d009".into()));
+        assert!(matches!(tuples[8][1].1, DataValue::TrxId(_)));
+        assert!(matches!(tuples[8][2].1, DataValue::RollPtr(_)));
+        assert_eq!(tuples[8][3].1, DataValue::Str("Customer Service".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_unpack_data_02() -> Result<(), Error> {
+        setup();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT_MGR))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 24);
+
+        let tuples = rs.tuples;
+
+        info!("tuples={:#?}", tuples[0]);
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "emp_no");
+        assert_eq!(tuples[0][1].0, "dept_no");
+        assert_eq!(tuples[0][2].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][3].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][4].0, "from_date");
+        assert_eq!(tuples[0][5].0, "to_date");
+
+        // first row
+        assert_eq!(tuples[0][0].1, DataValue::I32(110022));
+        assert_eq!(tuples[0][1].1, DataValue::Str("d001".into()));
+        assert!(matches!(tuples[0][2].1, DataValue::TrxId(_)));
+        assert!(matches!(tuples[0][3].1, DataValue::RollPtr(_)));
+        assert_eq!(tuples[0][4].1, DataValue::Date(util::dateval("1985-01-01")));
+        assert_eq!(tuples[0][5].1, DataValue::Date(util::dateval("1991-10-01")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn unpack_5th_index_page() -> Result<(), Error> {
+        setup();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
+            for _ in 0..40 {
+                print!("*");
+            }
+            print!(" Row {} ", ith);
+            for _ in 0..40 {
+                print!("*");
+            }
+            println!();
+            for (name, value) in tuple {
+                println!("{:>12} => {:?}", name.to_string().magenta(), value);
+            }
         }
 
         Ok(())

@@ -282,6 +282,10 @@ pub fn unpack_u56_val(b: &Bytes) -> u64 {
     u64::from_be_bytes(arr)
 }
 
+pub fn dateval(s: &str) -> NaiveDate {
+    NaiveDate::parse_from_str(s, "%Y-%m-%d").expect(&format!("ERR_DATE_STR: {}", s))
+}
+
 pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
     let mut ret = HashMap::new();
     if str.is_empty() {
