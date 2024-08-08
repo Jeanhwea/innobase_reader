@@ -34,7 +34,7 @@ pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 #[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub enum DataValue {
-    RowId(u64),
+    RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     RollPtr(#[derivative(Debug(format_with = "util::fmt_hex56"))] u64),
     I32(i32),
