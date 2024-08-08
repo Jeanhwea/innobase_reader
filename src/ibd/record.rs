@@ -32,9 +32,52 @@ pub enum RecordStatus {
 /// Record Info Flag, total 4 bits
 #[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecInfoFlag {
+    /// Mark current column is minimum record
     MIN_REC,
+
+    /// Mark current column is deleted
     DELETED,
+
+    /// Version flag
     VERSION,
+
+    /// WL#11250: Support Instant Add Column [worklog](https://dev.mysql.com/worklog/task/?id=11250)
+    ///
+    /// Porting Tecent's patch on Instant Add Column.
+    ///
+    /// To summarize the idea:
+    ///
+    /// 1. It introduced a new info bits on the record to signify the row has
+    /// new rows added instantly
+    ///
+    /// 2. If the bit is set, then there will be one or two additional bytes in
+    /// the row header to signify the extra columns added
+    ///
+    /// 3. A new system table is added to record the "default value" for each
+    /// added column
+    ///
+    /// 4. The rows before instant add column would always have the old number
+    /// of columns for its life time (until deleted). Such number of "core" rows
+    /// will be stored in se_private_data of the mysql.tables
+    ///
+    /// 5. For "old" rows, the default value will be looked up from the new
+    /// system tables and appended before return to server.
+    ///
+    /// 6. For the duraton of instant adding column, MDL will be placed and
+    /// maintained on the table.
+    ///
+    /// In this way, we can instantly add a column with full back version
+    /// compatibility with minimum code change.
+    ///
+    /// Some restrictions of this approach:
+    ///
+    /// 1. Columns can only be added last, it cannot be added in between
+    /// existing columns
+    ///
+    /// 2. Instantly added columns cannot be PK, unless a table rebuild
+    ///
+    /// 3. Instant add column does not and will not support compressed table
+    /// format
     INSTANT,
 }
 
