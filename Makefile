@@ -13,7 +13,7 @@ t0:
 	$(CARGO) test app_tests::it_works -- --nocapture --show-output
 
 t1:
-	$(CARGO) test factory_tests::unpack_5th_index_page -- --nocapture --show-output
+	$(CARGO) test factory_tests_run::unpack_5th_index_page -- --nocapture --show-output
 
 doc:
 	$(CARGO) doc $(CFLAG)

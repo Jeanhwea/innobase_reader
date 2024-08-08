@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env::set_var,
     fmt::{Binary, Debug, Display, LowerHex},
     io::{Read, Write},
     sync::Once,
@@ -34,6 +35,11 @@ pub fn init() {
     })
 }
 
+pub fn init_test() {
+    set_var("RUST_LOG", "info");
+    init()
+}
+
 pub fn fmt_bin32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display + Binary + LowerHex,
@@ -53,6 +59,20 @@ where
     T: Display + LowerHex,
 {
     write!(f, "0x{:016x}({})", d, d.to_string().blue())
+}
+
+pub fn fmt_hex48<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + LowerHex,
+{
+    write!(f, "0x{:012x}", d)
+}
+
+pub fn fmt_hex56<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + LowerHex,
+{
+    write!(f, "0x{:014x}", d)
 }
 
 pub fn fmt_addr<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
