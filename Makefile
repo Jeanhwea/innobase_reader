@@ -22,6 +22,7 @@ browse:
 	$(CARGO) doc $(CFLAG) --no-deps --open
 
 format:
+	git add src
 	rustup run nightly $(CARGO) fmt $(CFLAG)
 
 lint: format

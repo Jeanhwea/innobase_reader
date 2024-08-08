@@ -37,7 +37,7 @@ pub fn init() {
 
 pub fn init_unit_test() {
     set_var("RUST_LOG", "info");
-    init()
+    env_logger::builder().format_timestamp(None).is_test(true).init();
 }
 
 pub fn fmt_bin32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>

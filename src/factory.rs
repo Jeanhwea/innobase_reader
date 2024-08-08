@@ -196,7 +196,7 @@ impl DatafileFactory {
             }
             Some(val) => val,
         };
-        info!("当前页所引用的索引: name={}", idxdef.idx_name);
+        info!("当前页所引用的索引: index_name={}", idxdef.idx_name);
 
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), idxdef)?
