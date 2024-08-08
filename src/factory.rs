@@ -58,8 +58,8 @@ pub struct ResultSet {
 #[derive(Debug)]
 pub struct DatafileFactory {
     pub target: PathBuf, // Target datafile
-    pub file: File,      // Tablespace file descriptor
-    pub size: usize,     // File size
+    pub file: File,      // Data file descriptor
+    pub size: usize,     // Data file size
 }
 
 impl DatafileFactory {
@@ -70,6 +70,8 @@ impl DatafileFactory {
 
         let file = File::open(&target)?;
         let size = file.metadata()?.len() as usize;
+
+        info!("加载数据文件: {:?}", &file);
 
         Ok(Self { target, size, file })
     }
@@ -139,7 +141,7 @@ impl DatafileFactory {
         debug!("ddobj={:#?}", &ddobj);
 
         let coll = coll_find(ddobj.collation_id);
-        info!("coll={:?}", &coll);
+        info!("当前文件字符集: {:?}", &coll);
 
         let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
         let idxdefs = ddobj

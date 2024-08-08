@@ -15,7 +15,6 @@ t0:
 t1:
 	$(CARGO) test factory_tests::unpack_5th_index_page -- --nocapture --show-output
 
-
 doc:
 	$(CARGO) doc $(CFLAG)
 
