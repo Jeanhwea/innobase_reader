@@ -10,13 +10,7 @@ use strum::{Display, EnumString};
 
 use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
 use crate::{
-    ibd::{
-        page::{
-            CleanBit::{Clean, Dirty},
-            FreeBit::{Free, Taken},
-        },
-        record::{RecordHeader, Row, RowInfo},
-    },
+    ibd::record::{RecordHeader, Row, RowInfo},
     meta::def::{IndexDef, TableDef},
     util,
 };
@@ -427,7 +421,7 @@ pub struct XDesEntry {
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub state: XDesStates, // state information
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub bitmap: [(u32, FreeBit, CleanBit); XDES_PAGE_COUNT], // bitmap
+    pub bitmap: [(u32, Free, Clean); XDES_PAGE_COUNT], // bitmap
 }
 
 impl XDesEntry {
@@ -439,8 +433,12 @@ impl XDesEntry {
                 let val = buf[addr + 24 + nth];
                 (
                     page_no as u32,
-                    if val & (1 << off) > 0 { Free } else { Taken },
-                    if val & (1 << (off + 1)) > 0 { Clean } else { Dirty },
+                    if val & (1 << off) > 0 { Free(true) } else { Free(false) },
+                    if val & (1 << (off + 1)) > 0 {
+                        Clean(true)
+                    } else {
+                        Clean(false)
+                    },
                 )
             })
             .collect::<Vec<_>>();
@@ -460,18 +458,12 @@ impl XDesEntry {
 /// Free Bit
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub enum FreeBit {
-    Free,
-    Taken,
-}
+pub struct Free(bool);
 
 /// Clean Bit
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub enum CleanBit {
-    Clean,
-    Dirty,
-}
+pub struct Clean(bool);
 
 /// SDI Meta Data
 #[derive(Clone, Derivative)]

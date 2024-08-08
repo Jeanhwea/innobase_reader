@@ -107,6 +107,9 @@ impl RecordHeader {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct IsNull(bool);
+
 /// Row Dynamic Information, (pos, len, isnull, name)
 ///   1. pos: index element ordinal position
 ///   2. len: row data length
@@ -115,7 +118,7 @@ impl RecordHeader {
 ///   5. opx: column ordinal position index (opx)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String, pub usize);
+pub struct DynamicInfo(pub usize, pub usize, pub IsNull, pub String, pub usize);
 
 /// Row Data, (ord, len, buf),
 ///   1. opx: ordinal_position index
@@ -166,9 +169,15 @@ impl RowInfo {
                 };
 
                 if isnull {
-                    DynamicInfo(e.pos, 0, isnull, e.col_name.clone(), e.column_opx)
+                    DynamicInfo(e.pos, 0, IsNull(isnull), e.col_name.clone(), e.column_opx)
                 } else if !e.isvar {
-                    DynamicInfo(e.pos, e.data_len as usize, isnull, e.col_name.clone(), e.column_opx)
+                    DynamicInfo(
+                        e.pos,
+                        e.data_len as usize,
+                        IsNull(isnull),
+                        e.col_name.clone(),
+                        e.column_opx,
+                    )
                 } else {
                     // see function in mysql-server source code
                     // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
@@ -201,7 +210,7 @@ impl RowInfo {
                         }
                         _ => todo!("ERR_PROCESS_VAR_FILED_BYTES: {:?}", e),
                     };
-                    DynamicInfo(e.pos, vlen, isnull, e.col_name.clone(), e.column_opx)
+                    DynamicInfo(e.pos, vlen, IsNull(isnull), e.col_name.clone(), e.column_opx)
                 }
             })
             .collect();
@@ -264,7 +273,7 @@ impl Record {
     pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
         let mut dataptr = addr;
         for e in &row_info.dyn_info {
-            if e.2 {
+            if e.2 .0 {
                 row.data_list.push(RowDatum(e.4, 0, None, e.3.clone()));
             } else {
                 let len = e.1;
