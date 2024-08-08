@@ -1,18 +1,22 @@
-use std::cmp::min;
-use std::collections::BTreeMap;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::{
+    cmp::min,
+    collections::BTreeMap,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use anyhow::{Error, Result};
 use colored::Colorize;
 use log::{debug, error, info};
 
-use crate::factory::DatafileFactory;
-use crate::ibd::page::{
-    BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE,
-    RECORD_HEADER_SIZE,
+use crate::{
+    factory::DatafileFactory,
+    ibd::page::{
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE,
+        RECORD_HEADER_SIZE,
+    },
+    Commands,
 };
-use crate::Commands;
 
 #[derive(Debug)]
 pub struct App {

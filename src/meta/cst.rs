@@ -2605,8 +2605,8 @@ mod meta_consts_tests {
 
     use log::info;
 
-    use crate::util;
     use super::*;
+    use crate::util;
 
     fn setup() {
         set_var("RUST_LOG", "info");

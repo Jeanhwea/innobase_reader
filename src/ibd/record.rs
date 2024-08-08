@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
 use derivative::Derivative;
@@ -10,9 +9,11 @@ use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use crate::meta::def::{IndexDef, TableDef};
-use crate::util;
-use crate::ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE};
+use crate::{
+    ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
+    meta::def::{IndexDef, TableDef},
+    util,
+};
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 

@@ -1,14 +1,11 @@
-use crate::ibd::record::ColumnKeys;
-use crate::ibd::record::ColumnTypes;
-use crate::ibd::record::DataDictColumn;
-use crate::ibd::record::DataDictIndex;
-use crate::ibd::record::DataDictIndexElement;
-use crate::ibd::record::HiddenTypes;
-use crate::ibd::record::IndexAlgorithm;
-use crate::ibd::record::IndexOrder;
-use crate::ibd::record::IndexTypes;
-use crate::meta::cst::coll_find;
-use crate::util;
+use crate::{
+    ibd::record::{
+        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, HiddenTypes, IndexAlgorithm,
+        IndexOrder, IndexTypes,
+    },
+    meta::cst::coll_find,
+    util,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {

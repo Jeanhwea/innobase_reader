@@ -1,7 +1,9 @@
-use std::collections::HashMap;
-use std::fmt::{Binary, Debug, Display, LowerHex};
-use std::sync::Once;
-use std::io::{Read, Write};
+use std::{
+    collections::HashMap,
+    fmt::{Binary, Debug, Display, LowerHex},
+    io::{Read, Write},
+    sync::Once,
+};
 
 use anyhow::Result;
 use bytes::Bytes;

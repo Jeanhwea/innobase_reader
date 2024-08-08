@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -9,11 +8,17 @@ use num_enum::FromPrimitive;
 use strum::{Display, EnumString};
 
 use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
-use crate::ibd::record::{RecordHeader, Row, RowInfo};
-use crate::meta::def::{IndexDef, TableDef};
-use crate::util;
-use crate::ibd::page::CleanBit::{Clean, Dirty};
-use crate::ibd::page::FreeBit::{Free, Taken};
+use crate::{
+    ibd::{
+        page::{
+            CleanBit::{Clean, Dirty},
+            FreeBit::{Free, Taken},
+        },
+        record::{RecordHeader, Row, RowInfo},
+    },
+    meta::def::{IndexDef, TableDef},
+    util,
+};
 
 // page
 pub const PAGE_SIZE: usize = 16 * 1024;

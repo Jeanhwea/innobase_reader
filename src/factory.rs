@@ -1,25 +1,32 @@
-use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use log::{debug, info, warn};
 use colored::Colorize;
+use log::{debug, info, warn};
 
-use crate::ibd::page::{
-    BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody, FIL_HEADER_SIZE,
-    PAGE_SIZE,
-};
-use crate::ibd::record::{ColumnTypes, HiddenTypes, Record};
-use crate::meta::cst::coll_find;
-use crate::meta::def::{ColumnDef, IndexDef, IndexElementDef, TableDef};
-use crate::util;
-use crate::util::{
-    unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val, unpack_newdate_val, unpack_timestamp2_val,
-    unpack_u48_val, unpack_u56_val,
+use crate::{
+    ibd::{
+        page::{
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody,
+            FIL_HEADER_SIZE, PAGE_SIZE,
+        },
+        record::{ColumnTypes, HiddenTypes, Record},
+    },
+    meta::{
+        cst::coll_find,
+        def::{ColumnDef, IndexDef, IndexElementDef, TableDef},
+    },
+    util::{
+        self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val, unpack_newdate_val,
+        unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
+    },
 };
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
@@ -251,16 +258,17 @@ impl DatafileFactory {
 #[cfg(test)]
 mod factory_tests {
 
-    use std::env::set_var;
-    use std::path::PathBuf;
+    use std::{env::set_var, path::PathBuf};
 
-    use colored::Colorize;
     use anyhow::Error;
+    use colored::Colorize;
     use log::info;
 
-    use crate::util;
-    use crate::factory::DatafileFactory;
-    use crate::ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody};
+    use crate::{
+        factory::DatafileFactory,
+        ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody},
+        util,
+    };
 
     const IBD_FILE: &str = "data/departments.ibd";
     const IBD_FILE_2: &str = "/opt/mysql/data/employees/employees.ibd";
