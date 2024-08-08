@@ -285,7 +285,7 @@ mod factory_tests {
 
     const IBD_DEPT: &str = "data/departments.ibd";
     const IBD_DEPT_MGR: &str = "data/dept_manager.ibd";
-    const IBD_DATETIME01: &str = "data/datetime01.ibd";
+    const IBD_RV_4: &str = "data/tb_row_version_4.ibd";
 
     #[test]
     fn load_buffer() -> Result<(), Error> {
@@ -311,7 +311,7 @@ mod factory_tests {
     #[test]
     fn load_table_def() -> Result<(), Error> {
         util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DATETIME01))?;
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_4))?;
         let ans = fact.load_table_def();
         assert!(ans.is_ok());
 
@@ -402,7 +402,7 @@ mod factory_tests_run {
     };
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    const IBD_FILE: &str = "data/datetime01.ibd";
+    const IBD_FILE: &str = "/opt/mysql/data/rtc/test01.ibd";
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {

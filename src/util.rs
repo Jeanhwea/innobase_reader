@@ -308,13 +308,13 @@ pub fn dateval(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap_or_else(|_| panic!("日期字符串格式错误: {}", s))
 }
 
-pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
+pub fn conv_strdata_to_map(s: &str) -> HashMap<String, String> {
     let mut ret = HashMap::new();
-    if str.is_empty() {
+    if s.is_empty() {
         return ret;
     }
 
-    for entry in str.split(';') {
+    for entry in s.split(';') {
         if let Some(i) = entry.find('=') {
             ret.insert(entry[0..i].to_string(), entry[i + 1..].to_string());
         }
@@ -323,8 +323,23 @@ pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
     ret
 }
 
+pub fn conv_strdata_to_bytes(s: &str) -> Option<Bytes> {
+    if s.is_empty() {
+        return None;
+    }
+    let mut arr = Vec::with_capacity(s.len() / 2);
+    for i in 0..s.len() / 2 {
+        let beg = 2 * i;
+        let s1 = &s[beg..beg + 2];
+        arr.push(u8::from_str_radix(s1, 16).unwrap_or(0));
+    }
+    Some(Bytes::from(arr))
+}
+
 #[cfg(test)]
 mod util_tests {
+
+    use std::string::String;
 
     use log::info;
 
@@ -346,6 +361,21 @@ mod util_tests {
         info!("map01={:?}", map01);
         let id_val: u64 = map01["id"].clone().parse().unwrap();
         assert_eq!(156, id_val);
+    }
+
+    #[test]
+    fn test_conv_strdata_to_bytes() {
+        init_unit_test();
+        let s = "63355f64656620202020";
+        let ans = conv_strdata_to_bytes(s);
+        assert!(ans.is_some());
+        info!("ans={:?}", ans);
+        let ret = String::from_utf8(ans.unwrap().to_vec()).unwrap();
+        assert_eq!("c5_def    ".to_string(), ret);
+
+        let s2 = "";
+        let ans2 = conv_strdata_to_bytes(s2);
+        assert!(ans2.is_none());
     }
 
     #[test]
