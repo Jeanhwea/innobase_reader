@@ -58,6 +58,22 @@ alter table tb_row_version drop column c3, algorithm=instant;
 -- +------+------+------+--------+
 -- 2 rows in set (0.00 sec)
 
+insert into
+  tb_row_version(c1, c2, c4, c5)
+values
+  ('r3c1', 'r3c2', 'r3c4', 'r3c5');
+
+-- tb_row_version_4.ibd
+-- mysql> select * from tb_row_version;
+-- +------+------+------+--------+
+-- | c1   | c2   | c4   | c5     |
+-- +------+------+------+--------+
+-- | r1c1 | r1c2 | r1c4 | c5_def |
+-- | r2c1 | r2c2 | r2c4 | r2c5   |
+-- | r3c1 | r3c2 | r3c4 | r3c5   |
+-- +------+------+------+--------+
+-- 3 rows in set (0.00 sec)
+
 -- alter table tb_row_version add column c5 char(10), algorithm=instant;
 -- alter table tb_row_version add column c5 char(10), algorithm=copy;
 -- alter table tb_row_version add column c5 char(10), algorithm=inplace;
