@@ -149,9 +149,9 @@ impl App {
 
     fn do_sdi_print(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        let json_str = fact.load_sdi_string()?;
-        let sdi_data = jsonxf::pretty_print(&json_str).unwrap();
-        println!("{}", sdi_data);
+        for e in fact.load_sdi_string()?.iter().enumerate() {
+            println!("[{}] = {}", e.0.to_string().yellow(), e.1);
+        }
         Ok(())
     }
 

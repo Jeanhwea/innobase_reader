@@ -112,15 +112,21 @@ impl DatafileFactory {
         self.read_page(sdi_page_no)
     }
 
-    pub fn load_sdi_string(&mut self) -> Result<String, Error> {
+    pub fn load_sdi_string(&mut self) -> Result<Vec<String>, Error> {
         let sdi_page = self.read_sdi_page()?;
-        sdi_page.page_body.get_table_string()
+        let ret: Vec<String> = sdi_page
+            .page_body
+            .read_sdi_objects()?
+            .iter()
+            .map(|obj| jsonxf::pretty_print(&obj.sdi_str).unwrap_or("".into()))
+            .collect();
+        Ok(ret)
     }
 
     pub fn load_table_def(&mut self) -> Result<Arc<TableDef>> {
         let sdi_page = self.read_sdi_page()?;
 
-        let ddobj = sdi_page.page_body.get_table_sdiobj().dd_object;
+        let ddobj = sdi_page.page_body.get_tabdef_sdiobj()?.dd_object;
         debug!("ddobj={:#?}", &ddobj);
 
         let coll = coll_find(ddobj.collation_id);

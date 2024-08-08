@@ -877,6 +877,16 @@ impl BasePageBody for SdiPageBody {
 }
 
 impl SdiPageBody {
+    pub fn get_tabdef_sdiobj(&self) -> Result<SdiObject, Error> {
+        let sdi_objects = self.read_sdi_objects()?;
+        let sdi_str = sdi_objects
+            .iter()
+            .find(|obj| obj.sdi_hdr.data_type == 1) // 1 => Table
+            .map(|obj| &obj.sdi_str)
+            .unwrap();
+        Ok(serde_json::from_str(sdi_str).expect("ERR_SDI_FORMAT"))
+    }
+
     pub fn read_sdi_objects(&self) -> Result<Vec<SdiRecord>, Error> {
         let inf = &self.index.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
@@ -901,16 +911,5 @@ impl SdiPageBody {
         debug!("sdi_hdr={:?}", &hdr);
 
         SdiRecord::new(rec_addr, self.buf.clone(), rec_hdr, hdr)
-    }
-
-    pub fn get_table_string(&self) -> Result<String> {
-        let sdi_objects = self.read_sdi_objects().expect("SDI_OBJECTS_NOT_FOUND");
-        Ok(sdi_objects[0].sdi_str.clone())
-    }
-
-    pub fn get_table_sdiobj(&self) -> SdiObject {
-        let sdi_objects = self.read_sdi_objects().expect("SDI_OBJECTS_NOT_FOUND");
-        let sdi_rec = &sdi_objects[0];
-        serde_json::from_str(&sdi_rec.sdi_str).expect("ERR_SDI_STRING")
     }
 }
