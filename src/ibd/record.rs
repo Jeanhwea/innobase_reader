@@ -38,11 +38,14 @@ pub enum RecInfoFlag {
     /// Mark current column is deleted
     DELETED,
 
-    /// Version flag
+    /// Version flag,
+    /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
     VERSION,
 
-    /// WL#11250: Support Instant Add Column
-    /// [worklog](https://dev.mysql.com/worklog/task/?id=11250)
+    /// Instant Column DDL flag
+    ///
+    /// WL#11250: Support Instant Add Column,
+    /// [1](https://dev.mysql.com/worklog/task/?id=11250)
     ///
     /// INSTANT ADD and DROP Column,
     /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-drop-columns),
