@@ -225,16 +225,16 @@ impl DatafileFactory {
                                     ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
                                     ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
                                     ColumnTypes::NEWDATE => DataValue::Date(
-                                        unpack_newdate_val(b).expect(&format!("日期格式错误: {:?}", &c)),
+                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &c)),
                                     ),
                                     ColumnTypes::DATETIME2 => DataValue::DateTime(
-                                        unpack_datetime2_val(b).expect(&format!("时间格式错误: {:?}", &c)),
+                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &c)),
                                     ),
                                     ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
                                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                                         let barr = b.to_vec();
-                                        let text =
-                                            std::str::from_utf8(&barr).expect(&format!("字符串格式错误: {:?}", &c));
+                                        let text = std::str::from_utf8(&barr)
+                                            .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &c));
                                         DataValue::Str(text.into())
                                     }
                                     ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
@@ -569,6 +569,7 @@ mod factory_tests_run {
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let ans = fact.unpack_index_page(4, false);
+        info!("{:?}", ans);
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().tuples[..5].iter().enumerate() {

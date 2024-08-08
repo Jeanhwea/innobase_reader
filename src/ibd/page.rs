@@ -681,15 +681,15 @@ impl IndexPageBody {
     pub fn read_user_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
-        let records = (0..self.idx_hdr.page_n_recs)
-            .map(|nrec| {
-                // debug!("nrec={}, rec_addr={}", nrec, rec_addr);
-                let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef);
-                info!("nrec={}, rec={:?}", nrec.to_string().green(), &rec);
-                rec_addr = rec.rec_hdr.next_addr();
-                rec
-            })
-            .collect();
+
+        let mut records = Vec::new();
+        for nrec in 0..self.idx_hdr.page_n_recs {
+            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef)?;
+            info!("nrec={}, rec={:?}", nrec.to_string().green(), &rec);
+            rec_addr = rec.rec_hdr.next_addr();
+            records.push(rec);
+        }
+
         assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
         Ok(records)
     }
@@ -704,7 +704,7 @@ impl IndexPageBody {
             }
 
             // parse the garbage record
-            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef);
+            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef)?;
             let next_addr = rec.rec_hdr.next_addr();
             free_records.push(rec);
 
@@ -718,9 +718,17 @@ impl IndexPageBody {
         Ok(free_records)
     }
 
-    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Record {
+    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Record, Error> {
         // Record Header
         let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
+
+        if rec_hdr.is_instant() {
+            return Err(Error::msg(format!("不支持解析 INSTANT 标记的记录: {:?}", &rec_hdr)));
+        }
+
+        if rec_hdr.is_version() {
+            return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
+        }
 
         // Row Info
         let row_info = RowInfo::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone(), tabdef.clone(), idxdef);
@@ -728,7 +736,9 @@ impl IndexPageBody {
         // Row Data
         let row = Row::new(rec_addr, self.buf.clone(), tabdef.clone());
 
-        Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row)
+        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row);
+
+        Ok(rec)
     }
 }
 

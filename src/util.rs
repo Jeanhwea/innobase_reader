@@ -305,7 +305,7 @@ pub fn unpack_u56_val(b: &Bytes) -> u64 {
 }
 
 pub fn dateval(s: &str) -> NaiveDate {
-    NaiveDate::parse_from_str(s, "%Y-%m-%d").expect(&format!("ERR_DATE_STR: {}", s))
+    NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap_or_else(|_| panic!("日期字符串格式错误: {}", s))
 }
 
 pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {

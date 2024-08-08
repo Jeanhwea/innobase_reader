@@ -47,6 +47,8 @@ pub struct RecordHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    #[derivative(Debug = "ignore")]
+    pub info_byte: u8,
     pub info_bits: Vec<RecInfoFlag>, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
     pub n_owned: u8,                 // 4 bits
     pub heap_no: u16,                // 13 bits
@@ -92,6 +94,7 @@ impl RecordHeader {
         let status = ((b1 & 0x0007) as u8).into();
 
         Self {
+            info_byte: b0,
             info_bits: flags,
             n_owned: b0 & 0x0f,
             heap_no: (b1 & 0xfff8) >> 3,
@@ -104,6 +107,22 @@ impl RecordHeader {
 
     pub fn next_addr(&self) -> usize {
         ((self.addr as i16) + self.next_rec_offset) as usize + RECORD_HEADER_SIZE
+    }
+
+    pub fn is_min_rec(&self) -> bool {
+        (self.info_byte & Self::REC_INFO_MIN_REC_FLAG) > 0
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        (self.info_byte & Self::REC_INFO_DELETED_FLAG) > 0
+    }
+
+    pub fn is_version(&self) -> bool {
+        (self.info_byte & Self::REC_INFO_VERSION_FLAG) > 0
+    }
+
+    pub fn is_instant(&self) -> bool {
+        (self.info_byte & Self::REC_INFO_INSTANT_FLAG) > 0
     }
 }
 
