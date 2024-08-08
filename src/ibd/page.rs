@@ -401,6 +401,7 @@ impl BasePageBody for FileSpaceHeaderPageBody {
     }
 }
 
+/// Extent Descriptor State
 #[repr(u32)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum XDesStates {
@@ -458,6 +459,7 @@ impl XDesEntry {
     }
 }
 
+/// Free Bit
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum FreeBit {
@@ -465,6 +467,7 @@ pub enum FreeBit {
     Taken,
 }
 
+/// Clean Bit
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum CleanBit {
@@ -742,6 +745,7 @@ impl IndexPageBody {
     }
 }
 
+/// Page Format, redundant or compact
 #[repr(u8)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageFormats {
@@ -751,6 +755,7 @@ pub enum PageFormats {
     UNDEF,
 }
 
+/// Page Direction
 #[repr(u16)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PageDirections {

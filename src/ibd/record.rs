@@ -17,7 +17,7 @@ use crate::{
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
-// rec.h:152
+/// Record Status, rec.h:152
 #[repr(u8)]
 #[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecordStatus {
@@ -29,6 +29,7 @@ pub enum RecordStatus {
     UNDEF,
 }
 
+/// Record Info Flag, total 4 bits
 #[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecInfoFlag {
     MIN_REC,
@@ -37,6 +38,7 @@ pub enum RecInfoFlag {
     INSTANT,
 }
 
+/// Record Header
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordHeader {
@@ -124,6 +126,7 @@ pub struct DynamicInfo(pub usize, pub usize, pub bool, pub String, pub usize);
 #[derivative(Debug)]
 pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>, pub String);
 
+/// Row Info, var_area and nil_area
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowInfo {
@@ -215,6 +218,7 @@ impl RowInfo {
     }
 }
 
+/// Row data
 #[derive(Clone, Derivative, Default)]
 #[derivative(Debug)]
 pub struct Row {
@@ -240,6 +244,7 @@ impl Row {
     }
 }
 
+/// Record
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct Record {
@@ -279,6 +284,7 @@ impl Record {
     }
 }
 
+/// SDI Record
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiRecord {
@@ -309,6 +315,7 @@ impl SdiRecord {
     }
 }
 
+/// SDI Data Header
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiDataHeader {
@@ -346,6 +353,7 @@ impl SdiDataHeader {
     }
 }
 
+/// SDI Object
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SdiObject {
     pub dd_object: DataDictObject,
@@ -353,6 +361,7 @@ pub struct SdiObject {
     extra: HashMap<String, Value>,
 }
 
+/// Data Dictionary Object
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataDictObject {
     pub name: String,
@@ -367,8 +376,7 @@ pub struct DataDictObject {
     extra: HashMap<String, Value>,
 }
 
-// see sql/dd/types/column.h
-//     enum class enum_column_types
+/// Column Type, see sql/dd/types/column.h, enum class enum_column_types
 #[repr(u8)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum ColumnTypes {
@@ -407,8 +415,7 @@ pub enum ColumnTypes {
     UNDEF,
 }
 
-// see sql/dd/types/column.h
-//     enum class enum_hidden_type
+/// see sql/dd/types/column.h, enum class enum_hidden_type
 #[repr(u8)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, PartialEq)]
 pub enum HiddenTypes {
@@ -427,8 +434,7 @@ pub enum HiddenTypes {
     UNDEF,
 }
 
-// see sql/dd/types/column.h
-//     enum class enum_column_type
+/// see sql/dd/types/column.h, enum class enum_column_type
 #[repr(u8)]
 #[derive(Debug, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone)]
 pub enum ColumnKeys {
@@ -440,8 +446,7 @@ pub enum ColumnKeys {
     UNDEF,
 }
 
-// see sql/dd/impl/types/column_impl.h
-//    class Column_impl : public Entity_object_impl, public Column {
+/// see sql/dd/impl/types/column_impl.h, class Column_impl : public Entity_object_impl, public Column {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DataDictColumn {
     pub ordinal_position: u32,
@@ -465,14 +470,14 @@ pub struct DataDictColumn {
     extra: HashMap<String, Value>,
 }
 
+/// Data Dictionary Column Elements
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DataDictColumnElement {
     pub index: u32,
     pub name: String,
 }
 
-// see sql/dd/types/index.h
-//     enum class enum_index_type
+/// see sql/dd/types/index.h, enum class enum_index_type
 #[repr(u8)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexTypes {
@@ -485,8 +490,7 @@ pub enum IndexTypes {
     UNDEF,
 }
 
-// see sql/dd/types/index.h
-//     enum class enum_index_algorithm
+/// see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
 pub enum IndexAlgorithm {
@@ -499,8 +503,7 @@ pub enum IndexAlgorithm {
     UNDEF,
 }
 
-// see sql/dd/types/index.h
-//     enum class enum_index_algorithm
+/// see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, Copy)]
 pub enum IndexOrder {
@@ -510,8 +513,7 @@ pub enum IndexOrder {
     ORDER_DESC = 3,
 }
 
-// see sql/dd/impl/types/index_impl.h
-//    class Index_impl : public Entity_object_impl, public Index {
+/// see sql/dd/impl/types/index_impl.h, class Index_impl : public Entity_object_impl, public Index {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataDictIndex {
     pub ordinal_position: u32,
@@ -529,6 +531,7 @@ pub struct DataDictIndex {
     extra: HashMap<String, Value>,
 }
 
+/// Data Dictionary Index Elements
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct DataDictIndexElement {
     pub ordinal_position: u32,
