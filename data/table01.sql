@@ -11,7 +11,9 @@ insert into
 values
   (1, 'b', '1', null);
 
-alter table datetime01 add column c5 datetime;
+-- alter table datetime01 add column c5 datetime, algorithm=instant;
+-- alter table datetime01 add column c5 datetime, algorithm=copy;
+alter table datetime01 add column c5 datetime; -- default: algorithm=instant
 
 insert into
   datetime01(c1, c2, c3, c4, c5)
