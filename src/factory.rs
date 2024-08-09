@@ -441,7 +441,8 @@ mod factory_tests_run {
     };
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    const IBD_FILE: &str = "/opt/mysql/data/rtc/test01.ibd";
+    // const IBD_FILE: &str = "/opt/mysql/data/rtc/tb_row_version.ibd";
+    const IBD_FILE: &str = "./data/tb_row_version_1.ibd";
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {
@@ -603,7 +604,7 @@ mod factory_tests_run {
         Ok(())
     }
 
-    // #[test]
+    #[test]
     fn unpack_5th_index_page() -> Result<(), Error> {
         util::init_unit_test();
 
@@ -612,7 +613,7 @@ mod factory_tests_run {
         info!("{:?}", ans);
         assert!(ans.is_ok());
 
-        for (ith, tuple) in ans.unwrap().tuples[..5].iter().enumerate() {
+        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
             info!("[{}]=> {:?}", ith.to_string().green(), tuple);
         }
 

@@ -726,9 +726,9 @@ impl IndexPageBody {
             return Err(Error::msg(format!("不支持解析 INSTANT 标记的记录: {:?}", &rec_hdr)));
         }
 
-        if rec_hdr.is_version() {
-            return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
-        }
+        // if rec_hdr.is_version() {
+        //     return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
+        // }
 
         // Row Info: depends on table definition
         let row_info = RowInfo::new(&rec_hdr, tabdef.clone(), idxdef);

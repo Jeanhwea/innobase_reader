@@ -180,7 +180,7 @@ pub struct RowInfo {
     pub nil_area: Bytes,
 
     /// Row version
-    pub row_version: Option<u8>, // instant add/drop column
+    pub row_version: u8, // instant add/drop column
 
     /// Calculated dynamic info
     pub dyn_info: Vec<DynamicInfo>,
@@ -191,12 +191,12 @@ pub struct RowInfo {
 impl RowInfo {
     pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
         let buf = rec_hdr.buf.clone();
-        let rv = if rec_hdr.is_version() {
-            Some(buf[rec_hdr.addr - 1])
-        } else {
-            None
-        };
-        let nil_area_beg = rec_hdr.addr + if rv.is_some() { 1 } else { 0 };
+
+        // Handle the row version
+        let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
+        let nil_area_beg = rec_hdr.addr + if rec_hdr.is_version() { 1 } else { 0 };
+
+        // Handle nil_area/var_area pointer
         let nilptr = nil_area_beg;
         let mut varptr = nil_area_beg - idxdef.nil_area_size;
 
@@ -265,7 +265,7 @@ impl RowInfo {
         Self {
             dyn_info: row_dyn_info,
             table_def: tabdef.clone(),
-            row_version: rv,
+            row_version: row_ver,
             nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
             var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
             buf: buf.clone(),
@@ -318,16 +318,40 @@ pub struct Record {
 
 impl Record {
     pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
+        let tabdef = row_info.table_def.clone();
         let mut dataptr = addr;
         for e in &row_info.dyn_info {
-            if e.2 .0 {
-                row.data_list.push(RowDatum(e.4, 0, None, e.3.clone()));
-            } else {
-                let len = e.1;
-                let rbuf = buf.slice(dataptr..dataptr + len);
-                row.data_list.push(RowDatum(e.4, len, Some(rbuf), e.3.clone()));
-                dataptr += len;
+            let col = &tabdef.col_defs[e.4];
+
+            // Ignore all the columns value with VERSION_DROPPED > 0
+            if let Some(drop_ver) = col.version_dropped {
+                if drop_ver > 0 {
+                    continue;
+                }
             }
+
+            let mut rlen = 0; // row length
+            let mut rbuf = None; // row buffer
+
+            // Use default value for columns with VERSION_ADDED > ROW_VERSION
+            if let Some(add_ver) = col.version_added {
+                if add_ver > row_info.row_version as u32 {
+                    rbuf = col.default.clone();
+                    rlen = match &rbuf {
+                        None => 0,
+                        Some(b) => b.len(),
+                    }
+                }
+            } else {
+                let isnull = e.2 .0;
+                if !isnull {
+                    rlen = e.1;
+                    rbuf = Some(buf.slice(dataptr..dataptr + rlen));
+                    dataptr += rlen;
+                }
+            }
+
+            row.data_list.push(RowDatum(e.4, rlen, rbuf, col.col_name.clone()));
         }
 
         Self {
