@@ -283,8 +283,15 @@ mod factory_tests {
         util,
     };
 
+    // employee schema
     const IBD_DEPT: &str = "data/departments.ibd";
     const IBD_DEPT_MGR: &str = "data/dept_manager.ibd";
+
+    // tb_row_version.sql
+    const IBD_RV_0: &str = "data/tb_row_version_0.ibd";
+    const IBD_RV_1: &str = "data/tb_row_version_1.ibd";
+    const IBD_RV_2: &str = "data/tb_row_version_2.ibd";
+    const IBD_RV_3: &str = "data/tb_row_version_3.ibd";
     const IBD_RV_4: &str = "data/tb_row_version_4.ibd";
 
     #[test]
@@ -309,14 +316,18 @@ mod factory_tests {
     }
 
     #[test]
-    fn load_table_def() -> Result<(), Error> {
+    fn table_revision_01() -> Result<(), Error> {
         util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_4))?;
-        let ans = fact.load_table_def();
-        assert!(ans.is_ok());
+        let mut fact0 = DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?;
+        let ret01 = fact0.load_table_def();
+        assert!(ret01.is_ok());
 
-        let tabdef = ans.unwrap();
-        info!("tabdef={:#?}", tabdef);
+        let ret02 = ret01.unwrap();
+        let cols = &ret02.col_defs;
+        assert_eq!(cols[0].col_name, "c1");
+        for col in cols {
+            info!("{:?}", col);
+        }
 
         Ok(())
     }
