@@ -321,7 +321,17 @@ impl Record {
         let tabdef = row_info.table_def.clone();
         let mut dataptr = addr;
         for e in &row_info.dyn_info {
+            let mut rlen = 0; // row length
+            let mut rbuf = None; // row buffer
+
+            // Common parse columns
             let col = &tabdef.col_defs[e.4];
+            let isnull = e.2 .0;
+            if !isnull {
+                rlen = e.1;
+                rbuf = Some(buf.slice(dataptr..dataptr + rlen));
+                dataptr += rlen;
+            }
 
             // Ignore all the columns value with VERSION_DROPPED > 0
             if let Some(drop_ver) = col.version_dropped {
@@ -329,9 +339,6 @@ impl Record {
                     continue;
                 }
             }
-
-            let mut rlen = 0; // row length
-            let mut rbuf = None; // row buffer
 
             // Use default value for columns with VERSION_ADDED > ROW_VERSION
             if let Some(add_ver) = col.version_added {
@@ -341,13 +348,6 @@ impl Record {
                         None => 0,
                         Some(b) => b.len(),
                     }
-                }
-            } else {
-                let isnull = e.2 .0;
-                if !isnull {
-                    rlen = e.1;
-                    rbuf = Some(buf.slice(dataptr..dataptr + rlen));
-                    dataptr += rlen;
                 }
             }
 
