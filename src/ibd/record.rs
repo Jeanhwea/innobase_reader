@@ -340,7 +340,7 @@ impl Record {
 
             // Use default value for columns with VERSION_ADDED > ROW_VERSION
             if col.version_added > row_info.row_version as u32 {
-                rbuf = col.default.clone();
+                rbuf = col.defval.clone();
                 rlen = match &rbuf {
                     None => 0,
                     Some(b) => b.len(),
