@@ -325,6 +325,8 @@ mod factory_tests {
         let ret02 = ret01.unwrap();
         let cols = &ret02.col_defs;
         assert_eq!(cols[0].col_name, "c1");
+        assert_eq!(cols[0].default, None);
+        assert_eq!(cols[0].default_null, None);
         for col in cols {
             info!("{:?}", col);
         }
