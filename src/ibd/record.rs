@@ -194,11 +194,14 @@ impl RowInfo {
 
         // Handle the row version
         let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
-        let nil_area_beg = rec_hdr.addr + if rec_hdr.is_version() { 1 } else { 0 };
+        let area_beg = rec_hdr.addr + if rec_hdr.is_version() { 1 } else { 0 };
 
         // Handle nil_area/var_area pointer
-        let nilptr = nil_area_beg;
-        let mut varptr = nil_area_beg - idxdef.nil_area_size;
+        let nilptr = area_beg;
+        let mut varptr = area_beg - idxdef.nil_area_size;
+
+        let cols = &tabdef.clone().col_defs;
+        let has_physical_pos = cols.iter().any(|c| c.phy_pos >= 0);
 
         let row_dyn_info = idxdef
             .elements
@@ -269,7 +272,7 @@ impl RowInfo {
             nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
             var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
             buf: buf.clone(),
-            addr: nil_area_beg - (nilptr - varptr),
+            addr: area_beg - (nilptr - varptr),
         }
     }
 }

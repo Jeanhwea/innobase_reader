@@ -610,7 +610,7 @@ mod factory_tests_run {
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let ans = fact.unpack_index_page(4, false);
-        info!("{:?}", ans);
+        info!("{:?}", ans.as_ref().unwrap().tabdef.col_defs);
         assert!(ans.is_ok());
 
         for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {

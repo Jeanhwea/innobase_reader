@@ -690,7 +690,7 @@ impl IndexPageBody {
             records.push(rec);
         }
 
-        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "记录地址 rec_addr 应该到达上确界");
         Ok(records)
     }
 
