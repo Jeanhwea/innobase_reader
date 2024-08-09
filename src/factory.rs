@@ -275,6 +275,7 @@ mod factory_tests {
     use std::path::PathBuf;
 
     use anyhow::Error;
+    use bytes::Bytes;
     use log::{debug, info};
 
     use crate::{
@@ -318,18 +319,43 @@ mod factory_tests {
     #[test]
     fn table_revision_01() -> Result<(), Error> {
         util::init_unit_test();
-        let mut fact0 = DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?;
-        let ret01 = fact0.load_table_def();
-        assert!(ret01.is_ok());
 
-        let ret02 = ret01.unwrap();
-        let cols = &ret02.col_defs;
-        assert_eq!(cols[0].col_name, "c1");
-        assert_eq!(cols[0].default, None);
-        assert_eq!(cols[0].default_null, None);
-        for col in cols {
-            info!("{:?}", col);
-        }
+        // Initial 0: columns [c1, c2, c3, c4]
+        let rv0 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv0[0].col_name, "c1");
+        assert_eq!(rv0[0].default, None);
+        assert_eq!(rv0[3].col_name, "c4");
+        assert_eq!(rv0[3].default, None);
+
+        // Revision 1: add c5, columns [c1, c2, c3, c4, c5]
+        let rv1 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_1))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv1[0].col_name, "c1");
+        assert_eq!(rv1[0].default, None);
+        assert_eq!(rv1[3].col_name, "c4");
+        assert_eq!(rv1[3].default, None);
+        assert_eq!(rv1[4].col_name, "c5");
+        assert_eq!(rv1[4].version_added, Some(1));
+        assert_eq!(rv1[4].default, Some(Bytes::from("c5_def    ")));
+
+        // Revision 2: drop c3, columns [c1, c2, c4, c5]
+        let rv2 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_3))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv2[0].col_name, "c1");
+        assert_eq!(rv2[0].default, None);
+        assert_eq!(rv2[2].col_name, "c4");
+        assert_eq!(rv2[2].default, None);
+        assert_eq!(rv2[3].col_name, "c5");
+        assert_eq!(rv2[3].version_added, Some(1));
+        assert_eq!(rv2[3].default, Some(Bytes::from("c5_def    ")));
+        assert!(rv2[7].col_name.ends_with("c3"));
+        assert_eq!(rv2[7].version_added, None);
+        assert_eq!(rv2[7].version_dropped, Some(2));
+        assert_eq!(rv2[7].default, None);
 
         Ok(())
     }

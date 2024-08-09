@@ -39,13 +39,22 @@ pub struct ColumnDef {
     pub version_added: Option<u32>,   // which version this column was added
     pub version_dropped: Option<u32>, // which version this column waw dropped
     pub default: Option<Bytes>,       // default value in se_private_data
-    pub default_null: bool,           // default_null option in se_private_data
+                                      // pub default_null: bool,           // default_null option in se_private_data
 }
 
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         let coll = coll_find(ddc.collation_id);
         let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
+        let default_null = priv_data.get("default_null").map(|v| v == "1").unwrap_or(false);
+        let defval = if !default_null {
+            priv_data
+                .get("default")
+                .map(|v| conv_strdata_to_bytes(v))
+                .unwrap_or(None)
+        } else {
+            None
+        };
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
@@ -87,12 +96,7 @@ impl ColumnDef {
             utf8_def: ddc.column_type_utf8.clone(),
             version_added: priv_data.get("version_added").map(|v| v.parse::<u32>().unwrap_or(0)),
             version_dropped: priv_data.get("version_dropped").map(|v| v.parse::<u32>().unwrap_or(0)),
-            default: priv_data
-                .get("default")
-                .map(|v| conv_strdata_to_bytes(v))
-                .unwrap_or(None),
-            default_null: priv_data.get("default_null").map(|v| v == "1").unwrap_or(false),
-            ..ColumnDef::default()
+            default: defval,
         }
     }
 }
