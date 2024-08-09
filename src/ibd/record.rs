@@ -172,21 +172,33 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// Variadic field size area
     #[derivative(Debug(format_with = "util::fmt_bytes_hex"))]
-    pub var_area: Bytes, // variadic field size area
+    pub var_area: Bytes,
+    /// Nullable field flag area
     #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
-    pub nil_area: Bytes, // nullable field flag area
+    pub nil_area: Bytes,
 
-    // calculated dynamic info
+    /// Row version
+    pub row_version: Option<u8>, // instant add/drop column
+
+    /// Calculated dynamic info
     pub dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
 }
 
 impl RowInfo {
-    pub fn new(rec_hdr_addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
-        let nilptr = rec_hdr_addr;
-        let mut varptr = rec_hdr_addr - idxdef.nil_area_size;
+    pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
+        let buf = rec_hdr.buf.clone();
+        let rv = if rec_hdr.is_version() {
+            Some(buf[rec_hdr.addr - 1])
+        } else {
+            None
+        };
+        let nil_area_beg = rec_hdr.addr + if rv.is_some() { 1 } else { 0 };
+        let nilptr = nil_area_beg;
+        let mut varptr = nil_area_beg - idxdef.nil_area_size;
 
         let row_dyn_info = idxdef
             .elements
@@ -253,10 +265,11 @@ impl RowInfo {
         Self {
             dyn_info: row_dyn_info,
             table_def: tabdef.clone(),
+            row_version: rv,
             nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
             var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
             buf: buf.clone(),
-            addr: rec_hdr_addr - (nilptr - varptr),
+            addr: nil_area_beg - (nilptr - varptr),
         }
     }
 }

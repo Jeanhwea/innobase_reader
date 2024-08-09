@@ -730,10 +730,10 @@ impl IndexPageBody {
             return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
         }
 
-        // Row Info
-        let row_info = RowInfo::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone(), tabdef.clone(), idxdef);
+        // Row Info: depends on table definition
+        let row_info = RowInfo::new(&rec_hdr, tabdef.clone(), idxdef);
 
-        // Row Data
+        // Row Data: depends on table definition for unpack row
         let row = Row::new(rec_addr, self.buf.clone(), tabdef.clone());
 
         let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row);

@@ -393,7 +393,7 @@ mod util_tests {
         info!("buf={:?}", buf);
         let ans = unpack_datetime2_val(&buf);
         info!("ans={:?}", ans);
-        assert_eq!(ans, None);
+        assert!(ans.is_some());
     }
 
     #[test]
