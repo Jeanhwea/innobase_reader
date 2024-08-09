@@ -10,7 +10,7 @@ use strum::{Display, EnumString};
 
 use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
 use crate::{
-    ibd::record::{RecordHeader, Row, RowInfo},
+    ibd::record::{RecordHeader, RowData, RowInfo},
     meta::def::TableDef,
     util,
 };
@@ -731,13 +731,12 @@ impl IndexPageBody {
         // }
 
         // Row Info: depends on table definition
-        let mut row_info = RowInfo::new(&rec_hdr, tabdef.clone(), index_pos);
-        let dyn_info = row_info.prepare()?;
+        let row_info = Arc::new(RowInfo::new(&rec_hdr, tabdef.clone(), index_pos));
 
         // Row Data: depends on table definition for unpack row
-        let row = Row::new(rec_addr, self.buf.clone(), tabdef.clone(), dyn_info);
+        let row = RowData::new(rec_addr, self.buf.clone(), row_info.clone());
 
-        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row);
+        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info.clone(), row);
 
         Ok(rec)
     }

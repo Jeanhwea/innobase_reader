@@ -435,7 +435,7 @@ mod factory_tests_run {
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
     // const IBD_FILE: &str = "/opt/mysql/data/rtc/tb_row_version.ibd";
-    const IBD_FILE: &str = "./data/tb_row_version_1.ibd";
+    const IBD_FILE: &str = "./data/tb_row_version_4.ibd";
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {
@@ -603,8 +603,27 @@ mod factory_tests_run {
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let ans = fact.unpack_index_page(4, false);
-        info!("{:?}", ans.as_ref().unwrap().tabdef.col_defs);
         assert!(ans.is_ok());
+        for (i, col) in ans.as_ref().unwrap().tabdef.col_defs.iter().enumerate() {
+            info!(
+                "col(pos={};phy={}) => {} {}",
+                i,
+                &col.phy_pos,
+                &col.col_name.magenta(),
+                &col.utf8_def.green(),
+            );
+        }
+        let cols = &ans.as_ref().unwrap().tabdef.col_defs;
+        for (i, ele) in ans.as_ref().unwrap().tabdef.idx_defs[0].elements.iter().enumerate() {
+            let ref_col = &cols[ele.column_opx];
+            info!(
+                "idx(pos={};phy={}) => {} {}",
+                i,
+                ref_col.phy_pos,
+                &ele.col_name.magenta(),
+                &ele.utf8_def.green(),
+            );
+        }
 
         for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
             info!("[{}]=> {:?}", ith.to_string().green(), tuple);

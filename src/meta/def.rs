@@ -119,9 +119,9 @@ pub struct IndexDef {
     pub idx_name: String,               // index name
     pub idx_id: u64,                    // index id
     pub hidden: bool,                   // hidden
-    pub comment: String,                // Comment
     pub idx_type: IndexTypes,           // index type
     pub algorithm: IndexAlgorithm,      // index algorithm
+    pub comment: String,                // Comment
     pub elements: Vec<IndexElementDef>, // index elememts
 }
 
@@ -134,9 +134,9 @@ impl IndexDef {
             idx_name: ddi.name.clone(),
             idx_id: id,
             hidden: ddi.hidden,
-            comment: ddi.comment.clone(),
             idx_type: ddi.idx_type.clone(),
             algorithm: ddi.algorithm.clone(),
+            comment: ddi.comment.clone(),
             elements: ele_defs,
         }
     }
@@ -144,33 +144,31 @@ impl IndexDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct IndexElementDef {
+    pub col_name: String,  // referenced column name
+    pub utf8_def: String,  // utf8 column definition
     pub pos: usize,        // ordinal position
     pub ele_len: i32,      // element length
     pub order: IndexOrder, // order, ASC/DESC
     pub hidden: bool,      // hidden
     /// see write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
     pub column_opx: usize, // opx: ordinal position index
-    pub col_name: String,  // referenced column name
     pub col_hidden: HiddenTypes, // hidden type
     pub data_len: u32,     // data length
-    pub isnil: bool,       // is nullable field
-    pub isvar: bool,       // is variadic field
 }
 
 impl IndexElementDef {
     pub fn from(ele: &DataDictIndexElement, col: &ColumnDef) -> Self {
         let len = ele.length as i32;
         Self {
+            col_name: col.col_name.clone(),
+            utf8_def: col.utf8_def.clone(),
             pos: ele.ordinal_position as usize,
             ele_len: len,
             order: ele.order,
             hidden: ele.hidden,
             column_opx: ele.column_opx as usize,
-            col_name: col.col_name.clone(),
             col_hidden: col.hidden.clone(),
             data_len: col.data_len,
-            isnil: col.isnil,
-            isvar: col.isvar,
         }
     }
 }

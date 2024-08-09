@@ -1,9 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use anyhow::Error;
 use bytes::Bytes;
+use colored::Colorize;
 use derivative::Derivative;
-use log::debug;
+use log::{debug, info};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -145,6 +149,22 @@ impl RecordHeader {
 #[derive(Debug, Clone)]
 pub struct IsNull(bool);
 
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct FieldMeta {
+    pub opx: usize,    // column opx
+    pub null: bool,    // is null value
+    pub offset: usize, // page offset
+    pub length: usize, // row length
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct FieldDatum {
+    pub opx: usize,         // column opx
+    pub buf: Option<Bytes>, // row length
+}
+
 /// Row Dynamic Information, (pos, len, isnull, name)
 ///   1. pos: index element ordinal position
 ///   2. len: row data length
@@ -191,9 +211,36 @@ pub struct RowInfo {
 }
 
 impl RowInfo {
-    pub fn prepare(&mut self) -> Result<Vec<DynamicInfo>, Error> {
-        let dyn_info = Vec::new();
-        Ok(dyn_info)
+    pub fn prepare(&self) -> Result<Vec<FieldMeta>, Error> {
+        let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
+        let cols = &self.table_def.clone().col_defs;
+        let phy_layout = if self.row_version > 0 {
+            cols.iter()
+                .enumerate()
+                .map(|(i, c)| (c.phy_pos as usize, i))
+                .collect::<BTreeMap<usize, usize>>()
+        } else {
+            eles.iter()
+                .enumerate()
+                .map(|(i, e)| (i, e.column_opx))
+                .collect::<BTreeMap<usize, usize>>()
+        };
+        info!("row_version={}, phy_layout={:?}", self.row_version, &phy_layout);
+        for (phy_pos, col_pos) in phy_layout {
+            let c = &cols[col_pos];
+            info!(
+                "layout[{}]={}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
+                phy_pos,
+                c.col_name.magenta(),
+                c.phy_pos,
+                self.row_version,
+                c.version_added,
+                c.version_dropped
+            );
+        }
+
+        let row_meta_list = Vec::new();
+        Ok(row_meta_list)
     }
 
     pub fn get_vfld_len(&mut self, data_len: u32, varptr: usize) -> Result<usize, Error> {
@@ -230,7 +277,6 @@ impl RowInfo {
 
     pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, index_pos: usize) -> Self {
         let buf = rec_hdr.buf.clone();
-        let idxdef = &tabdef.clone().idx_defs[index_pos];
 
         // Handle the row version
         let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
@@ -318,30 +364,32 @@ impl RowInfo {
 }
 
 /// Row data
-#[derive(Clone, Derivative, Default)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct Row {
+pub struct RowData {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Calculated dynamic info
-    pub dyn_info: Vec<DynamicInfo>,
-    /// row data list
+    /// Row Info
+    pub row_info: Arc<RowInfo>,
+    /// Row metadata list
+    pub meta_list: Vec<FieldMeta>,
+    /// Row data list
     pub data_list: Vec<RowDatum>,
-    #[derivative(Debug = "ignore")]
-    pub table_def: Arc<TableDef>,
 }
 
-impl Row {
-    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, dyn_info: Vec<DynamicInfo>) -> Self {
+impl RowData {
+    pub fn new(addr: usize, buf: Arc<Bytes>, row_info: Arc<RowInfo>) -> Self {
+        let field_meta_list = row_info.prepare().unwrap();
+        let field_data_list = Vec::new();
         Self {
-            table_def: tabdef,
-            dyn_info,
             buf: buf.clone(),
             addr,
-            ..Row::default()
+            row_info: row_info.clone(),
+            meta_list: field_meta_list,
+            data_list: field_data_list,
         }
     }
 }
@@ -356,49 +404,47 @@ pub struct Record {
     pub buf: Arc<Bytes>, // page data buffer
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub row_info: RowInfo, // row information
+    pub row_info: Arc<RowInfo>, // row information
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub rec_hdr: RecordHeader, // record header
-    pub row_data: Row, // row data
+    pub row_data: RowData, // row data
 }
 
 impl Record {
-    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
-        let tabdef = row_info.table_def.clone();
-        let mut dataptr = addr;
-        for e in &row.dyn_info {
-            let mut rlen = 0; // row length
-            let mut rbuf = None; // row buffer
-
-            // Common parse columns
-            let col = &tabdef.col_defs[e.4];
-            let isnull = e.2 .0;
-            if !isnull {
-                rlen = e.1;
-                rbuf = Some(buf.slice(dataptr..dataptr + rlen));
-                dataptr += rlen;
-            }
-
-            // Ignore all the columns value with VERSION_DROPPED > 0
-            if col.version_dropped > 0 {
-                continue;
-            }
-
-            // Use default value for columns with VERSION_ADDED > ROW_VERSION
-            if col.version_added > row_info.row_version as u32 {
-                rbuf = col.defval.clone();
-                rlen = match &rbuf {
-                    None => 0,
-                    Some(b) => b.len(),
-                }
-            }
-
-            row.data_list.push(RowDatum(e.4, rlen, rbuf, col.col_name.clone()));
-        }
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: Arc<RowInfo>, row: RowData) -> Self {
+        // for e in &row.dyn_info {
+        //     let mut rlen = 0; // row length
+        //     let mut rbuf = None; // row buffer
+        //
+        //     // Common parse columns
+        //     let col = &tabdef.col_defs[e.4];
+        //     let isnull = e.2 .0;
+        //     if !isnull {
+        //         rlen = e.1;
+        //         rbuf = Some(buf.slice(dataptr..dataptr + rlen));
+        //         dataptr += rlen;
+        //     }
+        //
+        //     // Ignore all the columns value with VERSION_DROPPED > 0
+        //     if col.version_dropped > 0 {
+        //         continue;
+        //     }
+        //
+        //     // Use default value for columns with VERSION_ADDED > ROW_VERSION
+        //     if col.version_added > row_info.row_version as u32 {
+        //         rbuf = col.defval.clone();
+        //         rlen = match &rbuf {
+        //             None => 0,
+        //             Some(b) => b.len(),
+        //         }
+        //     }
+        //
+        //     row.data_list.push(RowDatum(e.4, rlen, rbuf, col.col_name.clone()));
+        // }
 
         Self {
             rec_hdr: hdr,
-            row_info,
+            row_info: row_info.clone(),
             row_data: row,
             buf: buf.clone(),
             addr,
