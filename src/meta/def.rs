@@ -23,23 +23,23 @@ pub struct TableDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub pos: usize,                   // ordinal position
-    pub col_name: String,             // column name
-    pub data_len: u32,                // data length in bytes
-    pub isnil: bool,                  // is nullable field
-    pub isvar: bool,                  // is variadic field
-    pub dd_type: ColumnTypes,         // data dictionary type
-    pub hidden: HiddenTypes,          // hidden type
-    pub col_key: ColumnKeys,          // column key type
-    pub utf8_def: String,             // utf8 column definition
-    pub comment: String,              // Comment
-    pub collation_id: u32,            // collation
-    pub collation: String,            // collation name
-    pub charset: String,              // character set name
-    pub version_added: Option<u32>,   // which version this column was added
-    pub version_dropped: Option<u32>, // which version this column waw dropped
-    pub default: Option<Bytes>,       // default value in se_private_data
-                                      // pub default_null: bool,           // default_null option in se_private_data
+    pub pos: usize,             // ordinal position
+    pub col_name: String,       // column name
+    pub data_len: u32,          // data length in bytes
+    pub isnil: bool,            // is nullable field
+    pub isvar: bool,            // is variadic field
+    pub dd_type: ColumnTypes,   // data dictionary type
+    pub hidden: HiddenTypes,    // hidden type
+    pub col_key: ColumnKeys,    // column key type
+    pub utf8_def: String,       // utf8 column definition
+    pub comment: String,        // Comment
+    pub collation_id: u32,      // collation
+    pub collation: String,      // collation name
+    pub charset: String,        // character set name
+    pub physical_pos: usize,    // physical position
+    pub version_added: u32,     // which version this column was added
+    pub version_dropped: u32,   // which version this column waw dropped
+    pub default: Option<Bytes>, // default value in se_private_data
 }
 
 impl ColumnDef {
@@ -47,6 +47,7 @@ impl ColumnDef {
         let coll = coll_find(ddc.collation_id);
         let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
         let default_null = priv_data.get("default_null").map(|v| v == "1").unwrap_or(false);
+
         let defval = if !default_null {
             priv_data
                 .get("default")
@@ -55,6 +56,7 @@ impl ColumnDef {
         } else {
             None
         };
+
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
@@ -94,8 +96,18 @@ impl ColumnDef {
             charset: coll.charset.into(),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
-            version_added: priv_data.get("version_added").map(|v| v.parse::<u32>().unwrap_or(0)),
-            version_dropped: priv_data.get("version_dropped").map(|v| v.parse::<u32>().unwrap_or(0)),
+            physical_pos: priv_data
+                .get("physical_pos")
+                .map(|v| v.parse::<usize>().unwrap_or(0))
+                .unwrap_or_else(|| panic!("物理位置没有找到: se_private_data={:?}", &ddc.se_private_data)),
+            version_added: priv_data
+                .get("version_added")
+                .map(|v| v.parse::<u32>().unwrap_or(0))
+                .unwrap_or(0),
+            version_dropped: priv_data
+                .get("version_dropped")
+                .map(|v| v.parse::<u32>().unwrap_or(0))
+                .unwrap_or(0),
             default: defval,
         }
     }

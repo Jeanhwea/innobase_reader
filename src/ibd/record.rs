@@ -334,20 +334,16 @@ impl Record {
             }
 
             // Ignore all the columns value with VERSION_DROPPED > 0
-            if let Some(drop_ver) = col.version_dropped {
-                if drop_ver > 0 {
-                    continue;
-                }
+            if col.version_dropped > 0 {
+                continue;
             }
 
             // Use default value for columns with VERSION_ADDED > ROW_VERSION
-            if let Some(add_ver) = col.version_added {
-                if add_ver > row_info.row_version as u32 {
-                    rbuf = col.default.clone();
-                    rlen = match &rbuf {
-                        None => 0,
-                        Some(b) => b.len(),
-                    }
+            if col.version_added > row_info.row_version as u32 {
+                rbuf = col.default.clone();
+                rlen = match &rbuf {
+                    None => 0,
+                    Some(b) => b.len(),
                 }
             }
 

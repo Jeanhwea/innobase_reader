@@ -338,7 +338,7 @@ mod factory_tests {
         assert_eq!(rv1[3].col_name, "c4");
         assert_eq!(rv1[3].default, None);
         assert_eq!(rv1[4].col_name, "c5");
-        assert_eq!(rv1[4].version_added, Some(1));
+        assert_eq!(rv1[4].version_added, 1);
         assert_eq!(rv1[4].default, Some(Bytes::from("c5_def    ")));
 
         // Revision 2: drop c3, columns [c1, c2, c4, c5]
@@ -350,11 +350,11 @@ mod factory_tests {
         assert_eq!(rv2[2].col_name, "c4");
         assert_eq!(rv2[2].default, None);
         assert_eq!(rv2[3].col_name, "c5");
-        assert_eq!(rv2[3].version_added, Some(1));
+        assert_eq!(rv2[3].version_added, 1);
         assert_eq!(rv2[3].default, Some(Bytes::from("c5_def    ")));
         assert!(rv2[7].col_name.ends_with("c3"));
-        assert_eq!(rv2[7].version_added, None);
-        assert_eq!(rv2[7].version_dropped, Some(2));
+        assert_eq!(rv2[7].version_added, 0);
+        assert_eq!(rv2[7].version_dropped, 2);
         assert_eq!(rv2[7].default, None);
 
         Ok(())
