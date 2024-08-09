@@ -123,11 +123,10 @@ pub struct IndexDef {
     pub idx_type: IndexTypes,           // index type
     pub algorithm: IndexAlgorithm,      // index algorithm
     pub elements: Vec<IndexElementDef>, // index elememts
-    pub nil_area_size: usize,           // nullable flag size
 }
 
 impl IndexDef {
-    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>, nil_size: usize) -> Self {
+    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>) -> Self {
         let priv_data = util::conv_strdata_to_map(&ddi.se_private_data);
         let id: u64 = priv_data["id"].parse().unwrap_or(0);
         Self {
@@ -139,7 +138,6 @@ impl IndexDef {
             idx_type: ddi.idx_type.clone(),
             algorithm: ddi.algorithm.clone(),
             elements: ele_defs,
-            nil_area_size: nil_size,
         }
     }
 }
@@ -157,7 +155,6 @@ pub struct IndexElementDef {
     pub data_len: u32,     // data length
     pub isnil: bool,       // is nullable field
     pub isvar: bool,       // is variadic field
-    pub null_offset: usize, // nullable offset
 }
 
 impl IndexElementDef {
@@ -174,7 +171,6 @@ impl IndexElementDef {
             data_len: col.data_len,
             isnil: col.isnil,
             isvar: col.isvar,
-            ..IndexElementDef::default()
         }
     }
 }

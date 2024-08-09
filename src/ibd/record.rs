@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Error;
 use bytes::Bytes;
 use derivative::Derivative;
 use log::debug;
@@ -11,7 +12,7 @@ use strum::{Display, EnumString};
 
 use crate::{
     ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
-    meta::def::{IndexDef, TableDef},
+    meta::def::TableDef,
     util,
 };
 
@@ -172,107 +173,146 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Variadic field size area
-    #[derivative(Debug(format_with = "util::fmt_bytes_hex"))]
-    pub var_area: Bytes,
-    /// Nullable field flag area
-    #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
-    pub nil_area: Bytes,
+    // /// Variadic field size area
+    // #[derivative(Debug(format_with = "util::fmt_bytes_hex"))]
+    // pub var_area: Bytes,
+    // /// Nullable field flag area
+    // #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
+    // pub nil_area: Bytes,
+    pub nilptr: usize,
+    pub varptr: usize,
 
     /// Row version
     pub row_version: u8, // instant add/drop column
 
-    /// Calculated dynamic info
-    pub dyn_info: Vec<DynamicInfo>,
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
+    pub index_pos: usize, // &tabdef.clone().idx_defs[index_pos]
 }
 
 impl RowInfo {
-    pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Self {
+    pub fn prepare(&mut self) -> Result<Vec<DynamicInfo>, Error> {
+        let dyn_info = Vec::new();
+        Ok(dyn_info)
+    }
+
+    pub fn get_vfld_len(&mut self, data_len: u32, varptr: usize) -> Result<usize, Error> {
+        // see function in mysql-server source code
+        // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+        //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+        // }
+        let vfld_bytes = if data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+            2
+        } else {
+            1
+        };
+
+        let vlen = match vfld_bytes {
+            1 => {
+                let b0 = self.buf[varptr - 1] as usize;
+                b0
+            }
+            2 => {
+                let b0 = self.buf[varptr - 1] as usize;
+                if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
+                    let b1 = self.buf[varptr - 2] as usize;
+                    // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
+                    b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
+                } else {
+                    b0
+                }
+            }
+            _ => panic!("ERR_PROCESS_VAR_FILED_BYTES"),
+        };
+
+        Ok(vlen)
+    }
+
+    pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, index_pos: usize) -> Self {
         let buf = rec_hdr.buf.clone();
+        let idxdef = &tabdef.clone().idx_defs[index_pos];
 
         // Handle the row version
         let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
         let area_beg = rec_hdr.addr + if rec_hdr.is_version() { 1 } else { 0 };
 
         // Handle nil_area/var_area pointer
-        let nilptr = area_beg;
-        let mut varptr = area_beg - idxdef.nil_area_size;
+        // let nilptr = area_beg;
+        // let mut varptr = area_beg - idxdef.nil_area_size;
 
-        let cols = &tabdef.clone().col_defs;
-        let has_physical_pos = cols.iter().any(|c| c.phy_pos >= 0);
+        // let cols = &tabdef.clone().col_defs;
+        // let has_physical_pos = cols.iter().any(|c| c.phy_pos >= 0);
 
-        let row_dyn_info = idxdef
-            .elements
-            .iter()
-            .map(|e| {
-                // debug!("nilptr={}, varptr={}", nilptr, varptr);
-                let isnull = if e.isnil {
-                    let null_pos = util::numpos(e.null_offset);
-                    let null_mask = 1 << util::numoff(e.null_offset);
-                    let null_flag = buf[nilptr - null_pos - 1];
-                    (null_flag & null_mask) > 0
-                } else {
-                    false
-                };
+        // let row_dyn_info = idxdef
+        //     .elements
+        //     .iter()
+        //     .map(|e| {
+        //         // debug!("nilptr={}, varptr={}", nilptr, varptr);
+        //         let isnull = if e.isnil {
+        //             let null_pos = util::numpos(e.null_offset);
+        //             let null_mask = 1 << util::numoff(e.null_offset);
+        //             let null_flag = buf[nilptr - null_pos - 1];
+        //             (null_flag & null_mask) > 0
+        //         } else {
+        //             false
+        //         };
 
-                if isnull {
-                    DynamicInfo(e.pos, 0, IsNull(isnull), e.col_name.clone(), e.column_opx)
-                } else if !e.isvar {
-                    DynamicInfo(
-                        e.pos,
-                        e.data_len as usize,
-                        IsNull(isnull),
-                        e.col_name.clone(),
-                        e.column_opx,
-                    )
-                } else {
-                    // see function in mysql-server source code
-                    // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
-                    //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
-                    // }
-                    let vfld_bytes = if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
-                        2
-                    } else {
-                        1
-                    };
+        //         if isnull {
+        //             DynamicInfo(e.pos, 0, IsNull(isnull), e.col_name.clone(), e.column_opx)
+        //         } else if !e.isvar {
+        //             DynamicInfo(
+        //                 e.pos,
+        //                 e.data_len as usize,
+        //                 IsNull(isnull),
+        //                 e.col_name.clone(),
+        //                 e.column_opx,
+        //             )
+        //         } else {
+        //             // see function in mysql-server source code
+        //             // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+        //             //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+        //             // }
+        //             let vfld_bytes = if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+        //                 2
+        //             } else {
+        //                 1
+        //             };
 
-                    let vlen = match vfld_bytes {
-                        1 => {
-                            let b0 = buf[varptr - 1] as usize;
-                            varptr -= 1;
-                            b0
-                        }
-                        2 => {
-                            let b0 = buf[varptr - 1] as usize;
-                            varptr -= 1;
+        //             let vlen = match vfld_bytes {
+        //                 1 => {
+        //                     let b0 = buf[varptr - 1] as usize;
+        //                     varptr -= 1;
+        //                     b0
+        //                 }
+        //                 2 => {
+        //                     let b0 = buf[varptr - 1] as usize;
+        //                     varptr -= 1;
 
-                            if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
-                                let b1 = buf[varptr - 1] as usize;
-                                varptr -= 1;
-                                // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
-                                b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
-                            } else {
-                                b0
-                            }
-                        }
-                        _ => todo!("ERR_PROCESS_VAR_FILED_BYTES: {:?}", e),
-                    };
-                    DynamicInfo(e.pos, vlen, IsNull(isnull), e.col_name.clone(), e.column_opx)
-                }
-            })
-            .collect();
-        debug!("row_dyn_info={:?}", row_dyn_info);
+        //                     if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
+        //                         let b1 = buf[varptr - 1] as usize;
+        //                         varptr -= 1;
+        //                         // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
+        //                         b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
+        //                     } else {
+        //                         b0
+        //                     }
+        //                 }
+        //                 _ => todo!("ERR_PROCESS_VAR_FILED_BYTES: {:?}", e),
+        //             };
+        //             DynamicInfo(e.pos, vlen, IsNull(isnull), e.col_name.clone(), e.column_opx)
+        //         }
+        //     })
+        //     .collect();
+        // debug!("row_dyn_info={:?}", row_dyn_info);
 
         Self {
-            dyn_info: row_dyn_info,
             table_def: tabdef.clone(),
+            index_pos,
+            nilptr: 0,
+            varptr: 0,
             row_version: row_ver,
-            nil_area: buf.clone().slice(nilptr - idxdef.nil_area_size..nilptr),
-            var_area: buf.clone().slice(varptr..nilptr - idxdef.nil_area_size),
             buf: buf.clone(),
-            addr: area_beg - (nilptr - varptr),
+            addr: rec_hdr.addr,
         }
     }
 }
@@ -286,6 +326,8 @@ pub struct Row {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// Calculated dynamic info
+    pub dyn_info: Vec<DynamicInfo>,
     /// row data list
     pub data_list: Vec<RowDatum>,
     #[derivative(Debug = "ignore")]
@@ -293,9 +335,10 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, tabdef: Arc<TableDef>, dyn_info: Vec<DynamicInfo>) -> Self {
         Self {
             table_def: tabdef,
+            dyn_info,
             buf: buf.clone(),
             addr,
             ..Row::default()
@@ -323,7 +366,7 @@ impl Record {
     pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: RowInfo, mut row: Row) -> Self {
         let tabdef = row_info.table_def.clone();
         let mut dataptr = addr;
-        for e in &row_info.dyn_info {
+        for e in &row.dyn_info {
             let mut rlen = 0; // row length
             let mut rbuf = None; // row buffer
 

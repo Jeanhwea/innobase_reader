@@ -155,7 +155,7 @@ impl DatafileFactory {
             .indexes
             .iter()
             .map(|idx| {
-                let mut ele_defs: Vec<IndexElementDef> = idx
+                let ele_defs: Vec<IndexElementDef> = idx
                     .elements
                     .iter()
                     .map(|ele| {
@@ -164,14 +164,7 @@ impl DatafileFactory {
                     })
                     .collect();
 
-                let nullinfo = ele_defs.iter().filter(|e| e.isnil).map(|e| e.pos).collect::<Vec<_>>();
-                debug!("nullinfo={:?}", nullinfo);
-
-                for (off, pos) in nullinfo.iter().enumerate() {
-                    ele_defs[pos - 1].null_offset = off;
-                }
-                let nil_size = util::align8(nullinfo.len());
-                IndexDef::from(idx, ele_defs, nil_size)
+                IndexDef::from(idx, ele_defs)
             })
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
@@ -196,18 +189,18 @@ impl DatafileFactory {
 
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
-        let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
+        let index = match tabdef.idx_defs.iter().enumerate().find(|idx| idx.1.idx_id == index_id) {
+            Some(val) => val,
             None => {
                 return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
             }
-            Some(val) => val,
         };
-        info!("当前页所引用的索引: index_name={}", idxdef.idx_name);
+        info!("当前页所引用的索引: index_name={}", index.1.idx_name);
 
         let rec_list = if garbage {
-            page.page_body.read_free_records(tabdef.clone(), idxdef)?
+            page.page_body.read_free_records(tabdef.clone(), index.0)?
         } else {
-            page.page_body.read_user_records(tabdef.clone(), idxdef)?
+            page.page_body.read_user_records(tabdef.clone(), index.0)?
         };
         debug!("rec_list={:?}", rec_list);
 

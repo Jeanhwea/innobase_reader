@@ -11,10 +11,7 @@ use log::{debug, error, info};
 
 use crate::{
     factory::DatafileFactory,
-    ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE,
-        RECORD_HEADER_SIZE,
-    },
+    ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE},
     Commands,
 };
 
@@ -229,25 +226,25 @@ impl App {
             if verbose {
                 println!("row_info: {:?}", &rec.row_info);
                 println!("rec_hdr : {:?}", &rec.rec_hdr);
-                let mut data_size = 0;
-                for row in &rec.row_data.data_list {
-                    data_size += row.1;
-                }
-                let var_area_size = rec.row_info.var_area.len();
-                let nil_area_size = rec.row_info.nil_area.len();
-                let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
-                let rec_addr = rec.row_data.addr;
-                let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
-                println!(
-                    "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
-                    rec_addr,
-                    rec_addr.to_string().yellow(),
-                    data_size.to_string().magenta(),
-                    var_area_size.to_string().blue(),
-                    nil_area_size.to_string().blue(),
-                    total_size.to_string().green(),
-                    page_offset.to_string().yellow(),
-                );
+                // let mut data_size = 0;
+                // for row in &rec.row_data.data_list {
+                //     data_size += row.1;
+                // }
+                // let var_area_size = rec.row_info.var_area.len();
+                // let nil_area_size = rec.row_info.nil_area.len();
+                // let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
+                // let rec_addr = rec.row_data.addr;
+                // let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
+                // println!(
+                //     "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
+                //     rec_addr,
+                //     rec_addr.to_string().yellow(),
+                //     data_size.to_string().magenta(),
+                //     var_area_size.to_string().blue(),
+                //     nil_area_size.to_string().blue(),
+                //     total_size.to_string().green(),
+                //     page_offset.to_string().yellow(),
+                // );
             }
 
             // 打印记录
