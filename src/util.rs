@@ -38,7 +38,7 @@ pub fn init() {
 pub fn init_unit_test() {
     INIT_LOGGER_ONCE.call_once(|| {
         set_var("RUST_LOG", "info");
-        env_logger::builder().format_timestamp(None).init();
+        env_logger::builder().is_test(true).format_timestamp(None).init();
     });
 }
 
