@@ -214,7 +214,8 @@ impl RowInfo {
     pub fn prepare(&self) -> Result<Vec<FieldMeta>, Error> {
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
-        let phy_layout = if self.row_version > 0 {
+        let has_phy_pos = cols.iter().any(|e| e.phy_pos >= 0);
+        let phy_layout = if has_phy_pos {
             cols.iter()
                 .enumerate()
                 .map(|(i, c)| (c.phy_pos as usize, i))
@@ -225,7 +226,12 @@ impl RowInfo {
                 .map(|(i, e)| (i, e.column_opx))
                 .collect::<BTreeMap<usize, usize>>()
         };
-        info!("row_version={}, phy_layout={:?}", self.row_version, &phy_layout);
+        info!(
+            "row_version={}, has_phy_pos={}, phy_layout={:?}",
+            self.row_version,
+            has_phy_pos.to_string().yellow(),
+            &phy_layout
+        );
         for (phy_pos, col_pos) in phy_layout {
             let c = &cols[col_pos];
             info!(
