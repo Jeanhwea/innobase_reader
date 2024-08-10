@@ -167,11 +167,11 @@ pub fn align8(num: usize) -> usize {
     (num >> 3) + if (num & 0x7) > 0 { 1 } else { 0 }
 }
 
-pub fn numoff(num: usize) -> usize {
+pub fn bitmap_shift(num: usize) -> usize {
     num & 0x7
 }
 
-pub fn numpos(num: usize) -> usize {
+pub fn bitmap_index(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
@@ -410,20 +410,20 @@ mod util_tests {
     #[test]
     fn test_calc_number_offset() {
         init_unit_test();
-        assert_eq!(numoff(0), 0);
-        assert_eq!(numoff(1), 1);
-        assert_eq!(numoff(7), 7);
-        assert_eq!(numoff(8), 0);
+        assert_eq!(bitmap_shift(0), 0);
+        assert_eq!(bitmap_shift(1), 1);
+        assert_eq!(bitmap_shift(7), 7);
+        assert_eq!(bitmap_shift(8), 0);
     }
 
     #[test]
     fn test_calc_number_index() {
         init_unit_test();
-        assert_eq!(numpos(0), 0);
-        assert_eq!(numpos(1), 0);
-        assert_eq!(numpos(7), 0);
-        assert_eq!(numpos(8), 1);
-        assert_eq!(numpos(15), 1);
-        assert_eq!(numpos(16), 2);
+        assert_eq!(bitmap_index(0), 0);
+        assert_eq!(bitmap_index(1), 0);
+        assert_eq!(bitmap_index(7), 0);
+        assert_eq!(bitmap_index(8), 1);
+        assert_eq!(bitmap_index(15), 1);
+        assert_eq!(bitmap_index(16), 2);
     }
 }

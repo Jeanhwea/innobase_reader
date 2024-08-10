@@ -734,9 +734,9 @@ impl IndexPageBody {
         let row_info = Arc::new(RowInfo::new(&rec_hdr, tabdef.clone(), index_pos));
 
         // Row Data: depends on table definition for unpack row
-        let row = RowData::new(rec_addr, self.buf.clone(), row_info.clone());
+        let row_data = RowData::new(rec_addr, self.buf.clone(), row_info.clone());
 
-        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info.clone(), row);
+        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info.clone(), row_data);
 
         Ok(rec)
     }

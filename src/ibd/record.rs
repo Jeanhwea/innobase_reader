@@ -1,8 +1,8 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use std::collections::HashSet;
+
 use anyhow::Error;
 use bytes::Bytes;
 use colored::Colorize;
@@ -153,17 +153,22 @@ pub struct IsNull(bool);
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldMeta {
-    pub opx: usize,    // column opx
-    pub null: bool,    // is null value
-    pub offset: usize, // page offset
-    pub length: usize, // row length
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page offset
+    pub opx: usize,      // column opx
+    pub isnull: bool,    // is null value
+    pub length: usize,   // row length
+    pub phy_exist: bool, // physical exists
+    pub log_exist: bool, // logical exists
 }
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldDatum {
-    pub opx: usize,         // column opx
-    pub buf: Option<Bytes>, // row length
+    pub opx: usize, // column opx
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page offset
+    pub rbuf: Option<Bytes>, // row buffer
 }
 
 /// Row Dynamic Information, (pos, len, isnull, name)
@@ -221,13 +226,13 @@ impl RowInfo {
             cols.iter()
                 .enumerate()
                 .map(|(col_pos, col)| {
-                    let phy_exist = if col.version_dropped > 0 && row_ver >= col.version_dropped {
-                        false
-                    } else if col.version_added > 0 && row_ver < col.version_added {
-                        false
-                    } else {
-                        true
-                    };
+                    // case1: current row is dropped
+                    let row_dropped = col.version_dropped > 0 && row_ver >= col.version_dropped;
+                    // case2: no physical data, use the column default value
+                    let use_default = col.version_added > 0 && row_ver < col.version_added;
+                    // physical not exists if and only if in case1 and case2, otherwise it exist
+                    let phy_exist = !(row_dropped || use_default);
+                    // logical exist when index's element contains the column_opx
                     let log_exist = eles_set.contains(&col_pos);
                     (col.phy_pos as usize, (col_pos, phy_exist, log_exist))
                 })
@@ -246,21 +251,13 @@ impl RowInfo {
             &phy_layout,
         );
 
-        // Number of nullable (nil) fields
+        // number of nullable fields
         let n_nilfld = phy_layout
-            .iter()
-            .map(|(_, v)| {
-                let col = &cols[v.0];
-                let phy = v.1;
-                if phy && col.isnil {
-                    1
-                } else {
-                    0
-                }
-            })
+            .values()
+            .map(|v| if v.1 && cols[v.0].isnil { 1 } else { 0 })
             .sum();
 
-        // Reserve 1 byte for row_version if row_version > 0
+        // reserve 1 byte for row_version if row_version > 0
         let niladdr = self.addr - if row_ver > 0 { 1 } else { 0 };
         let varaddr = niladdr - align8(n_nilfld);
         info!(
@@ -271,7 +268,10 @@ impl RowInfo {
             varaddr.to_string().yellow()
         );
 
-        let row_meta_list = Vec::new();
+        let mut row_meta_list = Vec::new();
+        let mut nilfld_nth = 0;
+        let mut varptr = varaddr;
+        let mut fldaddr = self.addr + RECORD_HEADER_SIZE;
         for (phy_pos, (col_pos, phy_exist, log_exist)) in phy_layout {
             let col = &cols[col_pos];
             info!(
@@ -285,26 +285,60 @@ impl RowInfo {
                 col.version_dropped,
                 col.col_name.magenta(),
             );
+
+            let mut null = false;
+            let mut vlen = 0;
+            if phy_exist {
+                if col.isnil {
+                    null = self.is_null(niladdr, nilfld_nth);
+                    nilfld_nth += 1;
+                    if !null {
+                        let (nbyte, len) = self.varfld_len(varptr, col.data_len);
+                        varptr -= nbyte;
+                        vlen = len;
+                    }
+                } else {
+                    vlen = col.data_len as usize;
+                }
+            }
+            row_meta_list.push(FieldMeta {
+                addr: fldaddr,
+                opx: col_pos,
+                isnull: null,
+                length: vlen,
+                phy_exist,
+                log_exist,
+            });
+            fldaddr += vlen;
         }
+
+        assert_eq!(nilfld_nth, n_nilfld, "所有可空的字段都应访问到");
+        for (i, meta) in row_meta_list.iter().enumerate() {
+            info!("meta[{}]={:?}, {}", i, meta, &cols[meta.opx].col_name);
+        }
+
         Ok(row_meta_list)
     }
 
-    pub fn get_vfld_len(&mut self, data_len: u32, varptr: usize) -> Result<usize, Error> {
+    pub fn is_null(&self, niladdr: usize, nilfld_nth: usize) -> bool {
+        let null_mask = 1 << util::bitmap_shift(nilfld_nth);
+        let null_byte = self.buf[niladdr - util::bitmap_index(nilfld_nth) - 1];
+        (null_byte & null_mask) > 0
+    }
+
+    pub fn varfld_len(&self, varptr: usize, data_len: u32) -> (usize, usize) {
         // see function in mysql-server source code
         // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
         //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
         // }
-        let vfld_bytes = if data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+        let nbyte = if data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
             2
         } else {
             1
         };
 
-        let vlen = match vfld_bytes {
-            1 => {
-                let b0 = self.buf[varptr - 1] as usize;
-                b0
-            }
+        let vlen = match nbyte {
+            1 => self.buf[varptr - 1] as usize,
             2 => {
                 let b0 = self.buf[varptr - 1] as usize;
                 if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
@@ -318,7 +352,7 @@ impl RowInfo {
             _ => panic!("ERR_PROCESS_VAR_FILED_BYTES"),
         };
 
-        Ok(vlen)
+        (nbyte, vlen)
     }
 
     pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, index_pos: usize) -> Self {
@@ -326,76 +360,6 @@ impl RowInfo {
 
         // Handle the row version
         let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
-        let area_beg = rec_hdr.addr + if rec_hdr.is_version() { 1 } else { 0 };
-
-        // Handle nil_area/var_area pointer
-        // let nilptr = area_beg;
-        // let mut varptr = area_beg - idxdef.nil_area_size;
-
-        // let cols = &tabdef.clone().col_defs;
-        // let has_physical_pos = cols.iter().any(|c| c.phy_pos >= 0);
-
-        // let row_dyn_info = idxdef
-        //     .elements
-        //     .iter()
-        //     .map(|e| {
-        //         // debug!("nilptr={}, varptr={}", nilptr, varptr);
-        //         let isnull = if e.isnil {
-        //             let null_pos = util::numpos(e.null_offset);
-        //             let null_mask = 1 << util::numoff(e.null_offset);
-        //             let null_flag = buf[nilptr - null_pos - 1];
-        //             (null_flag & null_mask) > 0
-        //         } else {
-        //             false
-        //         };
-
-        //         if isnull {
-        //             DynamicInfo(e.pos, 0, IsNull(isnull), e.col_name.clone(), e.column_opx)
-        //         } else if !e.isvar {
-        //             DynamicInfo(
-        //                 e.pos,
-        //                 e.data_len as usize,
-        //                 IsNull(isnull),
-        //                 e.col_name.clone(),
-        //                 e.column_opx,
-        //             )
-        //         } else {
-        //             // see function in mysql-server source code
-        //             // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
-        //             //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
-        //             // }
-        //             let vfld_bytes = if e.data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
-        //                 2
-        //             } else {
-        //                 1
-        //             };
-
-        //             let vlen = match vfld_bytes {
-        //                 1 => {
-        //                     let b0 = buf[varptr - 1] as usize;
-        //                     varptr -= 1;
-        //                     b0
-        //                 }
-        //                 2 => {
-        //                     let b0 = buf[varptr - 1] as usize;
-        //                     varptr -= 1;
-
-        //                     if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
-        //                         let b1 = buf[varptr - 1] as usize;
-        //                         varptr -= 1;
-        //                         // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
-        //                         b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
-        //                     } else {
-        //                         b0
-        //                     }
-        //                 }
-        //                 _ => todo!("ERR_PROCESS_VAR_FILED_BYTES: {:?}", e),
-        //             };
-        //             DynamicInfo(e.pos, vlen, IsNull(isnull), e.col_name.clone(), e.column_opx)
-        //         }
-        //     })
-        //     .collect();
-        // debug!("row_dyn_info={:?}", row_dyn_info);
 
         Self {
             table_def: tabdef.clone(),
@@ -421,13 +385,30 @@ pub struct RowData {
     /// Row metadata list
     pub meta_list: Vec<FieldMeta>,
     /// Row data list
-    pub data_list: Vec<RowDatum>,
+    pub data_list: Vec<FieldDatum>,
 }
 
 impl RowData {
     pub fn new(addr: usize, buf: Arc<Bytes>, row_info: Arc<RowInfo>) -> Self {
         let field_meta_list = row_info.prepare().unwrap();
-        let field_data_list = Vec::new();
+        let cols = &row_info.table_def.clone().col_defs;
+        let field_data_list = field_meta_list
+            .iter()
+            .filter(|m| m.log_exist)
+            .map(|m| FieldDatum {
+                opx: m.opx,
+                addr: m.addr,
+                rbuf: if !m.isnull {
+                    if m.phy_exist {
+                        Some(buf.slice(m.addr..m.addr + m.length))
+                    } else {
+                        cols[m.opx].defval.clone()
+                    }
+                } else {
+                    None
+                },
+            })
+            .collect();
         Self {
             buf: buf.clone(),
             addr,
@@ -455,41 +436,11 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: Arc<RowInfo>, row: RowData) -> Self {
-        // for e in &row.dyn_info {
-        //     let mut rlen = 0; // row length
-        //     let mut rbuf = None; // row buffer
-        //
-        //     // Common parse columns
-        //     let col = &tabdef.col_defs[e.4];
-        //     let isnull = e.2 .0;
-        //     if !isnull {
-        //         rlen = e.1;
-        //         rbuf = Some(buf.slice(dataptr..dataptr + rlen));
-        //         dataptr += rlen;
-        //     }
-        //
-        //     // Ignore all the columns value with VERSION_DROPPED > 0
-        //     if col.version_dropped > 0 {
-        //         continue;
-        //     }
-        //
-        //     // Use default value for columns with VERSION_ADDED > ROW_VERSION
-        //     if col.version_added > row_info.row_version as u32 {
-        //         rbuf = col.defval.clone();
-        //         rlen = match &rbuf {
-        //             None => 0,
-        //             Some(b) => b.len(),
-        //         }
-        //     }
-        //
-        //     row.data_list.push(RowDatum(e.4, rlen, rbuf, col.col_name.clone()));
-        // }
-
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: Arc<RowInfo>, row_data: RowData) -> Self {
         Self {
             rec_hdr: hdr,
             row_info: row_info.clone(),
-            row_data: row,
+            row_data,
             buf: buf.clone(),
             addr,
         }

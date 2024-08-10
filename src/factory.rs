@@ -210,24 +210,24 @@ impl DatafileFactory {
                 rec.row_data
                     .data_list
                     .iter()
-                    .map(|c| {
-                        let col = &tabdef.col_defs[c.0];
-                        let val = match &c.2 {
+                    .map(|d| {
+                        let col = &tabdef.col_defs[d.opx];
+                        let val = match &d.rbuf {
                             Some(b) => match col.hidden {
                                 HiddenTypes::HT_VISIBLE => match col.dd_type {
                                     ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
                                     ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
                                     ColumnTypes::NEWDATE => DataValue::Date(
-                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &c)),
+                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &d)),
                                     ),
                                     ColumnTypes::DATETIME2 => DataValue::DateTime(
-                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &c)),
+                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &d)),
                                     ),
                                     ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
                                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                                         let barr = b.to_vec();
                                         let text = std::str::from_utf8(&barr)
-                                            .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &c));
+                                            .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &d));
                                         DataValue::Str(text.into())
                                     }
                                     ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
