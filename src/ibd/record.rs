@@ -259,11 +259,12 @@ impl RowInfo {
             .sum();
 
         // Reserve 1 byte for row_version if possible
-        let niladdr = self.addr + if row_ver > 0 { 1 } else { 0 };
-        let varaddr = niladdr + align8(n_nilfld);
+        let niladdr = self.addr - if row_ver > 0 { 1 } else { 0 };
+        let varaddr = niladdr - align8(n_nilfld);
         info!(
-            "n_nilfld={}, niladdr={}, varaddr={}",
+            "n_nilfld={}, hdraddr={}, niladdr={}, varaddr={}",
             n_nilfld.to_string().blue(),
+            self.addr.to_string().yellow(),
             niladdr.to_string().yellow(),
             varaddr.to_string().yellow()
         );
