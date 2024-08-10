@@ -210,7 +210,7 @@ pub struct RowInfo {
 
 impl RowInfo {
     pub fn prepare(&self) -> Result<Vec<FieldMeta>, Error> {
-        let ver = self.row_version as u32;
+        let row_ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
 
@@ -219,9 +219,9 @@ impl RowInfo {
             cols.iter()
                 .enumerate()
                 .map(|(col_pos, col)| {
-                    let phy_exist = if col.version_dropped > 0 && ver >= col.version_dropped {
+                    let phy_exist = if col.version_dropped > 0 && row_ver >= col.version_dropped {
                         false
-                    } else if col.version_added > 0 && ver < col.version_added {
+                    } else if col.version_added > 0 && row_ver < col.version_added {
                         false
                     } else {
                         true
@@ -238,7 +238,7 @@ impl RowInfo {
 
         debug!(
             "row_version={}, has_phy_pos={}, phy_layout={:?}",
-            ver,
+            row_ver,
             has_phy_pos.to_string().yellow(),
             &phy_layout,
         );
@@ -258,7 +258,7 @@ impl RowInfo {
             .sum();
         let nfld_bytes = align8(nfld_num);
 
-        let niladdr = self.addr + if self.row_version > 0 { 1 } else { 0 };
+        let niladdr = self.addr + if row_ver > 0 { 1 } else { 0 };
         let varaddr = niladdr + nfld_bytes;
         info!(
             "niladdr={}, varaddr={}",
@@ -275,7 +275,7 @@ impl RowInfo {
                 if phy_exist { "Yes".green() } else { "No ".red() },
                 col.col_name.magenta(),
                 col.phy_pos,
-                ver,
+                row_ver,
                 col.version_added,
                 col.version_dropped,
             );
