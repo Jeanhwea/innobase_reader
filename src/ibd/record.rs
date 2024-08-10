@@ -18,6 +18,7 @@ use crate::{
     ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
     meta::def::TableDef,
     util,
+    util::align8,
 };
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
@@ -199,9 +200,6 @@ pub struct RowInfo {
     // /// Nullable field flag area
     // #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
     // pub nil_area: Bytes,
-    pub nilptr: usize,
-    pub varptr: usize,
-
     /// Row version
     pub row_version: u8, // instant add/drop column
 
@@ -212,40 +210,76 @@ pub struct RowInfo {
 
 impl RowInfo {
     pub fn prepare(&self) -> Result<Vec<FieldMeta>, Error> {
+        let ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
-        let has_phy_pos = cols.iter().any(|e| e.phy_pos >= 0);
+
+        let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
         let phy_layout = if has_phy_pos {
             cols.iter()
                 .enumerate()
-                .map(|(i, c)| (c.phy_pos as usize, i))
-                .collect::<BTreeMap<usize, usize>>()
+                .map(|(col_pos, col)| {
+                    let phy_exist = if col.version_dropped > 0 && ver >= col.version_dropped {
+                        false
+                    } else if col.version_added > 0 && ver < col.version_added {
+                        false
+                    } else {
+                        true
+                    };
+                    (col.phy_pos as usize, (col_pos, phy_exist))
+                })
+                .collect::<BTreeMap<usize, _>>()
         } else {
             eles.iter()
                 .enumerate()
-                .map(|(i, e)| (i, e.column_opx))
-                .collect::<BTreeMap<usize, usize>>()
+                .map(|(phy_pos, ele)| (phy_pos, (ele.column_opx, true)))
+                .collect::<BTreeMap<usize, _>>()
         };
-        info!(
+
+        debug!(
             "row_version={}, has_phy_pos={}, phy_layout={:?}",
-            self.row_version,
+            ver,
             has_phy_pos.to_string().yellow(),
-            &phy_layout
+            &phy_layout,
         );
-        for (phy_pos, col_pos) in phy_layout {
-            let c = &cols[col_pos];
-            info!(
-                "layout[{}]={}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
-                phy_pos,
-                c.col_name.magenta(),
-                c.phy_pos,
-                self.row_version,
-                c.version_added,
-                c.version_dropped
-            );
-        }
+
+        // nil field number
+        let nfld_num = phy_layout
+            .iter()
+            .map(|x| {
+                let col = &cols[x.1 .0];
+                let exist = x.1 .1;
+                if exist && col.isnil {
+                    1
+                } else {
+                    0
+                }
+            })
+            .sum();
+        let nfld_bytes = align8(nfld_num);
+
+        let niladdr = self.addr + if self.row_version > 0 { 1 } else { 0 };
+        let varaddr = niladdr + nfld_bytes;
+        info!(
+            "niladdr={}, varaddr={}",
+            niladdr.to_string().yellow(),
+            varaddr.to_string().yellow()
+        );
 
         let row_meta_list = Vec::new();
+        for (phy_pos, (col_pos, phy_exist)) in phy_layout {
+            let col = &cols[col_pos];
+            info!(
+                "[{}] {} => {}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
+                phy_pos,
+                if phy_exist { "Yes".green() } else { "No ".red() },
+                col.col_name.magenta(),
+                col.phy_pos,
+                ver,
+                col.version_added,
+                col.version_dropped,
+            );
+        }
         Ok(row_meta_list)
     }
 
@@ -360,8 +394,6 @@ impl RowInfo {
         Self {
             table_def: tabdef.clone(),
             index_pos,
-            nilptr: 0,
-            varptr: 0,
             row_version: row_ver,
             buf: buf.clone(),
             addr: rec_hdr.addr,
