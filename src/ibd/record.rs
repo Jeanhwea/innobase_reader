@@ -147,9 +147,6 @@ impl RecordHeader {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct IsNull(bool);
-
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldMeta {
@@ -170,25 +167,6 @@ pub struct FieldDatum {
     pub addr: usize, // page offset
     pub rbuf: Option<Bytes>, // row buffer
 }
-
-/// Row Dynamic Information, (pos, len, isnull, name)
-///   1. pos: index element ordinal position
-///   2. len: row data length
-///   3. isnull, row data is null
-///   4. name: column name
-///   5. opx: column ordinal position index (opx)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct DynamicInfo(pub usize, pub usize, pub IsNull, pub String, pub usize);
-
-/// Row Data, (ord, len, buf),
-///   1. opx: ordinal_position index
-///   2. len: variadic field length
-///   3. buf: row data buffer in bytes
-///   4. name: column name
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RowDatum(pub usize, pub usize, pub Option<Bytes>, pub String);
 
 /// Row Info, var_area and nil_area
 #[derive(Clone, Derivative)]
@@ -214,7 +192,34 @@ pub struct RowInfo {
 }
 
 impl RowInfo {
-    pub fn prepare(&self) -> Result<Vec<FieldMeta>, Error> {
+    pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, index_pos: usize) -> Self {
+        let buf = rec_hdr.buf.clone();
+
+        // Handle the row version
+        let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
+
+        Self {
+            table_def: tabdef.clone(),
+            index_pos,
+            row_version: row_ver,
+            buf: buf.clone(),
+            addr: rec_hdr.addr,
+        }
+    }
+
+    // see function in mysql-server source code
+    // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
+    //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
+    // }
+    pub fn field_byte(data_len: u32) -> usize {
+        if data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
+            2
+        } else {
+            1
+        }
+    }
+
+    pub fn resolve(&self) -> Result<Vec<FieldMeta>, Error> {
         let row_ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
@@ -322,22 +327,14 @@ impl RowInfo {
         Ok(row_meta_list)
     }
 
-    pub fn is_null(&self, niladdr: usize, nilfld_nth: usize) -> bool {
+    fn is_null(&self, niladdr: usize, nilfld_nth: usize) -> bool {
         let null_mask = 1 << util::bitmap_shift(nilfld_nth);
         let null_byte = self.buf[niladdr - util::bitmap_index(nilfld_nth) - 1];
         (null_byte & null_mask) > 0
     }
 
-    pub fn varfld_len(&self, varptr: usize, data_len: u32) -> (usize, usize) {
-        // see function in mysql-server source code
-        // static inline uint8_t rec_get_n_fields_length(ulint n_fields) {
-        //   return (n_fields > REC_N_FIELDS_ONE_BYTE_MAX ? 2 : 1);
-        // }
-        let nbyte = if data_len > REC_N_FIELDS_ONE_BYTE_MAX as u32 {
-            2
-        } else {
-            1
-        };
+    fn varfld_len(&self, varptr: usize, data_len: u32) -> (usize, usize) {
+        let nbyte = Self::field_byte(data_len);
 
         let vlen = match nbyte {
             1 => self.buf[varptr - 1] as usize,
@@ -355,21 +352,6 @@ impl RowInfo {
         };
 
         (nbyte, vlen)
-    }
-
-    pub fn new(rec_hdr: &RecordHeader, tabdef: Arc<TableDef>, index_pos: usize) -> Self {
-        let buf = rec_hdr.buf.clone();
-
-        // Handle the row version
-        let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
-
-        Self {
-            table_def: tabdef.clone(),
-            index_pos,
-            row_version: row_ver,
-            buf: buf.clone(),
-            addr: rec_hdr.addr,
-        }
     }
 }
 
@@ -392,7 +374,7 @@ pub struct RowData {
 
 impl RowData {
     pub fn new(addr: usize, buf: Arc<Bytes>, row_info: Arc<RowInfo>) -> Self {
-        let field_meta_list = row_info.prepare().unwrap();
+        let field_meta_list = row_info.resolve().unwrap();
         let cols = &row_info.table_def.clone().col_defs;
         let field_data_list = field_meta_list
             .iter()
@@ -447,6 +429,66 @@ impl Record {
             addr,
         }
     }
+
+    pub fn calc_layout(&self) -> RecordLayout {
+        let rec_addr = self.addr;
+        let cols = &self.row_info.table_def.clone().col_defs;
+        let rv_size = if self.row_info.row_version > 0 { 1 } else { 0 };
+        let na_size = align8(
+            self.row_data
+                .meta_list
+                .iter()
+                .map(|m| if m.phy_exist && cols[m.opx].isnil { 1 } else { 0 })
+                .sum(),
+        );
+        let va_size = self
+            .row_data
+            .meta_list
+            .iter()
+            .map(|m| {
+                let col = &cols[m.opx];
+                if m.phy_exist && col.isvar {
+                    RowInfo::field_byte(col.data_len)
+                } else {
+                    0
+                }
+            })
+            .sum();
+
+        let pd_size = self
+            .row_data
+            .meta_list
+            .iter()
+            .map(|m| if m.phy_exist { m.length } else { 0 })
+            .sum();
+
+        RecordLayout {
+            addr: rec_addr - RECORD_HEADER_SIZE - rv_size - na_size - va_size,
+            rec_addr,
+            var_area_size: va_size,
+            nil_area_size: na_size,
+            row_version_size: rv_size,
+            rec_hdr_size: RECORD_HEADER_SIZE,
+            phy_data_size: pd_size,
+            total_size: va_size + na_size + rv_size + RECORD_HEADER_SIZE + pd_size,
+        }
+    }
+}
+
+/// Record Layout
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RecordLayout {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub rec_addr: usize,
+    pub var_area_size: usize,
+    pub nil_area_size: usize,
+    pub row_version_size: usize,
+    pub rec_hdr_size: usize,
+    pub phy_data_size: usize,
+    pub total_size: usize,
 }
 
 /// SDI Record
