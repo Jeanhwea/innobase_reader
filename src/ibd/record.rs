@@ -292,6 +292,8 @@ impl RowInfo {
                 if col.isnil {
                     null = self.is_null(niladdr, nilfld_nth);
                     nilfld_nth += 1;
+                }
+                if col.isvar {
                     if !null {
                         let (nbyte, len) = self.varfld_len(varptr, col.data_len);
                         varptr -= nbyte;
