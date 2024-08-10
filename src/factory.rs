@@ -155,7 +155,7 @@ impl DatafileFactory {
             .indexes
             .iter()
             .map(|idx| {
-                let mut ele_defs: Vec<IndexElementDef> = idx
+                let ele_defs: Vec<IndexElementDef> = idx
                     .elements
                     .iter()
                     .map(|ele| {
@@ -164,14 +164,7 @@ impl DatafileFactory {
                     })
                     .collect();
 
-                let nullinfo = ele_defs.iter().filter(|e| e.isnil).map(|e| e.pos).collect::<Vec<_>>();
-                debug!("nullinfo={:?}", nullinfo);
-
-                for (off, pos) in nullinfo.iter().enumerate() {
-                    ele_defs[pos - 1].null_offset = off;
-                }
-                let nil_size = util::align8(nullinfo.len());
-                IndexDef::from(idx, ele_defs, nil_size)
+                IndexDef::from(idx, ele_defs)
             })
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
@@ -196,18 +189,18 @@ impl DatafileFactory {
 
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
-        let idxdef = match tabdef.idx_defs.iter().find(|i| i.idx_id == index_id) {
+        let index = match tabdef.idx_defs.iter().enumerate().find(|idx| idx.1.idx_id == index_id) {
+            Some(val) => val,
             None => {
                 return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
             }
-            Some(val) => val,
         };
-        info!("当前页所引用的索引: index_name={}", idxdef.idx_name);
+        info!("当前页所引用的索引: index_name={}", index.1.idx_name);
 
         let rec_list = if garbage {
-            page.page_body.read_free_records(tabdef.clone(), idxdef)?
+            page.page_body.read_free_records(tabdef.clone(), index.0)?
         } else {
-            page.page_body.read_user_records(tabdef.clone(), idxdef)?
+            page.page_body.read_user_records(tabdef.clone(), index.0)?
         };
         debug!("rec_list={:?}", rec_list);
 
@@ -217,24 +210,24 @@ impl DatafileFactory {
                 rec.row_data
                     .data_list
                     .iter()
-                    .map(|c| {
-                        let col = &tabdef.col_defs[c.0];
-                        let val = match &c.2 {
+                    .map(|d| {
+                        let col = &tabdef.col_defs[d.opx];
+                        let val = match &d.rbuf {
                             Some(b) => match col.hidden {
                                 HiddenTypes::HT_VISIBLE => match col.dd_type {
                                     ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
                                     ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
                                     ColumnTypes::NEWDATE => DataValue::Date(
-                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &c)),
+                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &d)),
                                     ),
                                     ColumnTypes::DATETIME2 => DataValue::DateTime(
-                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &c)),
+                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &d)),
                                     ),
                                     ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
                                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
                                         let barr = b.to_vec();
                                         let text = std::str::from_utf8(&barr)
-                                            .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &c));
+                                            .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &d));
                                         DataValue::Str(text.into())
                                     }
                                     ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
@@ -275,6 +268,7 @@ mod factory_tests {
     use std::path::PathBuf;
 
     use anyhow::Error;
+    use bytes::Bytes;
     use log::{debug, info};
 
     use crate::{
@@ -283,8 +277,16 @@ mod factory_tests {
         util,
     };
 
+    // employee schema
     const IBD_DEPT: &str = "data/departments.ibd";
     const IBD_DEPT_MGR: &str = "data/dept_manager.ibd";
+
+    // tb_row_version.sql
+    const IBD_RV_0: &str = "data/tb_row_version_0.ibd";
+    const IBD_RV_1: &str = "data/tb_row_version_1.ibd";
+    const IBD_RV_2: &str = "data/tb_row_version_2.ibd";
+    const IBD_RV_3: &str = "data/tb_row_version_3.ibd";
+    const IBD_RV_4: &str = "data/tb_row_version_4.ibd";
 
     #[test]
     fn load_buffer() -> Result<(), Error> {
@@ -307,15 +309,46 @@ mod factory_tests {
         Ok(())
     }
 
-    // #[test]
-    fn load_table_def() -> Result<(), Error> {
+    #[test]
+    fn table_revision_01() -> Result<(), Error> {
         util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_DEPT))?;
-        let ans = fact.load_table_def();
-        assert!(ans.is_ok());
 
-        let tabdef = ans.unwrap();
-        info!("tabdef={:#?}", tabdef);
+        // Initial 0: columns [c1, c2, c3, c4]
+        let rv0 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv0[0].col_name, "c1");
+        assert_eq!(rv0[0].defval, None);
+        assert_eq!(rv0[3].col_name, "c4");
+        assert_eq!(rv0[3].defval, None);
+
+        // Revision 1: add c5, columns [c1, c2, c3, c4, c5]
+        let rv1 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_1))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv1[0].col_name, "c1");
+        assert_eq!(rv1[0].defval, None);
+        assert_eq!(rv1[3].col_name, "c4");
+        assert_eq!(rv1[3].defval, None);
+        assert_eq!(rv1[4].col_name, "c5");
+        assert_eq!(rv1[4].version_added, 1);
+        assert_eq!(rv1[4].defval, Some(Bytes::from("c5_def    ")));
+
+        // Revision 2: drop c3, columns [c1, c2, c4, c5]
+        let rv2 = &DatafileFactory::from_file(PathBuf::from(IBD_RV_3))?
+            .load_table_def()?
+            .col_defs;
+        assert_eq!(rv2[0].col_name, "c1");
+        assert_eq!(rv2[0].defval, None);
+        assert_eq!(rv2[2].col_name, "c4");
+        assert_eq!(rv2[2].defval, None);
+        assert_eq!(rv2[3].col_name, "c5");
+        assert_eq!(rv2[3].version_added, 1);
+        assert_eq!(rv2[3].defval, Some(Bytes::from("c5_def    ")));
+        assert!(rv2[7].col_name.ends_with("c3"));
+        assert_eq!(rv2[7].version_added, 0);
+        assert_eq!(rv2[7].version_dropped, 2);
+        assert_eq!(rv2[7].defval, None);
 
         Ok(())
     }
@@ -383,6 +416,185 @@ mod factory_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn row_version_unpack_00() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 1);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_01() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_1))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 1);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+        assert_eq!(tuples[0][7].0, "c5");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][7].1, DataValue::Str("c5_def    ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_02() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_2))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+        assert_eq!(tuples[0][7].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][7].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c3      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][7].1, DataValue::Str("r2c5      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_03() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_3))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c4");
+        assert_eq!(tuples[0][6].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c5      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_04() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_4))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 3);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c4");
+        assert_eq!(tuples[0][6].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c5      ".into()));
+
+        // row 2
+        assert_eq!(tuples[2][3].1, DataValue::Str("r3c1      ".into()));
+        assert_eq!(tuples[2][4].1, DataValue::Str("r3c2      ".into()));
+        assert_eq!(tuples[2][5].1, DataValue::Str("r3c4      ".into()));
+        assert_eq!(tuples[2][6].1, DataValue::Str("r3c5      ".into()));
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -401,7 +613,8 @@ mod factory_tests_run {
     };
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    const IBD_FILE: &str = "data/datetime01.ibd";
+    // const IBD_FILE: &str = "/opt/mysql/data/rtc/tb_row_version.ibd";
+    const IBD_FILE: &str = "./data/tb_row_version_4.ibd";
 
     // #[test]
     fn btr_traverse() -> Result<(), Error> {
@@ -569,10 +782,29 @@ mod factory_tests_run {
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let ans = fact.unpack_index_page(4, false);
-        info!("{:?}", ans);
         assert!(ans.is_ok());
+        for (i, col) in ans.as_ref().unwrap().tabdef.col_defs.iter().enumerate() {
+            info!(
+                "col(pos={};phy={}) => {} {}",
+                i,
+                &col.phy_pos,
+                &col.col_name.magenta(),
+                &col.utf8_def.green(),
+            );
+        }
+        let cols = &ans.as_ref().unwrap().tabdef.col_defs;
+        for (i, ele) in ans.as_ref().unwrap().tabdef.idx_defs[0].elements.iter().enumerate() {
+            let ref_col = &cols[ele.column_opx];
+            info!(
+                "idx(pos={};phy={}) => {} {}",
+                i,
+                ref_col.phy_pos,
+                &ele.col_name.magenta(),
+                &ele.utf8_def.green(),
+            );
+        }
 
-        for (ith, tuple) in ans.unwrap().tuples[..5].iter().enumerate() {
+        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
             info!("[{}]=> {:?}", ith.to_string().green(), tuple);
         }
 

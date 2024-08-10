@@ -2601,8 +2601,6 @@ pub fn coll_find(id: u32) -> &'static Collation {
 #[cfg(test)]
 mod meta_consts_tests {
 
-    use log::info;
-
     use super::*;
     use crate::util;
 
@@ -2610,7 +2608,6 @@ mod meta_consts_tests {
     fn check_collection_id_consistent() {
         util::init_unit_test();
         for (id, coll) in COLLMAP.iter() {
-            info!("{:?}", &coll);
             assert_eq!(*id, coll.id);
         }
     }

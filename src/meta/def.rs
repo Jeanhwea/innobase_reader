@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use crate::{
     ibd::record::{
         ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, HiddenTypes, IndexAlgorithm,
@@ -5,6 +7,7 @@ use crate::{
     },
     meta::cst::coll_find,
     util,
+    util::conv_strdata_to_bytes,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -20,24 +23,40 @@ pub struct TableDef {
 
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub pos: usize,           // ordinal position
-    pub col_name: String,     // column name
-    pub data_len: u32,        // data length in bytes
-    pub isnil: bool,          // is nullable field
-    pub isvar: bool,          // is variadic field
-    pub dd_type: ColumnTypes, // data dictionary type
-    pub hidden: HiddenTypes,  // hidden type
-    pub col_key: ColumnKeys,  // column key type
-    pub utf8_def: String,     // utf8 column definition
-    pub comment: String,      // Comment
-    pub collation_id: u32,    // collation
-    pub collation: String,    // collation name
-    pub charset: String,      // character set name
+    pub pos: usize,            // ordinal position
+    pub col_name: String,      // column name
+    pub data_len: u32,         // data length in bytes
+    pub isnil: bool,           // is nullable field
+    pub isvar: bool,           // is variadic field
+    pub dd_type: ColumnTypes,  // data dictionary type
+    pub hidden: HiddenTypes,   // hidden type
+    pub col_key: ColumnKeys,   // column key type
+    pub utf8_def: String,      // utf8 column definition
+    pub comment: String,       // comment
+    pub coll_id: u32,          // collation
+    pub coll_name: String,     // collation name
+    pub charset: String,       // character set name
+    pub version_added: u32,    // which version this column was added
+    pub version_dropped: u32,  // which version this column waw dropped
+    pub defval: Option<Bytes>, // default value in se_private_data
+    pub phy_pos: i32,          // physical position
 }
 
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         let coll = coll_find(ddc.collation_id);
+        let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
+        let default_null = priv_data.get("default_null").map(|v| v == "1").unwrap_or(false);
+
+        let default = if !default_null {
+            priv_data
+                .get("default")
+                .map(|v| conv_strdata_to_bytes(v))
+                .unwrap_or(None)
+        } else {
+            None
+        };
+
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
@@ -72,11 +91,24 @@ impl ColumnDef {
             ),
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
-            collation_id: ddc.collation_id,
-            collation: coll.name.into(),
+            coll_id: ddc.collation_id,
+            coll_name: coll.name.into(),
             charset: coll.charset.into(),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
+            phy_pos: priv_data
+                .get("physical_pos")
+                .map(|v| v.parse::<i32>().unwrap_or(0))
+                .unwrap_or(-1),
+            version_added: priv_data
+                .get("version_added")
+                .map(|v| v.parse::<u32>().unwrap_or(0))
+                .unwrap_or(0),
+            version_dropped: priv_data
+                .get("version_dropped")
+                .map(|v| v.parse::<u32>().unwrap_or(0))
+                .unwrap_or(0),
+            defval: default,
         }
     }
 }
@@ -87,15 +119,14 @@ pub struct IndexDef {
     pub idx_name: String,               // index name
     pub idx_id: u64,                    // index id
     pub hidden: bool,                   // hidden
-    pub comment: String,                // Comment
     pub idx_type: IndexTypes,           // index type
     pub algorithm: IndexAlgorithm,      // index algorithm
+    pub comment: String,                // Comment
     pub elements: Vec<IndexElementDef>, // index elememts
-    pub nil_area_size: usize,           // nullable flag size
 }
 
 impl IndexDef {
-    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>, nil_size: usize) -> Self {
+    pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>) -> Self {
         let priv_data = util::conv_strdata_to_map(&ddi.se_private_data);
         let id: u64 = priv_data["id"].parse().unwrap_or(0);
         Self {
@@ -103,46 +134,41 @@ impl IndexDef {
             idx_name: ddi.name.clone(),
             idx_id: id,
             hidden: ddi.hidden,
-            comment: ddi.comment.clone(),
             idx_type: ddi.idx_type.clone(),
             algorithm: ddi.algorithm.clone(),
+            comment: ddi.comment.clone(),
             elements: ele_defs,
-            nil_area_size: nil_size,
         }
     }
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct IndexElementDef {
+    pub col_name: String,  // referenced column name
+    pub utf8_def: String,  // utf8 column definition
     pub pos: usize,        // ordinal position
     pub ele_len: i32,      // element length
     pub order: IndexOrder, // order, ASC/DESC
     pub hidden: bool,      // hidden
     /// see write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
     pub column_opx: usize, // opx: ordinal position index
-    pub col_name: String,  // referenced column name
     pub col_hidden: HiddenTypes, // hidden type
     pub data_len: u32,     // data length
-    pub isnil: bool,       // is nullable field
-    pub isvar: bool,       // is variadic field
-    pub null_offset: usize, // nullable offset
 }
 
 impl IndexElementDef {
     pub fn from(ele: &DataDictIndexElement, col: &ColumnDef) -> Self {
         let len = ele.length as i32;
         Self {
+            col_name: col.col_name.clone(),
+            utf8_def: col.utf8_def.clone(),
             pos: ele.ordinal_position as usize,
             ele_len: len,
             order: ele.order,
             hidden: ele.hidden,
             column_opx: ele.column_opx as usize,
-            col_name: col.col_name.clone(),
             col_hidden: col.hidden.clone(),
             data_len: col.data_len,
-            isnil: col.isnil,
-            isvar: col.isvar,
-            ..IndexElementDef::default()
         }
     }
 }

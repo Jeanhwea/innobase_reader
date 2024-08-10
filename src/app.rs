@@ -11,10 +11,7 @@ use log::{debug, error, info};
 
 use crate::{
     factory::DatafileFactory,
-    ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE,
-        RECORD_HEADER_SIZE,
-    },
+    ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE},
     Commands,
 };
 
@@ -229,25 +226,25 @@ impl App {
             if verbose {
                 println!("row_info: {:?}", &rec.row_info);
                 println!("rec_hdr : {:?}", &rec.rec_hdr);
-                let mut data_size = 0;
-                for row in &rec.row_data.data_list {
-                    data_size += row.1;
-                }
-                let var_area_size = rec.row_info.var_area.len();
-                let nil_area_size = rec.row_info.nil_area.len();
-                let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
-                let rec_addr = rec.row_data.addr;
-                let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
-                println!(
-                    "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
-                    rec_addr,
-                    rec_addr.to_string().yellow(),
-                    data_size.to_string().magenta(),
-                    var_area_size.to_string().blue(),
-                    nil_area_size.to_string().blue(),
-                    total_size.to_string().green(),
-                    page_offset.to_string().yellow(),
-                );
+                // let mut data_size = 0;
+                // for row in &rec.row_data.data_list {
+                //     data_size += row.1;
+                // }
+                // let var_area_size = rec.row_info.var_area.len();
+                // let nil_area_size = rec.row_info.nil_area.len();
+                // let total_size = var_area_size + nil_area_size + RECORD_HEADER_SIZE + data_size;
+                // let rec_addr = rec.row_data.addr;
+                // let page_offset = rec_addr - RECORD_HEADER_SIZE - nil_area_size - var_area_size;
+                // println!(
+                //     "rec_stat: rec_addr=0x{:0x?}@({}), data_size={}, var_area_size={}, nil_area_size={}, total_size={}, page_offset={}",
+                //     rec_addr,
+                //     rec_addr.to_string().yellow(),
+                //     data_size.to_string().magenta(),
+                //     var_area_size.to_string().blue(),
+                //     nil_area_size.to_string().blue(),
+                //     total_size.to_string().green(),
+                //     page_offset.to_string().yellow(),
+                // );
             }
 
             // 打印记录
@@ -277,52 +274,51 @@ mod app_tests {
     }
 
     #[test]
-    fn list_pages() {
+    fn list_datafile() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::List).is_ok());
     }
 
     #[test]
-    fn view_first_fsp_hdr_page() {
+    fn view_fsp_hdr_page() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 0 }).is_ok());
     }
 
     #[test]
-    fn view_first_inode_page() {
+    fn view_inode_page() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 2 }).is_ok());
     }
 
     #[test]
-    fn view_first_index_page() {
+    fn view_index_page() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 4 }).is_ok());
     }
 
     #[test]
-    fn view_first_sdi_page() {
+    fn view_sdi_page() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app.run(Commands::View { page: 3 }).is_ok());
     }
 
     #[test]
-    fn view_dump_simple_page() {
+    fn view_dump_data_page() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app
-            .run(Commands::Dump {
-                page: 4,
-                limit: 10,
-                garbage: false,
-                verbose: false
-            })
-            .is_ok());
+        let ans = app.run(Commands::Dump {
+            page: 4,
+            limit: 3,
+            garbage: false,
+            verbose: false,
+        });
+        assert!(ans.is_ok());
     }
 
     #[test]

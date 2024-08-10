@@ -38,7 +38,7 @@ pub fn init() {
 pub fn init_unit_test() {
     INIT_LOGGER_ONCE.call_once(|| {
         set_var("RUST_LOG", "info");
-        env_logger::builder().format_timestamp(None).init();
+        env_logger::builder().is_test(true).format_timestamp(None).init();
     });
 }
 
@@ -167,11 +167,11 @@ pub fn align8(num: usize) -> usize {
     (num >> 3) + if (num & 0x7) > 0 { 1 } else { 0 }
 }
 
-pub fn numoff(num: usize) -> usize {
+pub fn bitmap_shift(num: usize) -> usize {
     num & 0x7
 }
 
-pub fn numpos(num: usize) -> usize {
+pub fn bitmap_index(num: usize) -> usize {
     (num & (!0x7)) >> 3
 }
 
@@ -308,13 +308,13 @@ pub fn dateval(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap_or_else(|_| panic!("日期字符串格式错误: {}", s))
 }
 
-pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
+pub fn conv_strdata_to_map(s: &str) -> HashMap<String, String> {
     let mut ret = HashMap::new();
-    if str.is_empty() {
+    if s.is_empty() {
         return ret;
     }
 
-    for entry in str.split(';') {
+    for entry in s.split(';') {
         if let Some(i) = entry.find('=') {
             ret.insert(entry[0..i].to_string(), entry[i + 1..].to_string());
         }
@@ -323,8 +323,23 @@ pub fn conv_strdata_to_map(str: &str) -> HashMap<String, String> {
     ret
 }
 
+pub fn conv_strdata_to_bytes(s: &str) -> Option<Bytes> {
+    if s.is_empty() {
+        return None;
+    }
+    let mut arr = Vec::with_capacity(s.len() / 2);
+    for i in 0..s.len() / 2 {
+        let beg = 2 * i;
+        let s1 = &s[beg..beg + 2];
+        arr.push(u8::from_str_radix(s1, 16).unwrap_or(0));
+    }
+    Some(Bytes::from(arr))
+}
+
 #[cfg(test)]
 mod util_tests {
+
+    use std::string::String;
 
     use log::info;
 
@@ -349,6 +364,21 @@ mod util_tests {
     }
 
     #[test]
+    fn test_conv_strdata_to_bytes() {
+        init_unit_test();
+        let s = "63355f64656620202020";
+        let ans = conv_strdata_to_bytes(s);
+        assert!(ans.is_some());
+        info!("ans={:?}", ans);
+        let ret = String::from_utf8(ans.unwrap().to_vec()).unwrap();
+        assert_eq!("c5_def    ".to_string(), ret);
+
+        let s2 = "";
+        let ans2 = conv_strdata_to_bytes(s2);
+        assert!(ans2.is_none());
+    }
+
+    #[test]
     fn test_conv_u32() {
         init_unit_test();
         let buf = Bytes::from_static(&[1, 2, 3, 4, 5, 6, 7, 8]);
@@ -359,11 +389,11 @@ mod util_tests {
     #[test]
     fn test_conv_datetime() {
         init_unit_test();
-        let buf = Bytes::from_static(&[0, 0, 0, 0, 0]);
+        let buf = Bytes::from_static(&[0x99, 0xb4, 0x11, 0x77, 0x96]);
         info!("buf={:?}", buf);
         let ans = unpack_datetime2_val(&buf);
         info!("ans={:?}", ans);
-        assert_eq!(ans, None);
+        assert!(ans.is_some());
     }
 
     #[test]
@@ -380,20 +410,20 @@ mod util_tests {
     #[test]
     fn test_calc_number_offset() {
         init_unit_test();
-        assert_eq!(numoff(0), 0);
-        assert_eq!(numoff(1), 1);
-        assert_eq!(numoff(7), 7);
-        assert_eq!(numoff(8), 0);
+        assert_eq!(bitmap_shift(0), 0);
+        assert_eq!(bitmap_shift(1), 1);
+        assert_eq!(bitmap_shift(7), 7);
+        assert_eq!(bitmap_shift(8), 0);
     }
 
     #[test]
     fn test_calc_number_index() {
         init_unit_test();
-        assert_eq!(numpos(0), 0);
-        assert_eq!(numpos(1), 0);
-        assert_eq!(numpos(7), 0);
-        assert_eq!(numpos(8), 1);
-        assert_eq!(numpos(15), 1);
-        assert_eq!(numpos(16), 2);
+        assert_eq!(bitmap_index(0), 0);
+        assert_eq!(bitmap_index(1), 0);
+        assert_eq!(bitmap_index(7), 0);
+        assert_eq!(bitmap_index(8), 1);
+        assert_eq!(bitmap_index(15), 1);
+        assert_eq!(bitmap_index(16), 2);
     }
 }

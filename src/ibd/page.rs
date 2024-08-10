@@ -10,8 +10,8 @@ use strum::{Display, EnumString};
 
 use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
 use crate::{
-    ibd::record::{RecordHeader, Row, RowInfo},
-    meta::def::{IndexDef, TableDef},
+    ibd::record::{RecordHeader, RowData, RowInfo},
+    meta::def::TableDef,
     util,
 };
 
@@ -678,23 +678,23 @@ impl BasePageBody for IndexPageBody {
 }
 
 impl IndexPageBody {
-    pub fn read_user_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
+    pub fn read_user_records(&self, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
 
         let mut records = Vec::new();
         for nrec in 0..self.idx_hdr.page_n_recs {
-            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef)?;
+            let rec = self.parse_record(rec_addr, tabdef.clone(), index_pos)?;
             info!("nrec={}, rec={:?}", nrec.to_string().green(), &rec);
             rec_addr = rec.rec_hdr.next_addr();
             records.push(rec);
         }
 
-        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "rec_addr should reach supremum");
+        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "记录地址 rec_addr 应该到达上确界");
         Ok(records)
     }
 
-    pub fn read_free_records(&self, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Vec<Record>, Error> {
+    pub fn read_free_records(&self, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Vec<Record>, Error> {
         let mut rec_addr = self.idx_hdr.page_free as usize;
         let mut free_records = Vec::new();
         loop {
@@ -704,7 +704,7 @@ impl IndexPageBody {
             }
 
             // parse the garbage record
-            let rec = self.parse_record(rec_addr, tabdef.clone(), idxdef)?;
+            let rec = self.parse_record(rec_addr, tabdef.clone(), index_pos)?;
             let next_addr = rec.rec_hdr.next_addr();
             free_records.push(rec);
 
@@ -718,7 +718,7 @@ impl IndexPageBody {
         Ok(free_records)
     }
 
-    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, idxdef: &IndexDef) -> Result<Record, Error> {
+    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Record, Error> {
         // Record Header
         let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
 
@@ -726,17 +726,17 @@ impl IndexPageBody {
             return Err(Error::msg(format!("不支持解析 INSTANT 标记的记录: {:?}", &rec_hdr)));
         }
 
-        if rec_hdr.is_version() {
-            return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
-        }
+        // if rec_hdr.is_version() {
+        //     return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));
+        // }
 
-        // Row Info
-        let row_info = RowInfo::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone(), tabdef.clone(), idxdef);
+        // Row Info: depends on table definition
+        let row_info = Arc::new(RowInfo::new(&rec_hdr, tabdef.clone(), index_pos));
 
-        // Row Data
-        let row = Row::new(rec_addr, self.buf.clone(), tabdef.clone());
+        // Row Data: depends on table definition for unpack row
+        let row_data = RowData::new(rec_addr, self.buf.clone(), row_info.clone());
 
-        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info, row);
+        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info.clone(), row_data);
 
         Ok(rec)
     }
