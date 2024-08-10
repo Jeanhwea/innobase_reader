@@ -214,6 +214,7 @@ impl RowInfo {
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
 
+        // Physical layout
         let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
         let phy_layout = if has_phy_pos {
             cols.iter()
@@ -243,25 +244,26 @@ impl RowInfo {
             &phy_layout,
         );
 
-        // nil field number
-        let nfld_num = phy_layout
+        // Number of nullable (nil) fields
+        let n_nilfld = phy_layout
             .iter()
-            .map(|x| {
-                let col = &cols[x.1 .0];
-                let exist = x.1 .1;
-                if exist && col.isnil {
+            .map(|(_, v)| {
+                let col = &cols[v.0];
+                let phy = v.1;
+                if phy && col.isnil {
                     1
                 } else {
                     0
                 }
             })
             .sum();
-        let nfld_bytes = align8(nfld_num);
 
+        // Reserve 1 byte for row_version if possible
         let niladdr = self.addr + if row_ver > 0 { 1 } else { 0 };
-        let varaddr = niladdr + nfld_bytes;
+        let varaddr = niladdr + align8(n_nilfld);
         info!(
-            "niladdr={}, varaddr={}",
+            "n_nilfld={}, niladdr={}, varaddr={}",
+            n_nilfld.to_string().blue(),
             niladdr.to_string().yellow(),
             varaddr.to_string().yellow()
         );
@@ -270,9 +272,9 @@ impl RowInfo {
         for (phy_pos, (col_pos, phy_exist)) in phy_layout {
             let col = &cols[col_pos];
             info!(
-                "[{}] {} => {}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
+                "{} [{}]=> {}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
+                if phy_exist { "PHY".green() } else { "VIR".red() },
                 phy_pos,
-                if phy_exist { "Yes".green() } else { "No ".red() },
                 col.col_name.magenta(),
                 col.phy_pos,
                 row_ver,
