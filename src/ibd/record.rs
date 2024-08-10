@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-
+use std::collections::HashSet;
 use anyhow::Error;
 use bytes::Bytes;
 use colored::Colorize;
@@ -213,6 +213,7 @@ impl RowInfo {
         let row_ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
+        let eles_set = eles.iter().map(|e| e.column_opx).collect::<HashSet<_>>();
 
         // Physical layout
         let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
@@ -227,13 +228,14 @@ impl RowInfo {
                     } else {
                         true
                     };
-                    (col.phy_pos as usize, (col_pos, phy_exist))
+                    let log_exist = eles_set.contains(&col_pos);
+                    (col.phy_pos as usize, (col_pos, phy_exist, log_exist))
                 })
                 .collect::<BTreeMap<usize, _>>()
         } else {
             eles.iter()
                 .enumerate()
-                .map(|(phy_pos, ele)| (phy_pos, (ele.column_opx, true)))
+                .map(|(phy_pos, ele)| (phy_pos, (ele.column_opx, true, true)))
                 .collect::<BTreeMap<usize, _>>()
         };
 
@@ -258,7 +260,7 @@ impl RowInfo {
             })
             .sum();
 
-        // Reserve 1 byte for row_version if possible
+        // Reserve 1 byte for row_version if row_version > 0
         let niladdr = self.addr - if row_ver > 0 { 1 } else { 0 };
         let varaddr = niladdr - align8(n_nilfld);
         info!(
@@ -270,17 +272,18 @@ impl RowInfo {
         );
 
         let row_meta_list = Vec::new();
-        for (phy_pos, (col_pos, phy_exist)) in phy_layout {
+        for (phy_pos, (col_pos, phy_exist, log_exist)) in phy_layout {
             let col = &cols[col_pos];
             info!(
-                "{} [{}]=> {}, phy_ver={}, row_version={}, version_added={}, version_dropped={}",
-                if phy_exist { "PHY".green() } else { "VIR".red() },
+                "exist[{},{}] pos[phy={},opx={}] version[row={},added={},dropped={}] => {}",
+                if phy_exist { "PHY=Y".green() } else { "PHY=N".red() },
+                if log_exist { "LOG=Y".green() } else { "LOG=N".red() },
                 phy_pos,
-                col.col_name.magenta(),
-                col.phy_pos,
+                col_pos,
                 row_ver,
                 col.version_added,
                 col.version_dropped,
+                col.col_name.magenta(),
             );
         }
         Ok(row_meta_list)
