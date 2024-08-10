@@ -416,6 +416,185 @@ mod factory_tests {
 
         Ok(())
     }
+
+    #[test]
+    fn row_version_unpack_00() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_0))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 1);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_01() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_1))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 1);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+        assert_eq!(tuples[0][7].0, "c5");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][7].1, DataValue::Str("c5_def    ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_02() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_2))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c3");
+        assert_eq!(tuples[0][6].0, "c4");
+        assert_eq!(tuples[0][7].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c3      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][7].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c3      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][7].1, DataValue::Str("r2c5      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_03() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_3))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c4");
+        assert_eq!(tuples[0][6].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c5      ".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_version_unpack_04() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_RV_4))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 3);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "c1");
+        assert_eq!(tuples[0][4].0, "c2");
+        assert_eq!(tuples[0][5].0, "c4");
+        assert_eq!(tuples[0][6].0, "c5");
+
+        // row 0
+        assert_eq!(tuples[0][3].1, DataValue::Str("r1c1      ".into()));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c2      ".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c4      ".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("c5_def    ".into()));
+
+        // row 1
+        assert_eq!(tuples[1][3].1, DataValue::Str("r2c1      ".into()));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c2      ".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c4      ".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("r2c5      ".into()));
+
+        // row 2
+        assert_eq!(tuples[2][3].1, DataValue::Str("r3c1      ".into()));
+        assert_eq!(tuples[2][4].1, DataValue::Str("r3c2      ".into()));
+        assert_eq!(tuples[2][5].1, DataValue::Str("r3c4      ".into()));
+        assert_eq!(tuples[2][6].1, DataValue::Str("r3c5      ".into()));
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
