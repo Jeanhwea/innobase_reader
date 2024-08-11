@@ -1,12 +1,199 @@
 #+TITLE: ibr - Innobase Reader
 #+AUTHOR: Jinghui Hu
 #+EMAIL: hujinghui@buaa.edu.cn
-#+DATE: <2024-07-20 Sat>
+#+DATE: <2024-08-11 Sun>
 #+STARTUP: overview num indent
 #+OPTIONS: ^:nil
 
 
-* BUILD
+* Install
+1. Download latest package from github release page | [[https://github.com/Jeanhwea/innobase_reader/releases/latest][here]]
+   - Windows use choose innobase_reader_xxx_x86_64-pc-windows-gnu.zip
+   - Linux user choose innobase_reader_xxx_x86_64-unknown-linux-musl.tar.gz
+2. Uncompress package to get executable binary: *ibr* or *ibr.exe*, THAT IT
+
+* Introduction
+** Usage
+#+BEGIN_SRC sh :exports both :results output
+  ibr -h
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+The innobase datafile(*.ibd) reader
+
+Usage: ibr <INPUT> <COMMAND>
+
+Commands:
+  info  Print basic information
+  list  List all page. page_type, page_number and more
+  desc  Describe Datafile Information by SDI page
+  sdi   Print SDI Json
+  view  View page data with given page_number
+  dump  Dump Index Page User Records
+  help  Print this message or the help of the given subcommand(s)
+
+Arguments:
+  <INPUT>  Input data file. such as *.ibd
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+#+end_example
+
+** Commands
+*** info - list basic information
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd info
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+Meta Information:
+     version => server(80037), space(1)
+    space_id => 3
+  page_count => 8
+   file_size => 131072
+PageTypes Statistics:
+   ALLOCATED => 2
+       INODE => 1
+ IBUF_BITMAP => 1
+     FSP_HDR => 1
+         SDI => 1
+       INDEX => 2
+#+end_example
+
+*** list - list all page basic information
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd list
+#+END_SRC
+
+#+RESULTS:
+: page_no=0, page_type=FSP_HDR, space_id=3, lsn=20329829, offset=0x0(0)
+: page_no=1, page_type=IBUF_BITMAP, space_id=3, lsn=20328997, offset=0x4000(16384)
+: page_no=2, page_type=INODE, space_id=3, lsn=20329829, offset=0x8000(32768)
+: page_no=3, page_type=SDI, space_id=3, lsn=20338300, offset=0xc000(49152)
+: page_no=4, page_type=INDEX, space_id=3, lsn=20449347, offset=0x10000(65536)
+: page_no=5, page_type=INDEX, space_id=3, lsn=20449393, offset=0x14000(81920)
+: page_no=6, page_type=ALLOCATED, space_id=0, lsn=0, offset=0x18000(98304)
+: page_no=7, page_type=ALLOCATED, space_id=0, lsn=0, offset=0x1c000(114688)
+
+*** desc - like desc on mysql client, it prints table structure
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd desc
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+COL1: name=dept_no, dd_type=STRING, nullable=false, data_len=16, utf8_def=char(4)
+COL2: name=dept_name, dd_type=VARCHAR, nullable=false, data_len=161, utf8_def=varchar(40)
+COL3: name=DB_TRX_ID, dd_type=INT24, nullable=false, data_len=6, utf8_def=
+COL4: name=DB_ROLL_PTR, dd_type=LONGLONG, nullable=false, data_len=7, utf8_def=
+IDX1: idx_name=PRIMARY, idx_type=IT_PRIMARY, algorithm=IA_BTREE
+ (1-1): column_opx=0, col_name=dept_no, order=ORDER_ASC, ele_len=16, hidden=false, isnil=false, isvar=true
+ (1-2): column_opx=2, col_name=DB_TRX_ID, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=false
+ (1-3): column_opx=3, col_name=DB_ROLL_PTR, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=false
+ (1-4): column_opx=1, col_name=dept_name, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=true
+IDX2: idx_name=dept_name, idx_type=IT_UNIQUE, algorithm=IA_BTREE
+ (2-1): column_opx=1, col_name=dept_name, order=ORDER_ASC, ele_len=160, hidden=false, isnil=false, isvar=true
+ (2-2): column_opx=0, col_name=dept_no, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=true
+#+end_example
+
+*** sdi - like ibd2sdi, it prints SDI data on SDI page
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd sdi | grep -A 20  "columns"
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+    "columns": [
+      {
+        "name": "dept_no",
+        "type": 29,
+        "is_nullable": false,
+        "is_zerofill": false,
+        "is_unsigned": false,
+        "is_auto_increment": false,
+        "is_virtual": false,
+        "hidden": 1,
+        "ordinal_position": 1,
+        "char_length": 16,
+        "numeric_precision": 0,
+        "numeric_scale": 0,
+        "numeric_scale_null": true,
+        "datetime_precision": 0,
+        "datetime_precision_null": 1,
+        "has_no_default": true,
+        "default_value_null": false,
+        "srs_id_null": true,
+        "srs_id": 0,
+#+end_example
+
+*** view - prints page structure
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd view 0 | grep -A 20 BasePage
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+BasePage {
+    addr: 0x0000@(0),
+    fil_hdr: FilePageHeader {
+        addr: 0x0000@(0),
+        check_sum: 0xbfb1ff11(3216113425),
+        page_no: 0,
+        prev_page: 0x000138a5(80037),
+        next_page: 0x00000001(1),
+        lsn: 0x0000000001363565(20329829),
+        page_type: FSP_HDR,
+        flush_lsn: 0x0000000000000000(0),
+        space_id: 3,
+    },
+    page_body: FileSpaceHeaderPageBody {
+        addr: 0x0026@(38),
+        fsp_hdr: FileSpaceHeader {
+            addr: 0x0026@(38),
+            space_id: 3,
+            notused: 0,
+            fsp_size: 8,
+            free_limit: 64,
+#+end_example
+
+*** dump - dump row data
+#+BEGIN_SRC sh :exports both :results output
+  ibr ./data/departments.ibd dump 4 -l 3
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+,**************************************** Row 1 ****************************************
+     dept_no => Str("d001")
+   DB_TRX_ID => TrxId(0x00000000053d)
+ DB_ROLL_PTR => RollPtr(0x820000008d0110)
+   dept_name => Str("Marketing")
+,**************************************** Row 2 ****************************************
+     dept_no => Str("d002")
+   DB_TRX_ID => TrxId(0x00000000053d)
+ DB_ROLL_PTR => RollPtr(0x820000008d011d)
+   dept_name => Str("Finance")
+,**************************************** Row 3 ****************************************
+     dept_no => Str("d003")
+   DB_TRX_ID => TrxId(0x00000000053d)
+ DB_ROLL_PTR => RollPtr(0x820000008d012a)
+   dept_name => Str("Human Resources")
+#+end_example
+
+* Build
+Install rust toolchain and build with cargo
 #+BEGIN_SRC sh
   cargo build
 #+END_SRC
+
+* Limitation
+1. only support *ibd* in MySQL 8.0.x
+   - cannot parse *frm* table structure now
+2. only support limited data type
+   - char/varchar
+   - int/bigint
+   - date/datetime/timestamp
+3. don't support overflow page now
