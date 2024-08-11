@@ -147,6 +147,7 @@ impl RecordHeader {
     }
 }
 
+/// Field metadata
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldMeta {
@@ -159,6 +160,7 @@ pub struct FieldMeta {
     pub log_exist: bool, // logical exists
 }
 
+/// Field datum, data bytes
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldDatum {
