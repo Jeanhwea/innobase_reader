@@ -6,6 +6,10 @@
 #+OPTIONS: ^:nil
 
 
+* INSTALL
+1. Download Binary from [[https://github.com/Jeanhwea/innobase_reader/releases/download][here]]
+2. Uncompress package to get executable binary: `ibr'
+
 * BUILD
 #+BEGIN_SRC sh
   cargo build
