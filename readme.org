@@ -1,7 +1,7 @@
 #+TITLE: ibr - Innobase Reader
 #+AUTHOR: Jinghui Hu
 #+EMAIL: hujinghui@buaa.edu.cn
-#+DATE: <2024-07-20 Sat>
+#+DATE: <2024-08-11 Sun>
 #+STARTUP: overview num indent
 #+OPTIONS: ^:nil
 
@@ -188,3 +188,12 @@ Install rust toolchain and build with cargo
 #+BEGIN_SRC sh
   cargo build
 #+END_SRC
+
+* Limitation
+1. only support *ibd* in MySQL 8.0.x
+   - cannot parse *frm* table structure now
+2. only support limited data type
+   - char/varchar
+   - int/bigint
+   - date/datetime/timestamp
+3. don't support overflow page now
