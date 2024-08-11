@@ -35,6 +35,11 @@ enum Commands {
     Desc,
     /// Print SDI Json
     Sdi,
+    /// View page data with given page_number.
+    View {
+        /// Which page number, which starts from zero. [0, 1, ...]
+        page: usize,
+    },
     /// Dump Index Page User Records
     Dump {
         /// Which page number, which starts from zero. [0, 1, ...]
@@ -48,11 +53,6 @@ enum Commands {
         /// Print more information
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
-    },
-    /// View page data with given page_number.
-    View {
-        /// Which page number, which starts from zero. [0, 1, ...]
-        page: usize,
     },
 }
 
