@@ -9,6 +9,7 @@ jobs:
   release:
     name: release ${{ matrix.target }}
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     strategy:
       fail-fast: false
       matrix:
@@ -29,3 +30,20 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
           EXTRA_FILES: "readme.org LICENSE"
+
+  release_without_not_required:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [x86_64-unknown-linux-musl]
+    steps:
+      - uses: actions/checkout@master
+      - name: Compile and Release
+        uses: rust-build/rust-build.action@master
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          UPLOAD_MODE: none
+      - name: Checkout output
+        run: ls -laR
