@@ -7,7 +7,7 @@
 
 
 * INSTALL
-1. Download Binary from [[https://github.com/Jeanhwea/innobase_reader/releases/download][here]]
+1. Download latest release package from [[https://github.com/Jeanhwea/innobase_reader/releases/latest][here]]
 2. Uncompress package to get executable binary: `ibr'
 
 * BUILD
