@@ -29,12 +29,12 @@ Commands:
   list  List all page. page_type, page_number and more
   desc  Describe Datafile Information by SDI page
   sdi   Print SDI Json
-  view  View page data with given page_number
+  view  View page data with given page_no
   dump  Dump Index Page User Records
   help  Print this message or the help of the given subcommand(s)
 
 Arguments:
-  <INPUT>  Input data file. such as *.ibd
+  <INPUT>  Input innodb data file. for example departments.ibd
 
 Options:
   -h, --help     Print help
