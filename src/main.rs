@@ -18,7 +18,7 @@ mod util;
 #[derive(Debug, Parser)]
 #[command(author, version, about = "The innobase datafile(*.ibd) reader", long_about = None)]
 pub struct Args {
-    /// Input data file. such as *.ibd
+    /// Input innodb data file. for example departments.ibd
     input: PathBuf,
 
     #[command(subcommand)]
