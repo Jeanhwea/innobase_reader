@@ -101,7 +101,7 @@ IDX2: idx_name=dept_name, idx_type=IT_UNIQUE, algorithm=IA_BTREE
 
 *** sdi - like ibd2sdi, it prints SDI data on SDI page
 #+BEGIN_SRC sh :exports both :results output
-  ibr ./data/departments.ibd sdi | grep -A 40  "columns"
+  ibr ./data/departments.ibd sdi | grep -A 40 "columns"
 #+END_SRC
 
 #+RESULTS:
