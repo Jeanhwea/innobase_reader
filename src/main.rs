@@ -35,15 +35,15 @@ enum Commands {
     Desc,
     /// Print SDI Json
     Sdi,
-    /// View page data with given page_number.
+    /// View page data with given page_no.
     View {
-        /// Which page number, which starts from zero. [0, 1, ...]
-        page: usize,
+        /// Page number, starts from 0.
+        page_no: usize,
     },
     /// Dump Index Page User Records
     Dump {
-        /// Which page number, which starts from zero. [0, 1, ...]
-        page: usize,
+        /// Page number, starts from 0.
+        page_no: usize,
         /// Limit the total row in the dump
         #[arg(short, long, default_value_t = 9)]
         limit: usize,
