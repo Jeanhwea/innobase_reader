@@ -101,7 +101,7 @@ IDX2: idx_name=dept_name, idx_type=IT_UNIQUE, algorithm=IA_BTREE
 
 *** sdi - like ibd2sdi, it prints SDI data on SDI page
 #+BEGIN_SRC sh :exports both :results output
-  ibr ./data/departments.ibd sdi | grep -A 20  "columns"
+  ibr ./data/departments.ibd sdi | grep -A 40  "columns"
 #+END_SRC
 
 #+RESULTS:
@@ -127,6 +127,26 @@ IDX2: idx_name=dept_name, idx_type=IT_UNIQUE, algorithm=IA_BTREE
         "default_value_null": false,
         "srs_id_null": true,
         "srs_id": 0,
+        "default_value": "ICAgICAgICAgICAgICAgIA==",
+        "default_value_utf8_null": true,
+        "default_value_utf8": "",
+        "default_option": "",
+        "update_option": "",
+        "comment": "",
+        "generation_expression": "",
+        "generation_expression_utf8": "",
+        "options": "interval_count=0;",
+        "se_private_data": "table_id=1065;",
+        "engine_attribute": "",
+        "secondary_engine_attribute": "",
+        "column_key": 2,
+        "column_type_utf8": "char(4)",
+        "elements": [],
+        "collation_id": 255,
+        "is_explicit_collation": false
+      },
+      {
+        "name": "dept_name",
 #+end_example
 
 *** view - prints page structure
