@@ -201,7 +201,8 @@ impl App {
         }
 
         let rs = fact.unpack_index_page(page_no, garbage)?;
-        for (i, tuple) in rs.tuples[..min(rs.tuples.len(), limit)].iter().enumerate() {
+        let n_dump_rows = min(rs.tuples.len(), limit);
+        for (i, tuple) in rs.tuples[..n_dump_rows].iter().enumerate() {
             let rec = &rs.records[i];
             let seq = i + 1;
 
@@ -233,6 +234,14 @@ impl App {
             for ent in tuple {
                 println!("{:>12} => {:?}", &ent.0.to_string().magenta(), &ent.1);
             }
+        }
+
+        if n_dump_rows < rs.tuples.len() {
+            println!(
+                "dump front {} of {} rows, use --limit num to view more",
+                n_dump_rows,
+                rs.tuples.len()
+            )
         }
 
         Ok(())
