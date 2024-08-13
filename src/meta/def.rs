@@ -1,6 +1,6 @@
 use bytes::Bytes;
-use log::{info, warn};
 
+use super::cst::Collation;
 use crate::{
     ibd::record::{
         ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject, HiddenTypes,
@@ -9,8 +9,6 @@ use crate::{
     meta::cst::coll_find,
     util::{self, conv_strdata_to_bytes},
 };
-
-use super::cst::Collation;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
