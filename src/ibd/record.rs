@@ -185,6 +185,9 @@ pub struct RowInfo {
     // /// Nullable field flag area
     // #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
     // pub nil_area: Bytes,
+    /// Instant add column flag
+    pub instant_flag: bool,
+
     /// Row version
     pub row_version: u8, // instant add/drop column
 
@@ -203,6 +206,7 @@ impl RowInfo {
         Self {
             table_def: tabdef.clone(),
             index_pos,
+            instant_flag: rec_hdr.is_instant(),
             row_version: row_ver,
             buf: buf.clone(),
             addr: rec_hdr.addr,
@@ -228,6 +232,8 @@ impl RowInfo {
         let eles_set = eles.iter().map(|e| e.column_opx).collect::<HashSet<_>>();
 
         // Physical layout
+        let n_instant_col = self.table_def.n_instant_col as usize;
+        let mut n_hidden = 0;
         let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
         let phy_layout = if has_phy_pos {
             cols.iter()
@@ -244,6 +250,28 @@ impl RowInfo {
                     (col.phy_pos as usize, (col_pos, phy_exist, log_exist))
                 })
                 .collect::<BTreeMap<usize, _>>()
+        } else if n_instant_col > 0 {
+            eles.iter()
+                .enumerate()
+                .map(|(phy_pos, ele)| {
+                    let col = &cols[ele.column_opx];
+                    info!(
+                        "phy_pos={}, n_hidden={}, n_instant_col={}, col={:?}",
+                        phy_pos, n_hidden, n_instant_col, &col.col_name
+                    );
+                    let phy_exist = if col.hidden != HiddenTypes::HT_VISIBLE {
+                        n_hidden += 1;
+                        true
+                    } else {
+                        phy_pos - n_hidden < n_instant_col
+                    };
+                    if self.instant_flag {
+                        todo!("解析 INSTANT 标识")
+                    } else {
+                        (phy_pos, (ele.column_opx, phy_exist, true))
+                    }
+                })
+                .collect::<BTreeMap<usize, _>>()
         } else {
             eles.iter()
                 .enumerate()
@@ -251,7 +279,7 @@ impl RowInfo {
                 .collect::<BTreeMap<usize, _>>()
         };
 
-        debug!(
+        info!(
             "row_version={}, has_phy_pos={}, phy_layout={:?}",
             row_ver,
             has_phy_pos.to_string().yellow(),

@@ -189,13 +189,13 @@ impl DatafileFactory {
         };
         info!("当前页所引用的索引: index_name={}", index.1.idx_name);
 
-        if tabdef.n_instant_col > 0 {
-            info!("tabdef={:#?}", tabdef);
-            return Err(Error::msg(format!(
-                "不支持解析 INSTANT 标记: n_instant_col={:?}",
-                tabdef.n_instant_col
-            )));
-        }
+        // if tabdef.n_instant_col > 0 {
+        //     info!("tabdef={:#?}", tabdef);
+        //     return Err(Error::msg(format!(
+        //         "不支持解析 INSTANT 标记: n_instant_col={:?}",
+        //         tabdef.n_instant_col
+        //     )));
+        // }
 
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), index.0)?
@@ -433,6 +433,7 @@ mod factory_tests {
         let rs = ans.unwrap();
         assert_eq!(rs.tuples.len(), 2);
         let tuples = rs.tuples;
+        assert_eq!(tuples[0].len(), 6);
 
         // check row name
         assert_eq!(tuples[0][0].0, "DB_ROW_ID");
@@ -476,6 +477,46 @@ mod factory_tests {
         assert_eq!(tuples[0][4].1, DataValue::Str("r1c1".into()));
         assert_eq!(tuples[0][5].1, DataValue::Str("r1c2".into()));
         assert_eq!(tuples[0][6].1, DataValue::Str("c3_def".into()));
+
+        assert_eq!(tuples[1][3].1, DataValue::I32(2));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c1".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c2".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("c3_def".into()));
+
+        Ok(())
+    }
+
+    // #[test]
+    fn instant_col_unpack_02() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_IC_2))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "k1");
+        assert_eq!(tuples[0][4].0, "c1");
+        assert_eq!(tuples[0][5].0, "c2");
+        assert_eq!(tuples[0][6].0, "c3");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::I32(1));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c1".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c2".into()));
+        assert_eq!(tuples[0][6].1, DataValue::Str("c3_def".into()));
+
+        assert_eq!(tuples[1][3].1, DataValue::I32(2));
+        assert_eq!(tuples[1][4].1, DataValue::Str("r2c1".into()));
+        assert_eq!(tuples[1][5].1, DataValue::Str("r2c2".into()));
+        assert_eq!(tuples[1][6].1, DataValue::Str("c3_def".into()));
 
         Ok(())
     }
