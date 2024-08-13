@@ -1,7 +1,11 @@
+# https://docs.github.com/en/actions/writing-workflows/quickstart
+
 on:
   release:
     types: [created]
   push:
+    branches:
+      - master
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
@@ -22,7 +26,7 @@ jobs:
           #   archive: zip
     steps:
       - uses: actions/checkout@master
-      - name: Compile and Release
+      - name: compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +44,15 @@ jobs:
         target: [x86_64-unknown-linux-musl]
     steps:
       - uses: actions/checkout@master
-      - name: Compile and Release
+      - name: compile and release
         uses: rust-build/rust-build.action@master
         with:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
-      - name: Checkout output
-        run: ls -laR
+      - name: unit test
+        run: |
+          sudo chown -R $(whoami) .
+          cargo test
+      - name: checkout output
+        # run: ls -laR
+        run: find . -type f -not -path './.git/*' | sort

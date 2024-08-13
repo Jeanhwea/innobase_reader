@@ -77,12 +77,12 @@ impl ColumnDef {
                     ColumnTypes::ENUM => (if ddc.elements.len() < 256 { 1 } else { 2 }) as u32,
                     ColumnTypes::JSON => ddc.char_length,
                     _ => todo!(
-                        "Unsupported data_len type: ColumType::{}, utf8_def={}",
+                        "不支持的数据长度类型: ColumType::{}, utf8_def={}",
                         ddc.dd_type,
                         ddc.column_type_utf8
                     ),
                 },
-                _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
+                _ => todo!("不支持的数据长度类型: HiddenTypes::{}", ddc.hidden),
             },
             isnil: ddc.is_nullable,
             isvar: match coll.charset {
