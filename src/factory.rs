@@ -423,6 +423,34 @@ mod factory_tests {
     }
 
     #[test]
+    fn instant_col_unpack_00() -> Result<(), Error> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_IC_0))?;
+        let ans = fact.unpack_index_page(4, false);
+        assert!(ans.is_ok());
+
+        let rs = ans.unwrap();
+        assert_eq!(rs.tuples.len(), 2);
+        let tuples = rs.tuples;
+
+        // check row name
+        assert_eq!(tuples[0][0].0, "DB_ROW_ID");
+        assert_eq!(tuples[0][1].0, "DB_TRX_ID");
+        assert_eq!(tuples[0][2].0, "DB_ROLL_PTR");
+        assert_eq!(tuples[0][3].0, "k1");
+        assert_eq!(tuples[0][4].0, "c1");
+        assert_eq!(tuples[0][5].0, "c2");
+
+        // first row
+        assert_eq!(tuples[0][3].1, DataValue::I32(1));
+        assert_eq!(tuples[0][4].1, DataValue::Str("r1c1".into()));
+        assert_eq!(tuples[0][5].1, DataValue::Str("r1c2".into()));
+
+        Ok(())
+    }
+
+    #[test]
     fn row_version_unpack_00() -> Result<(), Error> {
         util::init_unit_test();
 
