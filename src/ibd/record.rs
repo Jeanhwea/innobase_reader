@@ -251,9 +251,13 @@ impl RowInfo {
         let n_ins_col = if self.instant_flag {
             self.n_instant_col as usize
         } else {
-            self.table_def.instant_col as usize
+            if self.table_def.instant_col > 0 {
+                let n_hidden = cols.iter().filter(|col| col.hidden != HiddenTypes::HT_VISIBLE).count();
+                n_hidden + self.table_def.instant_col as usize
+            } else {
+                0
+            }
         };
-        let mut n_hidden = 0;
 
         // for VERSION flag
         let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
@@ -279,18 +283,7 @@ impl RowInfo {
             eles.iter()
                 .enumerate()
                 .map(|(phy_pos, ele)| {
-                    let col = &cols[ele.column_opx];
-                    info!(
-                        "phy_pos={}, n_hidden={}, n_instant_col={}, col={:?}",
-                        phy_pos, n_hidden, n_ins_col, &col.col_name
-                    );
-                    let phy_exist = if col.hidden != HiddenTypes::HT_VISIBLE {
-                        n_hidden += 1;
-                        true
-                    } else {
-                        phy_pos - n_hidden < n_ins_col
-                    };
-
+                    let phy_exist = phy_pos < n_ins_col;
                     (phy_pos, (ele.column_opx, phy_exist, true))
                 })
                 .collect::<BTreeMap<usize, _>>()
