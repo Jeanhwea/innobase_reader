@@ -189,11 +189,11 @@ impl DatafileFactory {
         };
         info!("当前页所引用的索引: index_name={}", index.1.idx_name);
 
-        if tabdef.instant_col >= 0 {
+        if tabdef.n_instant_col > 0 {
             info!("tabdef={:?}", tabdef);
             return Err(Error::msg(format!(
-                "不支持解析 INSTANT 标记: instant_col={:?}",
-                tabdef.instant_col
+                "不支持解析 INSTANT 标记: n_instant_col={:#?}",
+                tabdef.n_instant_col
             )));
         }
 

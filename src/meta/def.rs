@@ -19,7 +19,9 @@ pub struct TableDef {
     pub charset: String,          // character set name
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
-    pub instant_col: i32,         // instant column flag
+
+    /// indicate how many columns exist before first instant ADD COLUMN in table level
+    pub n_instant_col: i32,
 }
 
 impl TableDef {
@@ -33,7 +35,7 @@ impl TableDef {
             charset: coll.charset.into(),
             col_defs: coldefs,
             idx_defs: idxdefs,
-            instant_col: priv_data
+            n_instant_col: priv_data
                 .get("instant_col")
                 .map(|v| v.parse::<i32>().unwrap_or(0))
                 .unwrap_or(-1),
