@@ -10,7 +10,7 @@ create table tb_instant_col (
 insert into tb_instant_col(k1, c1, c2) values (1, 'r1c1', 'r1c2');
 insert into tb_instant_col(k1, c1, c2) values (2, 'r2c1', 'r2c2');
 
--- tb_instant_col_1.ibd
+-- tb_instant_col_0.ibd
 -- mysql> select * from tb_instant_col;
 -- +------+------+------+
 -- | k1   | c1   | c2   |
@@ -22,7 +22,7 @@ insert into tb_instant_col(k1, c1, c2) values (2, 'r2c1', 'r2c2');
 
 alter table tb_instant_col add column c3 varchar(8) default 'c3_def';
 
--- tb_instant_col_2.ibd
+-- tb_instant_col_1.ibd
 -- mysql> select * from tb_instant_col;
 -- +------+------+------+--------+
 -- | k1   | c1   | c2   | c3     |
@@ -34,7 +34,7 @@ alter table tb_instant_col add column c3 varchar(8) default 'c3_def';
 
 insert into tb_instant_col(k1, c1, c2, c3) values (3, 'r3c1', 'r3c2', 'r3c3');
 
--- tb_instant_col_3.ibd
+-- tb_instant_col_2.ibd
 -- mysql> select * from tb_instant_col;
 -- +------+------+------+--------+
 -- | k1   | c1   | c2   | c3     |

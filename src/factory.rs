@@ -288,6 +288,11 @@ mod factory_tests {
     const IBD_RV_3: &str = "data/tb_row_version_3.ibd";
     const IBD_RV_4: &str = "data/tb_row_version_4.ibd";
 
+    // tb_instant_col.sql
+    const IBD_IC_0: &str = "data/tb_instant_col_0.ibd";
+    const IBD_IC_1: &str = "data/tb_instant_col_1.ibd";
+    const IBD_IC_2: &str = "data/tb_instant_col_2.ibd";
+
     #[test]
     fn load_buffer() -> Result<(), Error> {
         util::init_unit_test();
