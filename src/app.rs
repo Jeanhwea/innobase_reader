@@ -238,7 +238,7 @@ impl App {
 
         if n_dump_rows < rs.tuples.len() {
             println!(
-                "dump front {} of {} rows, use --limit num to view more",
+                "ONLY dump {} of {} rows, use `--limit num' to dump more",
                 n_dump_rows,
                 rs.tuples.len()
             )
