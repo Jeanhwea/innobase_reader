@@ -86,7 +86,7 @@ impl ColumnDef {
             },
             isnil: ddc.is_nullable,
             isvar: match coll.charset {
-                "latin1" => matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
+                "latin1" | "binary" => matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
                 "utf8mb4" => matches!(
                     &ddc.dd_type,
                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
