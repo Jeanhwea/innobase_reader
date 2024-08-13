@@ -169,15 +169,7 @@ impl DatafileFactory {
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
 
-        Ok(Arc::from(TableDef {
-            schema_ref: ddobj.schema_ref.clone(),
-            tab_name: ddobj.name.clone(),
-            collation_id: ddobj.collation_id,
-            collation: coll.name.into(),
-            charset: coll.charset.into(),
-            col_defs: coldefs,
-            idx_defs: idxdefs,
-        }))
+        Ok(Arc::from(TableDef::from(&ddobj, coll, coldefs, idxdefs)))
     }
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {
@@ -196,6 +188,13 @@ impl DatafileFactory {
             }
         };
         info!("当前页所引用的索引: index_name={}", index.1.idx_name);
+
+        if tabdef.instant_col >= 0 {
+            return Err(Error::msg(format!(
+                "不支持解析 INSTANT 标记: instant_col={:?}",
+                tabdef.instant_col
+            )));
+        }
 
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), index.0)?

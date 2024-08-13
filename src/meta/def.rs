@@ -1,14 +1,16 @@
 use bytes::Bytes;
+use log::{info, warn};
 
 use crate::{
     ibd::record::{
-        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, HiddenTypes, IndexAlgorithm,
-        IndexOrder, IndexTypes,
+        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject, HiddenTypes,
+        IndexAlgorithm, IndexOrder, IndexTypes,
     },
     meta::cst::coll_find,
-    util,
-    util::conv_strdata_to_bytes,
+    util::{self, conv_strdata_to_bytes},
 };
+
+use super::cst::Collation;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
@@ -19,6 +21,26 @@ pub struct TableDef {
     pub charset: String,          // character set name
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
+    pub instant_col: i32,         // instant column flag
+}
+
+impl TableDef {
+    pub fn from(ddo: &DataDictObject, coll: &Collation, coldefs: Vec<ColumnDef>, idxdefs: Vec<IndexDef>) -> Self {
+        let priv_data = util::conv_strdata_to_map(&ddo.se_private_data);
+        Self {
+            schema_ref: ddo.schema_ref.clone(),
+            tab_name: ddo.name.clone(),
+            collation_id: ddo.collation_id,
+            collation: coll.name.into(),
+            charset: coll.charset.into(),
+            col_defs: coldefs,
+            idx_defs: idxdefs,
+            instant_col: priv_data
+                .get("instant_col")
+                .map(|v| v.parse::<i32>().unwrap_or(0))
+                .unwrap_or(-1),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]

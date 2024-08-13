@@ -581,6 +581,7 @@ pub struct DataDictObject {
     pub collation_id: u32,
     pub columns: Vec<DataDictColumn>,
     pub indexes: Vec<DataDictIndex>,
+    pub se_private_data: String,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
 }
