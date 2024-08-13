@@ -51,6 +51,7 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
       - name: Cargo Test
+        uses: rust-build/rust-build.action@master
         run: cargo test
       - name: Checkout output
         # run: ls -laR
