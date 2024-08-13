@@ -722,9 +722,9 @@ impl IndexPageBody {
         // Record Header
         let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
 
-        if rec_hdr.is_instant() {
-            return Err(Error::msg(format!("不支持解析 INSTANT 标记的记录: {:?}", &rec_hdr)));
-        }
+        // if rec_hdr.is_instant() {
+        //     return Err(Error::msg(format!("不支持解析 INSTANT 标记的记录: {:?}", &rec_hdr)));
+        // }
 
         // if rec_hdr.is_version() {
         //     return Err(Error::msg(format!("不支持解析 VERSION 标记的记录: {:?}", &rec_hdr)));

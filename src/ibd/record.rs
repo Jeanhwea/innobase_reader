@@ -188,6 +188,9 @@ pub struct RowInfo {
     /// Instant add column flag
     pub instant_flag: bool,
 
+    /// Number of Instant Column
+    pub n_instant_col: u8,
+
     /// Row version
     pub row_version: u8, // instant add/drop column
 
@@ -203,10 +206,14 @@ impl RowInfo {
         // Handle the row version
         let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
 
+        // Handle the row version
+        let n_ins_col = if rec_hdr.is_instant() { buf[rec_hdr.addr - 1] } else { 0 };
+
         Self {
             table_def: tabdef.clone(),
             index_pos,
             instant_flag: rec_hdr.is_instant(),
+            n_instant_col: n_ins_col,
             row_version: row_ver,
             buf: buf.clone(),
             addr: rec_hdr.addr,
@@ -225,16 +232,34 @@ impl RowInfo {
         }
     }
 
+    fn get_patch_byte(&self) -> usize {
+        if self.row_version > 0 {
+            return 1;
+        }
+        if self.instant_flag {
+            return 1;
+        }
+        return 0;
+    }
+
     pub fn resolve(&self) -> Result<Vec<FieldMeta>, Error> {
         let row_ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
+
+        // for INSTANT flag
+        let n_ins_col = if self.instant_flag {
+            self.n_instant_col as usize
+        } else {
+            self.table_def.instant_col as usize
+        };
+        let mut n_hidden = 0;
+
+        // for VERSION flag
+        let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
         let eles_set = eles.iter().map(|e| e.column_opx).collect::<HashSet<_>>();
 
-        // Physical layout
-        let n_instant_col = self.table_def.n_instant_col as usize;
-        let mut n_hidden = 0;
-        let has_phy_pos = cols.iter().any(|col| col.phy_pos >= 0);
+        // resolve physical layout
         let phy_layout = if has_phy_pos {
             cols.iter()
                 .enumerate()
@@ -250,26 +275,23 @@ impl RowInfo {
                     (col.phy_pos as usize, (col_pos, phy_exist, log_exist))
                 })
                 .collect::<BTreeMap<usize, _>>()
-        } else if n_instant_col > 0 {
+        } else if n_ins_col > 0 {
             eles.iter()
                 .enumerate()
                 .map(|(phy_pos, ele)| {
                     let col = &cols[ele.column_opx];
                     info!(
                         "phy_pos={}, n_hidden={}, n_instant_col={}, col={:?}",
-                        phy_pos, n_hidden, n_instant_col, &col.col_name
+                        phy_pos, n_hidden, n_ins_col, &col.col_name
                     );
                     let phy_exist = if col.hidden != HiddenTypes::HT_VISIBLE {
                         n_hidden += 1;
                         true
                     } else {
-                        phy_pos - n_hidden < n_instant_col
+                        phy_pos - n_hidden < n_ins_col
                     };
-                    if self.instant_flag {
-                        todo!("解析 INSTANT 标识")
-                    } else {
-                        (phy_pos, (ele.column_opx, phy_exist, true))
-                    }
+
+                    (phy_pos, (ele.column_opx, phy_exist, true))
                 })
                 .collect::<BTreeMap<usize, _>>()
         } else {
@@ -293,7 +315,7 @@ impl RowInfo {
             .sum();
 
         // reserve 1 byte for row_version if row_version > 0
-        let niladdr = self.addr - if row_ver > 0 { 1 } else { 0 };
+        let niladdr = self.addr - self.get_patch_byte();
         let varaddr = niladdr - align8(n_nilfld);
         info!(
             "n_nilfld={}, hdraddr={}, niladdr={}, varaddr={}",

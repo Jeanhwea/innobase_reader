@@ -189,14 +189,6 @@ impl DatafileFactory {
         };
         info!("当前页所引用的索引: index_name={}", index.1.idx_name);
 
-        // if tabdef.n_instant_col > 0 {
-        //     info!("tabdef={:#?}", tabdef);
-        //     return Err(Error::msg(format!(
-        //         "不支持解析 INSTANT 标记: n_instant_col={:?}",
-        //         tabdef.n_instant_col
-        //     )));
-        // }
-
         let rec_list = if garbage {
             page.page_body.read_free_records(tabdef.clone(), index.0)?
         } else {
@@ -486,16 +478,14 @@ mod factory_tests {
         Ok(())
     }
 
-    // #[test]
+    #[test]
     fn instant_col_unpack_02() -> Result<(), Error> {
         util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_IC_2))?;
-        let ans = fact.unpack_index_page(4, false);
-        assert!(ans.is_ok());
+        let rs = fact.unpack_index_page(4, false)?;
 
-        let rs = ans.unwrap();
-        assert_eq!(rs.tuples.len(), 2);
+        assert_eq!(rs.tuples.len(), 3);
         let tuples = rs.tuples;
 
         // check row name
@@ -507,7 +497,7 @@ mod factory_tests {
         assert_eq!(tuples[0][5].0, "c2");
         assert_eq!(tuples[0][6].0, "c3");
 
-        // first row
+        // rows
         assert_eq!(tuples[0][3].1, DataValue::I32(1));
         assert_eq!(tuples[0][4].1, DataValue::Str("r1c1".into()));
         assert_eq!(tuples[0][5].1, DataValue::Str("r1c2".into()));
@@ -517,6 +507,11 @@ mod factory_tests {
         assert_eq!(tuples[1][4].1, DataValue::Str("r2c1".into()));
         assert_eq!(tuples[1][5].1, DataValue::Str("r2c2".into()));
         assert_eq!(tuples[1][6].1, DataValue::Str("c3_def".into()));
+
+        assert_eq!(tuples[2][3].1, DataValue::I32(3));
+        assert_eq!(tuples[2][4].1, DataValue::Str("r3c1".into()));
+        assert_eq!(tuples[2][5].1, DataValue::Str("r3c2".into()));
+        assert_eq!(tuples[2][6].1, DataValue::Str("r3c3".into()));
 
         Ok(())
     }
