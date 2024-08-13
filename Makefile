@@ -34,6 +34,9 @@ fix: format
 install:
 	$(CARGO) install $(CFLAG) --offline --path .
 
+install-online:
+	$(CARGO) install $(CFLAG) --path .
+
 release: release-linux
 
 # rustup target add x86_64-unknown-linux-musl
