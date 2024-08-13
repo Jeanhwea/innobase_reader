@@ -45,7 +45,7 @@ enum Commands {
         /// Page number, starts from 0.
         page_no: usize,
         /// Limit the total row in the dump
-        #[arg(short, long, default_value_t = 9)]
+        #[arg(short, long, default_value_t = 10)]
         limit: usize,
         /// Dump the garbage list
         #[arg(short, long, default_value_t = false)]
