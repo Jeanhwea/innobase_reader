@@ -50,6 +50,8 @@ jobs:
         with:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
+      - name: Cargo Test
+        run: cargo test
       - name: Checkout output
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
