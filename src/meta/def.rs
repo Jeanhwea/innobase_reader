@@ -85,10 +85,15 @@ impl ColumnDef {
                 _ => todo!("Unsupported data_len type: HiddenTypes::{}", ddc.hidden),
             },
             isnil: ddc.is_nullable,
-            isvar: matches!(
-                &ddc.dd_type,
-                ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
-            ),
+            isvar: match coll.charset {
+                "latin1" => matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
+                "utf8mb4" => matches!(
+                    &ddc.dd_type,
+                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
+                ),
+                _ => todo!("不支持的字符集: {:?}", &coll),
+            },
+
             dd_type: ddc.dd_type.clone(),
             comment: ddc.comment.clone(),
             coll_id: ddc.collation_id,
