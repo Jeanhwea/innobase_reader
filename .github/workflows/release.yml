@@ -51,8 +51,8 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
       - name: Cargo Test
-        uses: rust-build/rust-build.action@master
-        run: cargo test
+        uses: actions/checkout@v4
+        run: cargo test --verbose
       - name: Checkout output
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
