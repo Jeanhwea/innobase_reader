@@ -27,7 +27,7 @@ jobs:
           #   archive: zip
     steps:
       - uses: actions/checkout@master
-      - name: Compile and Release
+      - name: compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,14 +45,14 @@ jobs:
         target: [x86_64-unknown-linux-musl]
     steps:
       - uses: actions/checkout@master
-      - name: Compile and Release
+      - name: compile and release
         uses: rust-build/rust-build.action@master
         with:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
-      - name: Cargo Test
+      - name: unit test
         uses: actions/checkout@v4
         run: cargo test --verbose
-      - name: Checkout output
+      - name: checkout output
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
