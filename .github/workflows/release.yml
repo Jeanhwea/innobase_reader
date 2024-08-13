@@ -51,8 +51,7 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
       - name: unit test
-        uses: actions/checkout@v4
-        run: cargo test --verbose
+        run: cargo test
       - name: checkout output
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
