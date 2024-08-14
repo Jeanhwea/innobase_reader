@@ -316,6 +316,93 @@ impl FilAddr {
     }
 }
 
+/// FSP Header, see fsp0types.h, FSP_FLAGS_POS_xxxx
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct FileSpaceFlags {
+    /// (1 bit) Zero relative shift position of the POST_ANTELOPE field
+    pub post_antelope: bool,
+
+    /// (4 bit) Zero relative shift position of the ZIP_SSIZE field */
+    pub zip_ssize: u32,
+
+    /// (1 bit) Zero relative shift position of the ATOMIC_BLOBS field
+    pub atomic_blobs: bool,
+
+    /// (4 bit) Zero relative shift position of the PAGE_SSIZE field
+    pub page_ssize: u32,
+
+    /// (1 bit) Zero relative shift position of the start of the DATA_DIR bit
+    pub data_dir: bool,
+
+    /// (1 bit) Zero relative shift position of the start of the SHARED bit
+    pub shared: bool,
+
+    /// (1 bit) Zero relative shift position of the start of the TEMPORARY bit
+    pub temporary: bool,
+
+    /// (1 bit) Zero relative shift position of the start of the ENCRYPTION bit
+    pub encryption: bool,
+
+    /// (1 bit) Zero relative shift position of the start of the SDI bits
+    pub sdi: bool,
+
+    /// (18 bit) Zero relative shift position of the start of the UNUSED bits
+    pub unused: u32,
+}
+
+impl FileSpaceFlags {
+    pub fn new(flags: u32) -> Self {
+        Self {
+            post_antelope: (flags & (1 << 31)) > 0,
+            zip_ssize: ((flags >> 27) & 0xf) as u32,
+            atomic_blobs: (flags & (1 << 27)) > 0,
+            page_ssize: ((flags >> 22) & 0xf) as u32,
+            data_dir: (flags & (1 << 22)) > 0,
+            shared: (flags & (1 << 21)) > 0,
+            temporary: (flags & (1 << 20)) > 0,
+            encryption: (flags & (1 << 19)) > 0,
+            sdi: (flags & (1 << 18)) > 0,
+            unused: (flags & 0x3ffff) as u32,
+        }
+    }
+}
+
+#[cfg(test)]
+mod page_tests {
+    use log::info;
+
+    use crate::util::init_unit_test;
+
+    use super::FileSpaceFlags;
+    use anyhow::Error;
+
+    #[test]
+    fn fsp_flags_parse() -> Result<(), Error> {
+        init_unit_test();
+        // let flags = 0xf0040007u32;
+        let flags = 0b1111_1111_0000_0100_1000_1000_1000_0000u32;
+        let fsp_flags = FileSpaceFlags::new(flags);
+
+        info!("flags_bin_h16=0b{:016b}", flags >> 16);
+        info!("flags_bin_l16=0b{:016b}", flags & 0xffff);
+        info!("fsp_flags={:#?}", fsp_flags);
+
+        assert_eq!(fsp_flags.post_antelope, true);
+        assert_eq!(fsp_flags.zip_ssize, 14);
+        assert_eq!(fsp_flags.atomic_blobs, false);
+        assert_eq!(fsp_flags.page_ssize, 0);
+        assert_eq!(fsp_flags.data_dir, false);
+        assert_eq!(fsp_flags.shared, false);
+        assert_eq!(fsp_flags.temporary, false);
+        assert_eq!(fsp_flags.encryption, false);
+        assert_eq!(fsp_flags.sdi, true);
+        assert_eq!(fsp_flags.unused, 7);
+
+        Ok(())
+    }
+}
+
 /// FSP Header, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -337,9 +424,10 @@ pub struct FileSpaceHeader {
     /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
 
-    /// fsp_space_t.flags, see fsp0types.h
+    /// fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_POS_xxxx
     #[derivative(Debug(format_with = "util::fmt_bin32"))]
-    pub fsp_flags: u32,
+    pub fsp_flags_bytes: u32,
+    pub fsp_flags: FileSpaceFlags,
 
     /// number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
@@ -367,12 +455,14 @@ pub struct FileSpaceHeader {
 
 impl FileSpaceHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let flags = util::u32_val(&buf, addr + 16);
         Self {
             space_id: util::u32_val(&buf, addr),
             notused: util::u32_val(&buf, addr + 4),
             fsp_size: util::u32_val(&buf, addr + 8),
             free_limit: util::u32_val(&buf, addr + 12),
-            fsp_flags: util::u32_val(&buf, addr + 16),
+            fsp_flags_bytes: flags,
+            fsp_flags: FileSpaceFlags::new(flags),
             fsp_frag_n_used: util::u32_val(&buf, addr + 20),
             fsp_free: FlstBaseNode::new(addr + 24, buf.clone()),
             free_frag: FlstBaseNode::new(addr + 40, buf.clone()),
