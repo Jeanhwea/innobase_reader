@@ -55,8 +55,13 @@ pub struct BasePage<B> {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// File page header
     pub fil_hdr: FilePageHeader,
+
+    /// Page body, the data of this page
     pub page_body: B,
+
+    /// File page trailer
     pub fil_trl: FilePageTrailer,
 }
 
@@ -135,20 +140,34 @@ pub struct FilePageHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// check_sum, FIL_PAGE_SPACE_OR_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub check_sum: u32, // check_sum, FIL_PAGE_SPACE_OR_CHKSUM
-    pub page_no: u32, // page_number/offset, FIL_PAGE_OFFSET
+    pub check_sum: u32,
+
+    /// page_number/offset, FIL_PAGE_OFFSET
+    pub page_no: u32,
+
+    /// Previous Page, FIL_PAGE_PREV
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub prev_page: u32, // Previous Page, FIL_PAGE_PREV
+    pub prev_page: u32,
+    /// Next Page, FIL_PAGE_NEXT
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub next_page: u32, // Next Page, FIL_PAGE_NEXT
+    pub next_page: u32,
+
+    /// LSN for last page modification, FIL_PAGE_LSN
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
-    pub lsn: u64, // LSN for last page modification, FIL_PAGE_LSN
+    pub lsn: u64,
+
+    /// Page Type, FIL_PAGE_TYPE
     #[derivative(Debug(format_with = "util::fmt_enum"))]
-    pub page_type: PageTypes, // Page Type, FIL_PAGE_TYPE
+    pub page_type: PageTypes,
+
+    /// Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
-    pub flush_lsn: u64, // Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
-    pub space_id: u32, // Space ID, FIL_PAGE_SPACE_ID
+    pub flush_lsn: u64,
+
+    /// Space ID, FIL_PAGE_SPACE_ID
+    pub space_id: u32,
 }
 
 impl FilePageHeader {
@@ -187,10 +206,13 @@ pub struct FilePageTrailer {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub check_sum: u32, // Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
+    pub check_sum: u32,
+
+    /// Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub lsn_low32bit: u32, // Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
+    pub lsn_low32bit: u32,
 }
 
 impl FilePageTrailer {
@@ -213,9 +235,14 @@ pub struct FlstBaseNode {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// (4 bytes) Length
     pub len: u32,
+
+    /// First node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub first: FilAddr,
+
+    /// Last node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub last: FilAddr,
 }
@@ -241,8 +268,11 @@ pub struct FlstNode {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// Previous node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub prev: FilAddr,
+
+    /// Next node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub next: FilAddr,
 }
@@ -267,9 +297,12 @@ pub struct FilAddr {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// (4 bytes) Page number within a space
     #[derivative(Debug(format_with = "util::fmt_page_no"))]
-    pub page: u32, // Page number within a space
-    pub boffset: u16, // Byte offset within the page
+    pub page: u32,
+
+    /// (2 bytes) Byte offset within the page
+    pub boffset: u16,
 }
 
 impl FilAddr {
@@ -294,28 +327,39 @@ pub struct FileSpaceHeader {
 
     /// Table space ID
     pub space_id: u32,
+
     /// not used now
     pub notused: u32,
+
     /// Current size of the space in pages
     pub fsp_size: u32,
+
     /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
+
     /// fsp_space_t.flags, see fsp0types.h
     #[derivative(Debug(format_with = "util::fmt_bin32"))]
     pub fsp_flags: u32,
+
     /// number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
+
     /// list of free extents
     pub fsp_free: FlstBaseNode,
+
     /// list of partially free extents not belonging to any segment
     pub free_frag: FlstBaseNode,
+
     /// list of full extents not belonging to any segment
     pub full_frag: FlstBaseNode,
+
     /// next segment id, 8 bytes which give the first unused segment id
     pub seg_id: u64,
+
     /// list of pages containing segment headers, where all the segment inode
     /// slots are reserved
     pub inodes_full: FlstBaseNode,
+
     /// list of pages containing segment headers, where not all the segment
     /// header slots are reserved
     pub inodes_free: FlstBaseNode,

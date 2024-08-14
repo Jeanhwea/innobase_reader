@@ -8,6 +8,9 @@ on:
       - master
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
+    branches:
+      - master
 
 jobs:
   release:
@@ -52,6 +55,8 @@ jobs:
       - name: unit test
         run: |
           sudo chown -R $(whoami) .
+          rustc --version
+          cargo --version
           cargo test
       - name: checkout output
         # run: ls -laR
