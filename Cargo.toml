@@ -2,9 +2,14 @@
 name = "ibr"
 version = "0.9.0"
 edition = "2021"
-authors = ["Jinghui Hu<hujinghui@buaa.edu.cn>"]
+authors = ["Jinghui Hu <hujinghui@buaa.edu.cn>"]
+description = "A innobase datafile reader"
 readme = "readme.org"
-
+license = "MIT"
+license-file = "LICENSE"
+keywords = ["innodb", "ibd", "row format", "datafile"]
+homepage = "https://github.com/Jeanhwea/innobase_reader"
+repository = "https://github.com/Jeanhwea/innobase_reader.git"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
