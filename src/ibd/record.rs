@@ -35,7 +35,7 @@ pub enum RecordStatus {
     UNDEF,
 }
 
-/// Record Info Flag, total 4 bits
+/// Record Info Flag
 #[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RecInfoFlag {
     /// Mark current column is minimum record
@@ -44,18 +44,14 @@ pub enum RecInfoFlag {
     /// Mark current column is deleted
     DELETED,
 
-    /// Version flag,
-    /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
+    /// Version flag, see INSTANT ADD and DROP Column blog series,
+    /// [intro](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-drop-columns),
+    /// [design](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
+    ///
     VERSION,
 
-    /// Instant Column DDL flag
-    ///
-    /// WL#11250: Support Instant Add Column,
-    /// [1](https://dev.mysql.com/worklog/task/?id=11250)
-    ///
-    /// INSTANT ADD and DROP Column,
-    /// [1](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-drop-columns),
-    /// [2](https://blogs.oracle.com/mysql/post/mysql-80-instant-add-and-drop-columns-2)
+    /// Instant Column DDL flag,
+    /// see [WL#11250: Support Instant Add Column](https://dev.mysql.com/worklog/task/?id=11250)
     INSTANT,
 }
 
@@ -68,14 +64,25 @@ pub struct RecordHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// Original byte for info_bits
     #[derivative(Debug = "ignore")]
-    pub info_byte: u8,
-    pub info_bits: Vec<RecInfoFlag>, // 4 bits, MIN_REC/DELETED/VERSION/INSTANT, see rec.h
-    pub n_owned: u8,                 // 4 bits
-    pub heap_no: u16,                // 13 bits
+    info_byte: u8,
+
+    /// (4 bits) info_bits, MIN_REC/DELETED/VERSION/INSTANT flags, see rec.h, 4 bits
+    pub info_bits: Vec<RecInfoFlag>,
+
+    /// (4 bits) Number of owned records
+    pub n_owned: u8,
+
+    /// (13 bits) Heap Number
+    pub heap_no: u16,
+
+    /// (3 bits) Record Status, see rec.h
     #[derivative(Debug(format_with = "util::fmt_enum"))]
-    pub rec_status: RecordStatus, // 3 bits, see rec.h
-    pub next_rec_offset: i16,        // next record offset
+    pub rec_status: RecordStatus,
+
+    /// (2 bytes) Next record offset
+    pub next_rec_offset: i16,
 }
 
 impl RecordHeader {
@@ -164,10 +171,15 @@ pub struct FieldMeta {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldDatum {
-    pub opx: usize, // column opx
+    /// column opx
+    pub opx: usize,
+
+    /// page offset
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page offset
-    pub rbuf: Option<Bytes>, // row buffer
+    pub addr: usize,
+
+    /// row buffer
+    pub rbuf: Option<Bytes>,
 }
 
 /// Row Info, var_area and nil_area
@@ -179,12 +191,6 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    // /// Variadic field size area
-    // #[derivative(Debug(format_with = "util::fmt_bytes_hex"))]
-    // pub var_area: Bytes,
-    // /// Nullable field flag area
-    // #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
-    // pub nil_area: Bytes,
     /// Instant add column flag
     pub instant_flag: bool,
 
@@ -192,7 +198,7 @@ pub struct RowInfo {
     pub n_instant_col: u8,
 
     /// Row version
-    pub row_version: u8, // instant add/drop column
+    pub row_version: u8,
 
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
@@ -576,18 +582,18 @@ pub struct SdiDataHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Length of TYPE field in record of SDI Index.
-    pub data_type: u32, // 4 bytes
-    /// Length of ID field in record of SDI Index.
-    pub data_id: u64, // 8 bytes
-    /// trx id
-    pub trx_id: u64, // 6 bytes
-    /// 7-byte roll-ptr.
-    pub roll_ptr: u64, // 7 bytes
-    /// Length of UNCOMPRESSED_LEN field in record of SDI Index.
-    pub uncomp_len: u32, // 4 bytes
-    /// Length of COMPRESSED_LEN field in record of SDI Index.
-    pub comp_len: u32, // 4 bytes
+    /// (4 bytes) Length of TYPE field in record of SDI Index.
+    pub data_type: u32,
+    /// (8 bytes) Data ID
+    pub data_id: u64,
+    /// (6 bytes) Transaction ID
+    pub trx_id: u64,
+    /// (7 bytes) Rollback pointer
+    pub roll_ptr: u64,
+    /// (4 bytes) Length of UNCOMPRESSED_LEN field in record of SDI Index
+    pub uncomp_len: u32,
+    /// (4 bytes) Length of COMPRESSED_LEN field in record of SDI Index
+    pub comp_len: u32,
 }
 
 impl SdiDataHeader {
