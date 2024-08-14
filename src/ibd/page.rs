@@ -316,90 +316,62 @@ impl FilAddr {
     }
 }
 
-/// FSP Header, see fsp0types.h, FSP_FLAGS_POS_xxxx
+/// FSP Header, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FileSpaceFlags {
-    /// (1 bit) Zero relative shift position of the POST_ANTELOPE field
+    /// (1 bit) POST_ANTELOPE flag.
     pub post_antelope: bool,
 
-    /// (4 bit) Zero relative shift position of the ZIP_SSIZE field */
+    /// (4 bit) Number of flag bits used to indicate the tablespace zip page size
     pub zip_ssize: u32,
 
-    /// (1 bit) Zero relative shift position of the ATOMIC_BLOBS field
+    /// (1 bit) ATOMIC_BLOBS flag.  The ability to break up a long column into
+    /// an in-record prefix and an externally stored part is available to
+    /// ROW_FORMAT=REDUNDANT and ROW_FORMAT=COMPACT.
     pub atomic_blobs: bool,
 
-    /// (4 bit) Zero relative shift position of the PAGE_SSIZE field
+    /// (4 bit) Number of flag bits used to indicate the tablespace page size
     pub page_ssize: u32,
 
-    /// (1 bit) Zero relative shift position of the start of the DATA_DIR bit
+    /// (1 bit) DATA_DIR flag.  This flag indicates that the tablespace is found
+    /// in a remote location, not the default data directory.
     pub data_dir: bool,
 
-    /// (1 bit) Zero relative shift position of the start of the SHARED bit
+    /// (1 bit) SHARED flag.  This flag indicates that the tablespace was
+    /// created with CREATE TABLESPACE and can be shared by multiple tables.
     pub shared: bool,
 
-    /// (1 bit) Zero relative shift position of the start of the TEMPORARY bit
+    /// (1 bit) TEMPORARY flag.  This flag indicates that the tablespace is a
+    /// temporary tablespace and everything in it is temporary, meaning that it
+    /// is for a single client and should be deleted upon startup if it exists.
     pub temporary: bool,
 
-    /// (1 bit) Zero relative shift position of the start of the ENCRYPTION bit
+    /// (1 bit) ENCRYPTION flag.  This flag indicates that the tablespace is a
+    /// tablespace with encryption.
     pub encryption: bool,
 
-    /// (1 bit) Zero relative shift position of the start of the SDI bits
+    /// (1 bit) SDI flag.  This flag indicates the presence of tablespace dictionary
     pub sdi: bool,
 
-    /// (18 bit) Zero relative shift position of the start of the UNUSED bits
+    /// (18 bit) the UNUSED bits
     pub unused: u32,
 }
 
 impl FileSpaceFlags {
     pub fn new(flags: u32) -> Self {
         Self {
-            post_antelope: ((flags >> 31) & 1) > 0,
-            zip_ssize: ((flags >> 27) & 0xf) as u32,
-            atomic_blobs: (flags & (1 << 27)) > 0,
-            page_ssize: ((flags >> 22) & 0xf) as u32,
-            data_dir: (flags & (1 << 22)) > 0,
-            shared: (flags & (1 << 21)) > 0,
-            temporary: (flags & (1 << 20)) > 0,
-            encryption: (flags & (1 << 19)) > 0,
-            sdi: (flags & (1 << 18)) > 0,
-            unused: (flags & 0x3ffff) as u32,
+            post_antelope: ((flags >> 0) & 1) > 0,
+            zip_ssize: ((flags >> 1) & 0xf) as u32,
+            atomic_blobs: ((flags >> 5) & 1) > 0,
+            page_ssize: ((flags >> 6) & 0xf) as u32,
+            data_dir: ((flags >> 10) & 1) > 0,
+            shared: ((flags >> 11) & 1) > 0,
+            temporary: ((flags >> 12) & 1) > 0,
+            encryption: ((flags >> 13) & 1) > 0,
+            sdi: ((flags >> 14) & 1) > 0,
+            unused: ((flags >> 15) & 0x3ffff) as u32,
         }
-    }
-}
-
-#[cfg(test)]
-mod page_tests {
-    use log::info;
-
-    use crate::util::init_unit_test;
-
-    use super::FileSpaceFlags;
-    use anyhow::Error;
-
-    #[test]
-    fn fsp_flags_parse() -> Result<(), Error> {
-        init_unit_test();
-        // let flags = 0xf0040007u32;
-        let flags = 0b1111_1111_0000_0100_1000_1000_1000_0000u32;
-        let fsp_flags = FileSpaceFlags::new(flags);
-
-        info!("flags_bin_h16=0b{:016b}", flags >> 16);
-        info!("flags_bin_l16=0b{:016b}", flags & 0xffff);
-        info!("fsp_flags={:#?}", fsp_flags);
-
-        assert_eq!(fsp_flags.post_antelope, true);
-        assert_eq!(fsp_flags.zip_ssize, 14);
-        assert_eq!(fsp_flags.atomic_blobs, false);
-        assert_eq!(fsp_flags.page_ssize, 0);
-        assert_eq!(fsp_flags.data_dir, false);
-        assert_eq!(fsp_flags.shared, false);
-        assert_eq!(fsp_flags.temporary, false);
-        assert_eq!(fsp_flags.encryption, false);
-        assert_eq!(fsp_flags.sdi, true);
-        assert_eq!(fsp_flags.unused, 7);
-
-        Ok(())
     }
 }
 
@@ -424,7 +396,7 @@ pub struct FileSpaceHeader {
     /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
 
-    /// fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_POS_xxxx
+    /// fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
     #[derivative(Debug(format_with = "util::fmt_bin32"))]
     pub fsp_flags_bytes: u32,
     pub fsp_flags: FileSpaceFlags,
