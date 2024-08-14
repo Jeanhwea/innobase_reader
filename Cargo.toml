@@ -5,7 +5,6 @@ edition = "2021"
 authors = ["Jinghui Hu <hujinghui@buaa.edu.cn>"]
 description = "A innobase datafile reader"
 readme = "readme.org"
-license = "MIT"
 license-file = "LICENSE"
 keywords = ["innodb", "ibd", "row format", "datafile"]
 homepage = "https://github.com/Jeanhwea/innobase_reader"
