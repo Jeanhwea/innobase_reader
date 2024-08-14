@@ -354,7 +354,7 @@ pub struct FileSpaceFlags {
 impl FileSpaceFlags {
     pub fn new(flags: u32) -> Self {
         Self {
-            post_antelope: (flags & (1 << 31)) > 0,
+            post_antelope: ((flags >> 31) & 1) > 0,
             zip_ssize: ((flags >> 27) & 0xf) as u32,
             atomic_blobs: (flags & (1 << 27)) > 0,
             page_ssize: ((flags >> 22) & 0xf) as u32,
