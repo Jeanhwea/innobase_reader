@@ -162,7 +162,13 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
-        assert_eq!(page_no, fil_hdr.page_no as usize);
+        if fil_hdr.page_type != PageTypes::ALLOCATED {
+            assert_eq!(
+                page_no, fil_hdr.page_no as usize,
+                "输入的页码和文件头的页码不一致, page_no={}, fil_hdr.page_no={}",
+                page_no, fil_hdr.page_no
+            );
+        }
 
         match fil_hdr.page_type {
             PageTypes::ALLOCATED => {
