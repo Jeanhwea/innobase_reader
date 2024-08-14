@@ -52,6 +52,8 @@ jobs:
       - name: unit test
         run: |
           sudo chown -R $(whoami) .
+          rustc --version
+          cargo --version
           cargo test
       - name: checkout output
         # run: ls -laR
