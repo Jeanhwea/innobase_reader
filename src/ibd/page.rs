@@ -590,7 +590,8 @@ pub struct XDesEntry {
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub bitmap: [(u32, F, C); XDES_PAGE_COUNT],
 
-    #[derivative(Debug(format_with = "util::fmt_bin"))]
+    // #[derivative(Debug(format_with = "util::fmt_bytes_bin"))]
+    #[derivative(Debug = "ignore")]
     pub bitmap_bytes: Bytes,
 }
 
@@ -601,13 +602,14 @@ impl XDesEntry {
                 let nth = page_no >> 2;
                 let off = page_no & 0x3;
                 let val = buf[addr + 24 + nth];
+                // info!("page_no={}, nth={}, off={}", page_no, nth, off);
                 (
                     // which page number it refers
                     page_no as u32,
                     // the free flag
-                    if val & (1 << off) > 0 { F(1) } else { F(0) },
+                    if val & (1 << 2 * off) > 0 { F(1) } else { F(0) },
                     // the clean flag
-                    if val & (1 << (off + 1)) > 0 { C(1) } else { C(0) },
+                    if val & (1 << (2 * off + 1)) > 0 { C(1) } else { C(0) },
                 )
             })
             .collect::<Vec<_>>();
@@ -618,7 +620,7 @@ impl XDesEntry {
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
             bitmap: bits.try_into().unwrap(),
-            bitmap_bytes: buf.slice(addr + 24..addr + 24 + XDES_PAGE_COUNT),
+            bitmap_bytes: buf.slice(addr + 24..addr + 24 + XDES_PAGE_COUNT / 4),
             buf: buf.clone(),
             addr,
         }
