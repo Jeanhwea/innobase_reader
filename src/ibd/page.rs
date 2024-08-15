@@ -316,6 +316,65 @@ impl FilAddr {
     }
 }
 
+/// FSP Header, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct FileSpaceFlags {
+    /// (1 bit) POST_ANTELOPE flag.
+    pub post_antelope: bool,
+
+    /// (4 bit) Number of flag bits used to indicate the tablespace zip page size
+    pub zip_ssize: u32,
+
+    /// (1 bit) ATOMIC_BLOBS flag.  The ability to break up a long column into
+    /// an in-record prefix and an externally stored part is available to
+    /// ROW_FORMAT=REDUNDANT and ROW_FORMAT=COMPACT.
+    pub atomic_blobs: bool,
+
+    /// (4 bit) Number of flag bits used to indicate the tablespace page size
+    pub page_ssize: u32,
+
+    /// (1 bit) DATA_DIR flag.  This flag indicates that the tablespace is found
+    /// in a remote location, not the default data directory.
+    pub data_dir: bool,
+
+    /// (1 bit) SHARED flag.  This flag indicates that the tablespace was
+    /// created with CREATE TABLESPACE and can be shared by multiple tables.
+    pub shared: bool,
+
+    /// (1 bit) TEMPORARY flag.  This flag indicates that the tablespace is a
+    /// temporary tablespace and everything in it is temporary, meaning that it
+    /// is for a single client and should be deleted upon startup if it exists.
+    pub temporary: bool,
+
+    /// (1 bit) ENCRYPTION flag.  This flag indicates that the tablespace is a
+    /// tablespace with encryption.
+    pub encryption: bool,
+
+    /// (1 bit) SDI flag.  This flag indicates the presence of tablespace dictionary
+    pub sdi: bool,
+
+    /// (18 bit) the UNUSED bits
+    pub unused: u32,
+}
+
+impl FileSpaceFlags {
+    pub fn new(flags: u32) -> Self {
+        Self {
+            post_antelope: ((flags >> 0) & 1) > 0,
+            zip_ssize: ((flags >> 1) & 0xf) as u32,
+            atomic_blobs: ((flags >> 5) & 1) > 0,
+            page_ssize: ((flags >> 6) & 0xf) as u32,
+            data_dir: ((flags >> 10) & 1) > 0,
+            shared: ((flags >> 11) & 1) > 0,
+            temporary: ((flags >> 12) & 1) > 0,
+            encryption: ((flags >> 13) & 1) > 0,
+            sdi: ((flags >> 14) & 1) > 0,
+            unused: ((flags >> 15) & 0x3ffff) as u32,
+        }
+    }
+}
+
 /// FSP Header, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -337,9 +396,10 @@ pub struct FileSpaceHeader {
     /// Minimum page number for which the free list has not been initialized
     pub free_limit: u32,
 
-    /// fsp_space_t.flags, see fsp0types.h
+    /// fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
     #[derivative(Debug(format_with = "util::fmt_bin32"))]
-    pub fsp_flags: u32,
+    pub fsp_flags_bytes: u32,
+    pub fsp_flags: FileSpaceFlags,
 
     /// number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
@@ -367,12 +427,14 @@ pub struct FileSpaceHeader {
 
 impl FileSpaceHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let flags = util::u32_val(&buf, addr + 16);
         Self {
             space_id: util::u32_val(&buf, addr),
             notused: util::u32_val(&buf, addr + 4),
             fsp_size: util::u32_val(&buf, addr + 8),
             free_limit: util::u32_val(&buf, addr + 12),
-            fsp_flags: util::u32_val(&buf, addr + 16),
+            fsp_flags_bytes: flags,
+            fsp_flags: FileSpaceFlags::new(flags),
             fsp_frag_n_used: util::u32_val(&buf, addr + 20),
             fsp_free: FlstBaseNode::new(addr + 24, buf.clone()),
             free_frag: FlstBaseNode::new(addr + 40, buf.clone()),

@@ -14,7 +14,7 @@ on:
 
 jobs:
   release:
-    name: release ${{ matrix.target }}
+    name: Release ${{ matrix.target }}
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     strategy:
@@ -29,8 +29,8 @@ jobs:
           #   archive: zip
     steps:
       - uses: actions/checkout@master
-      - name: compile and release
-        uses: rust-build/rust-build.action@v1.4.5
+      - name: Compile and release
+        uses: rust-build/rust-build.action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -39,7 +39,7 @@ jobs:
           EXTRA_FILES: "readme.org LICENSE"
 
   release_without_not_required:
-    name: release ${{ matrix.target }}
+    name: Release ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -47,17 +47,17 @@ jobs:
         target: [x86_64-unknown-linux-musl]
     steps:
       - uses: actions/checkout@master
-      - name: compile and release
+      - name: Compile and release
         uses: rust-build/rust-build.action@master
         with:
           RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
-      - name: unit test
+      - name: Run unit test
         run: |
           sudo chown -R $(whoami) .
           rustc --version
           cargo --version
           cargo test
-      - name: checkout output
+      - name: Checkout build outputs
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
