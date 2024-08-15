@@ -654,7 +654,10 @@ pub struct INodePageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    pub inode_flst_node: FlstNode,
+    /// The list node for linking segment inode pages, see FSEG_INODE_PAGE_NODE
+    pub inode_page_node: FlstNode,
+
+    /// INode entries
     pub inode_ent_list: Vec<INodeEntry>,
 }
 
@@ -672,7 +675,7 @@ impl BasePageBody for INodePageBody {
             .collect();
 
         Self {
-            inode_flst_node: FlstNode::new(addr, buf.clone()),
+            inode_page_node: FlstNode::new(addr, buf.clone()),
             inode_ent_list: entries,
             buf: buf.clone(),
             addr,
