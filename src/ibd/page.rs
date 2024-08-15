@@ -461,6 +461,9 @@ pub struct FileSpaceHeaderPageBody {
 
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
+
+    /// XDES entries that used
+    pub xdes_ent_used: Vec<XDesEntry>,
 }
 
 impl FileSpaceHeaderPageBody {
@@ -488,10 +491,45 @@ impl BasePageBody for FileSpaceHeaderPageBody {
         let len = XDES_ENTRY_MAX_COUNT;
         let entries = (0..len)
             .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
-            .collect();
+            .collect::<Vec<_>>();
 
         Self {
             fsp_hdr: hdr,
+            xdes_ent_used: entries.iter().filter(|ent| ent.seg_id > 0).cloned().collect(),
+            xdes_ent_list: entries,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Extent Descriptor Page,
+/// much-like FileSpaceHeaderPageBody, except zero-fill the fsp_hdr
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct XdesPageBody {
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize, // page address
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// All XDES entries
+    #[derivative(Debug = "ignore")]
+    pub xdes_ent_list: Vec<XDesEntry>,
+
+    /// XDES entries that used
+    pub xdes_ent_used: Vec<XDesEntry>,
+}
+
+impl BasePageBody for XdesPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let len = XDES_ENTRY_MAX_COUNT;
+        let entries = (0..len)
+            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
+            .collect::<Vec<_>>();
+
+        Self {
+            xdes_ent_used: entries.iter().filter(|ent| ent.seg_id > 0).cloned().collect(),
             xdes_ent_list: entries,
             buf: buf.clone(),
             addr,

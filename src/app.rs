@@ -11,7 +11,10 @@ use log::{debug, error, info};
 
 use crate::{
     factory::DatafileFactory,
-    ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, PAGE_SIZE},
+    ibd::page::{
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XdesPageBody,
+        PAGE_SIZE,
+    },
     Commands,
 };
 
@@ -177,6 +180,10 @@ impl App {
             PageTypes::FSP_HDR => {
                 let fsp_page: BasePage<FileSpaceHeaderPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", fsp_page);
+            }
+            PageTypes::XDES => {
+                let xdes_page: BasePage<XdesPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", xdes_page);
             }
             PageTypes::INODE => {
                 let inode_page: BasePage<INodePageBody> = fact.read_page(page_no)?;
