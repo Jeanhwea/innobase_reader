@@ -558,10 +558,22 @@ pub enum XDesStates {
 #[derivative(Debug)]
 pub struct F(u8);
 
+impl F {
+    pub fn free(&self) -> bool {
+        self.0 == 1
+    }
+}
+
 /// Clean Bit
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct C(u8);
+
+impl C {
+    pub fn clean(&self) -> bool {
+        self.0 == 1
+    }
+}
 
 /// Extent Descriptor Entry, see fsp0fsp.h
 #[derive(Clone, Derivative)]
