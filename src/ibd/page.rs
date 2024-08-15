@@ -55,13 +55,13 @@ pub struct BasePage<B> {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// File page header
+    /// (38 bytes) File page header
     pub fil_hdr: FilePageHeader,
 
     /// Page body, the data of this page
     pub page_body: B,
 
-    /// File page trailer
+    /// (8 bytes) File page trailer
     pub fil_trl: FilePageTrailer,
 }
 
@@ -140,33 +140,33 @@ pub struct FilePageHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// check_sum, FIL_PAGE_SPACE_OR_CHKSUM
+    /// (4 bytes) checksum, FIL_PAGE_SPACE_OR_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub check_sum: u32,
 
-    /// page_number/offset, FIL_PAGE_OFFSET
+    /// (4 bytes) page number/offset, FIL_PAGE_OFFSET
     pub page_no: u32,
 
-    /// Previous Page, FIL_PAGE_PREV
+    /// (4 bytes) previous page, FIL_PAGE_PREV
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub prev_page: u32,
-    /// Next Page, FIL_PAGE_NEXT
+    /// (4 bytes) next page, FIL_PAGE_NEXT
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub next_page: u32,
 
-    /// LSN for last page modification, FIL_PAGE_LSN
+    /// (8 bytes) LSN for last page modification, FIL_PAGE_LSN
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub lsn: u64,
 
-    /// Page Type, FIL_PAGE_TYPE
+    /// (2 bytes) page type, FIL_PAGE_TYPE
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_type: PageTypes,
 
-    /// Flush LSN, FIL_PAGE_FILE_FLUSH_LSN
+    /// (8 bytes) flush LSN, FIL_PAGE_FILE_FLUSH_LSN
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub flush_lsn: u64,
 
-    /// Space ID, FIL_PAGE_SPACE_ID
+    /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
     pub space_id: u32,
 }
 
@@ -206,11 +206,11 @@ pub struct FilePageTrailer {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
+    /// (4 bytes) Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub check_sum: u32,
 
-    /// Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
+    /// (4 bytes) Low 32-bits of LSN, last 4 bytes of FIL_PAGE_LSN
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub lsn_low32bit: u32,
 }
@@ -238,11 +238,11 @@ pub struct FlstBaseNode {
     /// (4 bytes) Length
     pub len: u32,
 
-    /// First node link
+    /// (6 bytes) first node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub first: FilAddr,
 
-    /// Last node link
+    /// (6 bytes) last node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub last: FilAddr,
 }
@@ -268,11 +268,11 @@ pub struct FlstNode {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Previous node link
+    /// (6 bytes) previous node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub prev: FilAddr,
 
-    /// Next node link
+    /// (6 bytes) next node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub next: FilAddr,
 }
@@ -384,44 +384,44 @@ pub struct FileSpaceHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Table space ID
+    /// (4 bytes) tablespace ID
     pub space_id: u32,
 
-    /// not used now
+    /// (4 bytes) not used now
     pub notused: u32,
 
-    /// Current size of the space in pages
+    /// (4 bytes) current size of the space in pages
     pub fsp_size: u32,
 
-    /// Minimum page number for which the free list has not been initialized
+    /// (4 bytes) minimum page number for which the free list has not been initialized
     pub free_limit: u32,
 
-    /// fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
+    /// (4 bytes) fsp_space_t.flags, see fsp0types.h, FSP_FLAGS_WIDTH_xxxx
     #[derivative(Debug(format_with = "util::fmt_bin32"))]
     pub fsp_flags_bytes: u32,
     pub fsp_flags: FileSpaceFlags,
 
-    /// number of used pages in the FSP_FREE_FRAG list
+    /// (4 bytes) number of used pages in the FSP_FREE_FRAG list
     pub fsp_frag_n_used: u32,
 
-    /// list of free extents
+    /// (16 bytes) list of free extents
     pub fsp_free: FlstBaseNode,
 
-    /// list of partially free extents not belonging to any segment
+    /// (16 bytes) list of partially free extents not belonging to any segment
     pub free_frag: FlstBaseNode,
 
-    /// list of full extents not belonging to any segment
+    /// (16 bytes) list of full extents not belonging to any segment
     pub full_frag: FlstBaseNode,
 
-    /// next segment id, 8 bytes which give the first unused segment id
+    /// (8 bytes) next segment id, 8 bytes which give the first unused segment id
     pub seg_id: u64,
 
-    /// list of pages containing segment headers, where all the segment inode
-    /// slots are reserved
+    /// (16 bytes) list of pages containing segment headers, where all the
+    /// segment inode slots are reserved
     pub inodes_full: FlstBaseNode,
 
-    /// list of pages containing segment headers, where not all the segment
-    /// header slots are reserved
+    /// (16 bytes) list of pages containing segment headers, where not all the
+    /// segment header slots are reserved
     pub inodes_free: FlstBaseNode,
 }
 
@@ -457,8 +457,10 @@ pub struct FileSpaceHeaderPageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// (112 bytes) file space header
     pub fsp_hdr: FileSpaceHeader,
 
+    /// (40*255 bytes) extent descriptor entry list
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
@@ -570,22 +572,24 @@ pub struct XDesEntry {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Entry position
+    /// entry position
     pub ent_pos: usize,
 
-    /// Segment ID
+    /// (8 bytes) segment ID
     pub seg_id: u64,
 
-    /// list node data
+    /// (12 bytes) list node data
     pub flst_node: FlstNode,
 
-    /// XDES state
+    /// (4 bytes) XDES state
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub state: XDesStates,
 
-    /// XDES bitmap, total 64 entries (1 extent = 64 pages),
+    /// (16 bytes) XDES bitmap. total 64 entries (1 extent = 64 pages), each
+    /// entry has 2 bits:
     ///
-    /// each entry has 2 bits, 0 for free flag, 1 for clean flag
+    ///   1. first bit for free flag
+    ///   2. second bit for clean flag
     ///
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub bitmap: [(u32, F, C); XDES_PAGE_COUNT],
@@ -660,10 +664,11 @@ pub struct INodePageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// The list node for linking segment inode pages, see FSEG_INODE_PAGE_NODE
+    /// (12 bytes) The list node for linking segment inode pages, see
+    /// FSEG_INODE_PAGE_NODE
     pub inode_page_node: FlstNode,
 
-    /// INode entries
+    /// (192*85 bytes) INode entries
     pub inode_ent_list: Vec<INodeEntry>,
 }
 
@@ -699,12 +704,26 @@ pub struct INodeEntry {
     pub buf: Arc<Bytes>, // page data buffer
 
     pub ent_pos: usize,
+
+    /// (8 bytes) file segment ID
     pub fseg_id: u64,
+
+    /// (4 bytes) number of file segment that not full used
     pub fseg_not_full_n_used: u32,
+
+    /// (16 bytes) free file segment
     pub fseg_free: FlstBaseNode,
+
+    /// (16 bytes) not full used file segment
     pub fseg_not_full: FlstBaseNode,
+
+    /// (16 bytes) full used file segment
     pub fseg_full: FlstBaseNode,
-    pub fseg_magic_n: u32, // FSEG_MAGIC_N_VALUE = 97937874;
+
+    /// (4 bytes) file segment magic number, FSEG_MAGIC_N_VALUE = 97937874;
+    pub fseg_magic_n: u32,
+
+    /// (4*32 bytes) file segment fragment array
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub fseg_frag_arr: Vec<u32>, // frag page number
 }
@@ -741,24 +760,25 @@ pub struct IndexPageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// Index Header
-    pub idx_hdr: IndexHeader, // Index Header
-    /// FSEG Header
-    pub fseg_hdr: FSegHeader, // FSEG Header
+    /// (36 bytes) index header
+    pub idx_hdr: IndexHeader,
 
-    /// System Record
+    /// (20 bytes) FSEG header
+    pub fseg_hdr: FSegHeader,
+
+    /// (13*2 bytes) system record
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub infimum: RecordHeader, // infimum_extra[], see page0page.h
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub supremum: RecordHeader, // supremum_extra_data[], see page0page.h
 
-    /// Record Headers
+    /// record header
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub data_rec_hdrs: Vec<RecordHeader>, // Data Record Header List
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub free_rec_hdrs: Vec<RecordHeader>, // Free Record Header List
 
-    /// Page Directory, grows "downwards" from @16376 (16384 - 8)
+    /// (2*N bytes) page directory, grows "downwards" from @16376 (16384 - 8)
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub page_dirs: Vec<u16>, // page directory slots
 }
@@ -939,34 +959,51 @@ pub struct IndexHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// number of slots in page directory
+    /// (2 bytes) number of slots in page directory
     pub page_n_dir_slots: u16,
-    /// pointer to record heap top
+
+    /// (2 bytes) pointer to record heap top
     pub page_heap_top: u16,
-    /// number of records in the heap, bit 15=flag: new-style compact page format
+
+    /// (1 bit) page format, steal 1 bit from page_n_heap
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_format: PageFormats,
+
+    /// (15 bits) number of records in the heap, bit 15=flag: new-style compact
+    /// page format
     pub page_n_heap: u16,
-    /// pointer to start of page free record list
+
+    /// (2 bytes) pointer to start of page free record list
     pub page_free: u16,
-    /// number of bytes in deleted records
+
+    /// (2 bytes) number of bytes in deleted records
     pub page_garbage: u16,
-    /// pointer to the last inserted record, or NULL if this info has been reset by a deletion
+
+    /// (2 bytes) pointer to the last inserted record, or NULL if this info has
+    /// been reset by a deletion
     pub page_last_insert: u16,
-    /// last insert direction: PAGE_LEFT, ...
+
+    /// (2 bytes) last insert direction: PAGE_LEFT, ...
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub page_direction: PageDirections,
-    /// number of consecutive inserts to the same direction
+
+    /// (2 bytes) number of consecutive inserts to the same direction
     pub page_n_direction: u16,
-    /// number of user records on the page
+
+    /// (2 bytes) number of user records on the page
     pub page_n_recs: u16,
-    /// highest id of a trx which may have modified a record on the page; trx_id_t;
-    /// defined only in secondary indexes and in the insert buffer tree
+
+    /// (8 bytes) highest id of a trx which may have modified a record on the
+    /// page; trx_id_t; defined only in secondary indexes and in the insert
+    /// buffer tree
     pub page_max_trx_id: u64,
-    /// level of the node in an index tree; the leaf level is the level 0. This
-    /// field should not be written to after page creation.
+
+    /// (2 bytes) level of the node in an index tree; the leaf level is the
+    /// level 0. This field should not be written to after page creation.
     pub page_level: u16,
-    /// index id where the page belongs. This field should not be written to after page creation.
+
+    /// (8 bytes) index id where the page belongs. This field should not be
+    /// written to after page creation.
     pub page_index_id: u64,
 }
 
@@ -1004,14 +1041,19 @@ pub struct FSegHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// leaf page
-    pub leaf_space_id: u32, // space id
-    pub leaf_page_no: u32, // page number
-    pub leaf_offset: u16,  // byte offset
-    /// non-leaf page
-    pub nonleaf_space_id: u32, // space id
-    pub nonleaf_page_no: u32, // page number
-    pub nonleaf_offset: u16, // byte offset
+    /// (4 bytes) leaf page, space id
+    pub leaf_space_id: u32,
+    /// (4 bytes) leaf page, page number
+    pub leaf_page_no: u32,
+    /// (2 bytes) leaf page, byte offset
+    pub leaf_offset: u16,
+
+    /// (4 bytes) non-leaf page, space id
+    pub nonleaf_space_id: u32,
+    /// (4 bytes) non-leaf page, page number
+    pub nonleaf_page_no: u32,
+    /// (2 bytes) non-leaf page, byte offset
+    pub nonleaf_offset: u16,
 }
 
 impl FSegHeader {
