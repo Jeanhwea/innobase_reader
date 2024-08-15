@@ -551,6 +551,16 @@ pub enum XDesStates {
     UNDEF,
 }
 
+/// Free Bit
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct F(u8);
+
+/// Clean Bit
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct C(u8);
+
 /// Extent Descriptor Entry, see fsp0fsp.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -559,13 +569,26 @@ pub struct XDesEntry {
     pub addr: usize, // page address
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
+
+    /// Entry position
     pub ent_pos: usize,
-    pub seg_id: u64,         // seg_id
-    pub flst_node: FlstNode, // list node data
+
+    /// Segment ID
+    pub seg_id: u64,
+
+    /// list node data
+    pub flst_node: FlstNode,
+
+    /// XDES state
     #[derivative(Debug(format_with = "util::fmt_enum"))]
-    pub state: XDesStates, // state information
+    pub state: XDesStates,
+
+    /// XDES bitmap, total 64 entries (1 extent = 64 pages),
+    ///
+    /// each entry has 2 bits, 0 for free flag, 1 for clean flag
+    ///
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub bitmap: [(u32, Free, Clean); XDES_PAGE_COUNT], // bitmap
+    pub bitmap: [(u32, F, C); XDES_PAGE_COUNT],
 }
 
 impl XDesEntry {
@@ -576,13 +599,12 @@ impl XDesEntry {
                 let off = page_no & 0x3;
                 let val = buf[addr + 24 + nth];
                 (
+                    // which page number it refers
                     page_no as u32,
-                    if val & (1 << off) > 0 { Free(true) } else { Free(false) },
-                    if val & (1 << (off + 1)) > 0 {
-                        Clean(true)
-                    } else {
-                        Clean(false)
-                    },
+                    // the free flag
+                    if val & (1 << off) > 0 { F(1) } else { F(0) },
+                    // the clean flag
+                    if val & (1 << (off + 1)) > 0 { C(1) } else { C(0) },
                 )
             })
             .collect::<Vec<_>>();
@@ -598,16 +620,6 @@ impl XDesEntry {
         }
     }
 }
-
-/// Free Bit
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct Free(bool);
-
-/// Clean Bit
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct Clean(bool);
 
 /// SDI Meta Data
 #[derive(Clone, Derivative)]
