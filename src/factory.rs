@@ -703,7 +703,6 @@ mod factory_tests_run {
 
     use anyhow::Error;
     use colored::Colorize;
-    
 
     use crate::{
         factory::DatafileFactory,
@@ -712,15 +711,14 @@ mod factory_tests_run {
     };
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    // const IBD_FILE: &str = "/opt/docker/mysql80027/rtc80027/tt.ibd";
+    const IBD_FILE: &str = "/opt/docker/mysql80027/rtc80027/tt.ibd";
 
     #[test]
     fn entry() -> Result<(), Error> {
         util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
+        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(16 * 1024 * 0)?;
         let xdes_list = &page0.page_body.xdes_ent_used;
         for (seq, xdes) in xdes_list.iter().enumerate() {
             print!("xdes{:03}: ", seq);
