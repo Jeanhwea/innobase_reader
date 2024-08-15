@@ -589,6 +589,9 @@ pub struct XDesEntry {
     ///
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub bitmap: [(u32, F, C); XDES_PAGE_COUNT],
+
+    #[derivative(Debug(format_with = "util::fmt_bin"))]
+    pub bitmap_bytes: Bytes,
 }
 
 impl XDesEntry {
@@ -615,6 +618,7 @@ impl XDesEntry {
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
             bitmap: bits.try_into().unwrap(),
+            bitmap_bytes: buf.slice(addr + 24..addr + 24 + XDES_PAGE_COUNT),
             buf: buf.clone(),
             addr,
         }
