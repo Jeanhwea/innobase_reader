@@ -28,7 +28,17 @@ pub struct Args {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Print basic information.
-    Info,
+    Info {
+        // info the INode list, free/not full/full
+        #[arg(short, long, default_value_t = false)]
+        inode_list: bool,
+        // info the XDES bitmap info
+        #[arg(short, long, default_value_t = false)]
+        xdes_bitmap: bool,
+        // info all information
+        #[arg(short, long, default_value_t = false)]
+        all: bool,
+    },
     /// List all page. page_type, page_number and more
     List,
     /// Describe Datafile Information by SDI page

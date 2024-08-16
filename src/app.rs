@@ -40,7 +40,11 @@ impl App {
         debug!("{:?}, {:?}", command, self);
 
         match command {
-            Commands::Info => self.do_info()?,
+            Commands::Info {
+                inode_list,
+                xdes_bitmap,
+                all,
+            } => self.do_info(inode_list, xdes_bitmap, all)?,
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_sdi_print()?,
@@ -56,7 +60,7 @@ impl App {
         Ok(())
     }
 
-    fn do_info(&self) -> Result<()> {
+    fn do_info(&self, flag_inode_list: bool, flag_xdes_bitmap: bool, flag_all: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         // 基础信息
@@ -65,8 +69,16 @@ impl App {
         // 页面类型统计
         self.do_info_page_stat(&mut fact)?;
 
-        // XDES bitmap 打印
-        self.do_info_xdes_bitmap(&mut fact)?;
+        // 打印 INode 项
+        if flag_inode_list || flag_all {
+            self.do_info_inode(&mut fact)?;
+        }
+
+        // 打印 XDES bitmap 数据
+        if flag_xdes_bitmap || flag_all {
+            self.do_info_xdes_bitmap(&mut fact)?;
+        }
+
         Ok(())
     }
 
@@ -101,6 +113,21 @@ impl App {
         println!("PageTypes Statistics:");
         for entry in &stats {
             println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
+        }
+
+        Ok(())
+    }
+
+    fn do_info_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("INode entry list");
+        let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
+
+        let inodes = &inode_page.page_body.inode_ent_list;
+        for (seq, inode) in inodes.iter().enumerate() {
+            println!(
+                "{}: free={}, not-full={}, full={}, frag={:?}",
+                seq, inode.fseg_free.len, inode.fseg_not_full.len, inode.fseg_full.len, inode.fseg_frag_arr,
+            );
         }
 
         Ok(())
