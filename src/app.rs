@@ -12,8 +12,7 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
-        PAGE_SIZE,
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
@@ -99,11 +98,11 @@ impl App {
             "page_count".green(),
             &fact.page_count().to_string().blue()
         );
-        println!("{:>12} => {}", "file_size".green(), fact.size.to_string().blue());
+        println!("{:>12} => {}", "file_size".green(), fact.file_size.to_string().blue());
         Ok(())
     }
 
-    /// page type statictis
+    /// page type statistic
     fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..fact.page_count() {
@@ -123,10 +122,11 @@ impl App {
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
-        for (seq, inode) in inodes.iter().enumerate() {
+        for (iseq, inode) in inodes.iter().enumerate() {
             println!(
-                "{}: free={}, not-full={}, full={}, frag={:?}",
-                seq.to_string().blue(),
+                "{}: fseg_id={}, free={}, not-full={}, full={}, frag={:?}",
+                iseq.to_string().blue(),
+                inode.fseg_id,
                 inode.fseg_free.len,
                 inode.fseg_not_full.len,
                 inode.fseg_full.len,
@@ -135,14 +135,21 @@ impl App {
             println!("  fseg_full:");
 
             let mut faddr = inode.fseg_full.first.clone();
-            let mut fseq = 0;
             loop {
                 if faddr.page.is_none() {
                     break;
                 }
-                println!("  {}: fil_addr={:?}", fseq, &faddr);
-                fseq += 1;
-                faddr = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?.next;
+
+                let page_no = faddr.page_no as usize;
+                let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+                let xdes_no = page_no / EXTENT_PAGE_NUM;
+                let addr = page_no * PAGE_SIZE + xdes.addr;
+                println!(
+                    "addr=0x{:08x}, xdes={}-{:03?}, seg_id={}, state={}",
+                    addr, xdes_no, xdes.xdes_seq, xdes.seg_id, xdes.state
+                );
+
+                faddr = xdes.flst_node.next;
             }
         }
 
@@ -155,9 +162,9 @@ impl App {
 
         let mut counter = (0, 0, 0, 0); // F, X, C, D
 
-        let mut n_xdes = 0;
+        let mut xdes_no = 0;
         loop {
-            let page_no = n_xdes * 16 * 1024;
+            let page_no = xdes_no * EXTENT_PAGE_NUM;
             if page_no > fact.page_count() {
                 break;
             }
@@ -165,8 +172,9 @@ impl App {
             let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
-            for (seq, xdes) in xdes_list.iter().enumerate() {
-                print!("{}-{:03}: ", n_xdes, seq);
+            for xdes in xdes_list {
+                print!("{}-{:03}: ", xdes_no, xdes.xdes_seq);
+
                 for nth in 0..8 {
                     for shf in 0..8 {
                         let bits = &xdes.bitmap[nth * 8 + shf];
@@ -202,8 +210,9 @@ impl App {
                 }
 
                 println!();
+                // println!(" {}", xdes.state);
             }
-            n_xdes += 1;
+            xdes_no += 1;
         }
 
         println!(
