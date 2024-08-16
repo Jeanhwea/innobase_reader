@@ -111,7 +111,7 @@ impl App {
         println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => Dirty]");
 
         // F, X, C, D
-        let mut couter = (0, 0, 0, 0);
+        let mut counter = (0, 0, 0, 0);
 
         let mut n_xdes = 0;
         loop {
@@ -131,10 +131,10 @@ impl App {
                         print!(
                             "{}",
                             if bits.1.free() {
-                                couter.0 += 1;
+                                counter.0 += 1;
                                 "F".on_green()
                             } else {
-                                couter.1 += 1;
+                                counter.1 += 1;
                                 "X".on_magenta()
                             }
                         );
@@ -149,10 +149,10 @@ impl App {
                         print!(
                             "{}",
                             if bits.2.clean() {
-                                couter.2 += 1;
+                                counter.2 += 1;
                                 "C".on_cyan()
                             } else {
-                                couter.3 += 1;
+                                counter.3 += 1;
                                 "D".on_red()
                             }
                         );
@@ -166,7 +166,7 @@ impl App {
 
         println!(
             "XDES bitmap count: free={}, non-free={}, clean={}, dirty={}",
-            couter.0, couter.1, couter.2, couter.3
+            counter.0, counter.1, counter.2, counter.3
         );
 
         Ok(())
