@@ -99,7 +99,7 @@ impl App {
             "page_count".green(),
             &fact.page_count().to_string().blue()
         );
-        println!("{:>12} => {}", "file_size".green(), fact.size.to_string().blue());
+        println!("{:>12} => {}", "file_size".green(), fact.file_size.to_string().blue());
         Ok(())
     }
 
@@ -140,9 +140,12 @@ impl App {
                 if faddr.page.is_none() {
                     break;
                 }
-                println!("  {}: fil_addr={:?}", fseq, &faddr);
+
+                let xdes = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?;
+                println!("  {}: xdes={:?}", fseq, &xdes);
+
                 fseq += 1;
-                faddr = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?.next;
+                faddr = xdes.flst_node.next;
             }
         }
 

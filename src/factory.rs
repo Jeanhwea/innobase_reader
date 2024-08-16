@@ -15,8 +15,8 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, FlstNode, IndexPageBody, SdiPageBody,
-            XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody,
+            XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
         record::{ColumnTypes, HiddenTypes, Record},
     },
@@ -62,14 +62,14 @@ pub struct DatafileFactory {
     /// Target datafile
     pub target: PathBuf,
 
-    /// Data file descriptor
-    pub file: File,
+    /// Data file handler
+    pub file_handler: File,
 
     /// Data file size
-    pub size: usize,
+    pub file_size: usize,
 
     /// File Addr Cache
-    pub fil_addr_cache: HashMap<usize, HashMap<u16, FlstNode>>,
+    pub fil_addr_cache: HashMap<usize, HashMap<u16, XDesEntry>>,
 }
 
 impl DatafileFactory {
@@ -85,14 +85,14 @@ impl DatafileFactory {
 
         Ok(Self {
             target,
-            size,
-            file,
+            file_size: size,
+            file_handler: file,
             fil_addr_cache: HashMap::new(),
         })
     }
 
     pub fn page_count(&self) -> usize {
-        self.size / PAGE_SIZE
+        self.file_size / PAGE_SIZE
     }
 
     pub fn page_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
@@ -101,10 +101,10 @@ impl DatafileFactory {
         }
 
         let offset = (page_no * PAGE_SIZE) as u64;
-        self.file.seek(SeekFrom::Start(offset))?;
+        self.file_handler.seek(SeekFrom::Start(offset))?;
 
         let mut buffer = vec![0; PAGE_SIZE];
-        self.file.read_exact(&mut buffer)?;
+        self.file_handler.read_exact(&mut buffer)?;
         Ok(Arc::new(Bytes::from(buffer)))
     }
 
@@ -114,10 +114,10 @@ impl DatafileFactory {
         }
 
         let offset = (page_no * PAGE_SIZE) as u64;
-        self.file.seek(SeekFrom::Start(offset))?;
+        self.file_handler.seek(SeekFrom::Start(offset))?;
 
         let mut buffer = vec![0; FIL_HEADER_SIZE];
-        self.file.read_exact(&mut buffer)?;
+        self.file_handler.read_exact(&mut buffer)?;
         Ok(Arc::new(Bytes::from(buffer)))
     }
 
@@ -134,12 +134,12 @@ impl DatafileFactory {
         Ok(BasePage::new(0, buf.clone()))
     }
 
-    pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<FlstNode> {
+    pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<XDesEntry> {
         if !self.fil_addr_cache.contains_key(&page_no) {
             let page: BasePage<XDesPageBody> = self.read_page(page_no)?;
             let mut hmap = HashMap::new();
             for ent in page.page_body.xdes_ent_list {
-                hmap.insert(ent.flst_node.addr as u16, ent.flst_node.clone());
+                hmap.insert(ent.flst_node.addr as u16, ent.clone());
             }
             self.fil_addr_cache.insert(page_no, hmap);
         }
