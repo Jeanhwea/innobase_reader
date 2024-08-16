@@ -464,8 +464,8 @@ pub struct FileSpaceHeaderPageBody {
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
-    /// XDES entries that used
-    pub xdes_ent_used: Vec<XDesEntry>,
+    /// XDES entries that initilized
+    pub xdes_ent_inited: Vec<XDesEntry>,
 }
 
 impl FileSpaceHeaderPageBody {
@@ -497,7 +497,11 @@ impl BasePageBody for FileSpaceHeaderPageBody {
 
         Self {
             fsp_hdr: hdr,
-            xdes_ent_used: entries.iter().filter(|ent| ent.seg_id > 0).cloned().collect(),
+            xdes_ent_inited: entries
+                .iter()
+                .filter(|ent| ent.state != XDesStates::XDES_NOT_INITED)
+                .cloned()
+                .collect(),
             xdes_ent_list: entries,
             buf: buf.clone(),
             addr,
@@ -509,7 +513,7 @@ impl BasePageBody for FileSpaceHeaderPageBody {
 /// much-like FileSpaceHeaderPageBody, except zero-fill the fsp_hdr
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct XdesPageBody {
+pub struct XDesPageBody {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize, // page address
     #[derivative(Debug = "ignore")]
@@ -519,11 +523,11 @@ pub struct XdesPageBody {
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
-    /// XDES entries that used
-    pub xdes_ent_used: Vec<XDesEntry>,
+    /// XDES entries that initiliezd
+    pub xdes_ent_inited: Vec<XDesEntry>,
 }
 
-impl BasePageBody for XdesPageBody {
+impl BasePageBody for XDesPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let len = XDES_ENTRY_MAX_COUNT;
         let entries = (0..len)
@@ -531,7 +535,11 @@ impl BasePageBody for XdesPageBody {
             .collect::<Vec<_>>();
 
         Self {
-            xdes_ent_used: entries.iter().filter(|ent| ent.seg_id > 0).cloned().collect(),
+            xdes_ent_inited: entries
+                .iter()
+                .filter(|ent| ent.state != XDesStates::XDES_NOT_INITED)
+                .cloned()
+                .collect(),
             xdes_ent_list: entries,
             buf: buf.clone(),
             addr,

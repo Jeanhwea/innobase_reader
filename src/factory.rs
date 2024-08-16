@@ -719,7 +719,7 @@ mod factory_tests_run {
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
         let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(16 * 1024 * 0)?;
-        let xdes_list = &page0.page_body.xdes_ent_used;
+        let xdes_list = &page0.page_body.xdes_ent_inited;
         for (seq, xdes) in xdes_list.iter().enumerate() {
             print!("xdes{:03}: ", seq);
             for i in 0..8 {

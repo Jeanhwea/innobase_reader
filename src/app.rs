@@ -12,7 +12,7 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XdesPageBody,
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
         PAGE_SIZE,
     },
     Commands,
@@ -58,9 +58,22 @@ impl App {
 
     fn do_info(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        let hdr0 = fact.read_fil_hdr(0)?;
 
         // 基础信息
+        self.do_info_metadata(&mut fact)?;
+
+        // 页面类型统计
+        self.do_info_page_stat(&mut fact)?;
+
+        // XDES bitmap 打印
+        self.do_info_xdes_bitmap(&mut fact)?;
+        Ok(())
+    }
+
+    /// basic meta information
+    fn do_info_metadata(&self, fact: &mut DatafileFactory) -> Result<()> {
+        let hdr0 = fact.read_fil_hdr(0)?;
+
         println!("Meta Information:");
         println!(
             "{:>12} => server({}), space({})",
@@ -75,8 +88,11 @@ impl App {
             &fact.page_count().to_string().blue()
         );
         println!("{:>12} => {}", "file_size".green(), fact.size.to_string().blue());
+        Ok(())
+    }
 
-        // 页面类型统计
+    /// page type statictis
+    fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -85,6 +101,46 @@ impl App {
         println!("PageTypes Statistics:");
         for entry in &stats {
             println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
+        }
+
+        Ok(())
+    }
+
+    /// XDES bitmap
+    fn do_info_xdes_bitmap(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("XDES bitmap:");
+
+        let mut n_xdes = 0;
+        loop {
+            let page_no = n_xdes * 16 * 1024;
+            if page_no > fact.page_count() {
+                break;
+            }
+
+            let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
+            let xdes_list = &xdes_page.page_body.xdes_ent_inited;
+
+            for (seq, xdes) in xdes_list.iter().enumerate() {
+                print!("XDES{}-{:03}: ", n_xdes, seq);
+                for i in 0..8 {
+                    for j in 0..8 {
+                        let bits = &xdes.bitmap[j * 8 + i];
+                        print!("{}", if bits.1.free() { "F".on_green() } else { "F".on_red() });
+                    }
+                }
+
+                print!(" ");
+
+                for i in 0..8 {
+                    for j in 0..8 {
+                        let bits = &xdes.bitmap[j * 8 + i];
+                        print!("{}", if bits.2.clean() { "C".on_green() } else { "C".on_red() });
+                    }
+                }
+
+                println!();
+            }
+            n_xdes += 1;
         }
         Ok(())
     }
@@ -182,7 +238,7 @@ impl App {
                 println!("{:#?}", fsp_page);
             }
             PageTypes::XDES => {
-                let xdes_page: BasePage<XdesPageBody> = fact.read_page(page_no)?;
+                let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", xdes_page);
             }
             PageTypes::INODE => {
