@@ -532,7 +532,7 @@ pub struct XDesPageBody {
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
-    /// XDES entries that initiliezd
+    /// XDES entries that initialized
     pub xdes_ent_inited: Vec<XDesEntry>,
 }
 
