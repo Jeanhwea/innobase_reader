@@ -13,7 +13,7 @@ use crate::{
     factory::DatafileFactory,
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
-        EXTENT_PAGE_NUM, PAGE_SIZE,
+        XDesStates, EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
@@ -141,10 +141,10 @@ impl App {
                     break;
                 }
 
-                let addr = page_no * PAGE_SIZE + xdes.addr;
                 let page_no = faddr.page_no as usize;
-                let xdes_no = page_no / EXTENT_PAGE_NUM;
                 let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+                let xdes_no = page_no / EXTENT_PAGE_NUM;
+                let addr = page_no * PAGE_SIZE + xdes.addr;
                 println!(
                     "addr=0x{:08x}, xdes={}-{:03?}, seg_id={}, state={}",
                     addr, xdes_no, xdes.xdes_seq, xdes.seg_id, xdes.state
@@ -175,6 +175,7 @@ impl App {
 
             for xdes in xdes_list {
                 print!("{}-{:03}: ", xdes_no, xdes.xdes_seq);
+
                 for nth in 0..8 {
                     for shf in 0..8 {
                         let bits = &xdes.bitmap[nth * 8 + shf];
@@ -210,6 +211,7 @@ impl App {
                 }
 
                 println!();
+                // println!(" {}", xdes.state);
             }
             xdes_no += 1;
         }
