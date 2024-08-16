@@ -121,7 +121,7 @@ impl App {
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
             for (seq, xdes) in xdes_list.iter().enumerate() {
-                print!("XDES{}-{:03}: ", n_xdes, seq);
+                print!("{}-{:03}: ", n_xdes, seq);
                 for i in 0..8 {
                     for j in 0..8 {
                         let bits = &xdes.bitmap[j * 8 + i];
