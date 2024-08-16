@@ -12,8 +12,7 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
-        XDesStates, EXTENT_PAGE_NUM, PAGE_SIZE,
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
