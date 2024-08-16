@@ -126,8 +126,24 @@ impl App {
         for (seq, inode) in inodes.iter().enumerate() {
             println!(
                 "{}: free={}, not-full={}, full={}, frag={:?}",
-                seq, inode.fseg_free.len, inode.fseg_not_full.len, inode.fseg_full.len, inode.fseg_frag_arr,
+                seq.to_string().blue(),
+                inode.fseg_free.len,
+                inode.fseg_not_full.len,
+                inode.fseg_full.len,
+                inode.fseg_frag_arr,
             );
+            println!("  fseg_full:");
+
+            let mut faddr = inode.fseg_full.first.clone();
+            let mut fseq = 0;
+            loop {
+                if faddr.page.is_none() {
+                    break;
+                }
+                println!("  {}: fil_addr={:?}", fseq, &faddr);
+                fseq += 1;
+                faddr = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?.next;
+            }
         }
 
         Ok(())

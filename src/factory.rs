@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::PathBuf,
@@ -14,8 +15,8 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody,
-            FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, FlstNode, IndexPageBody, SdiPageBody,
+            XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
         record::{ColumnTypes, HiddenTypes, Record},
     },
@@ -58,9 +59,17 @@ pub struct ResultSet {
 
 #[derive(Debug)]
 pub struct DatafileFactory {
-    pub target: PathBuf, // Target datafile
-    pub file: File,      // Data file descriptor
-    pub size: usize,     // Data file size
+    /// Target datafile
+    pub target: PathBuf,
+
+    /// Data file descriptor
+    pub file: File,
+
+    /// Data file size
+    pub size: usize,
+
+    /// File Addr Cache
+    pub fil_addr_cache: HashMap<usize, HashMap<u16, FlstNode>>,
 }
 
 impl DatafileFactory {
@@ -74,7 +83,12 @@ impl DatafileFactory {
 
         info!("加载数据文件: {:?}", &file);
 
-        Ok(Self { target, size, file })
+        Ok(Self {
+            target,
+            size,
+            file,
+            fil_addr_cache: HashMap::new(),
+        })
     }
 
     pub fn page_count(&self) -> usize {
@@ -118,6 +132,21 @@ impl DatafileFactory {
     {
         let buf = self.page_buffer(page_no)?;
         Ok(BasePage::new(0, buf.clone()))
+    }
+
+    pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<FlstNode> {
+        if !self.fil_addr_cache.contains_key(&page_no) {
+            let page: BasePage<XDesPageBody> = self.read_page(page_no)?;
+            let mut hmap = HashMap::new();
+            for ent in page.page_body.xdes_ent_list {
+                hmap.insert(ent.flst_node.addr as u16, ent.flst_node.clone());
+            }
+            self.fil_addr_cache.insert(page_no, hmap);
+        }
+
+        let nodes = self.fil_addr_cache.get(&page_no).unwrap();
+
+        Ok(nodes.get(&boffset).expect("File list node not found").clone())
     }
 
     fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {

@@ -43,6 +43,9 @@ pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
+// file list const
+pub const PAGE_NONE: u32 = 0xffffffff;
+
 // sdi
 pub const SDI_DATA_HEADER_SIZE: usize = 33;
 
@@ -297,9 +300,12 @@ pub struct FilAddr {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
+    /// page number representation
+    pub page: Option<u32>,
+
     /// (4 bytes) Page number within a space
-    #[derivative(Debug(format_with = "util::fmt_page_no"))]
-    pub page: u32,
+    #[derivative(Debug = "ignore")]
+    pub page_no: u32,
 
     /// (2 bytes) Byte offset within the page
     pub boffset: u16,
@@ -307,8 +313,10 @@ pub struct FilAddr {
 
 impl FilAddr {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let page_no = util::u32_val(&buf, addr);
         Self {
-            page: util::u32_val(&buf, addr),
+            page: if page_no != PAGE_NONE { Some(page_no) } else { None },
+            page_no,
             boffset: util::u16_val(&buf, addr + 4),
             buf: buf.clone(),
             addr,
