@@ -124,9 +124,9 @@ impl App {
 
             for (seq, xdes) in xdes_list.iter().enumerate() {
                 print!("{}-{:03}: ", n_xdes, seq);
-                for i in 0..8 {
-                    for j in 0..8 {
-                        let bits = &xdes.bitmap[j * 8 + i];
+                for nth in 0..8 {
+                    for shf in 0..8 {
+                        let bits = &xdes.bitmap[nth * 8 + shf];
                         print!(
                             "{}",
                             if bits.1.free() {
@@ -142,9 +142,9 @@ impl App {
 
                 print!(" ");
 
-                for i in 0..8 {
-                    for j in 0..8 {
-                        let bits = &xdes.bitmap[j * 8 + i];
+                for nth in 0..8 {
+                    for shf in 0..8 {
+                        let bits = &xdes.bitmap[nth * 8 + shf];
                         print!(
                             "{}",
                             if bits.2.clean() {
