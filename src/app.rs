@@ -13,7 +13,7 @@ use crate::{
     factory::DatafileFactory,
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
-        PAGE_SIZE,
+        EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
@@ -136,23 +136,20 @@ impl App {
             println!("  fseg_full:");
 
             let mut faddr = inode.fseg_full.first.clone();
-            let mut xseq = 0;
             loop {
                 if faddr.page.is_none() {
                     break;
                 }
 
+                let addr = page_no * PAGE_SIZE + xdes.addr;
                 let page_no = faddr.page_no as usize;
+                let n_xdes = page_no / EXTENT_PAGE_NUM;
                 let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
                 println!(
-                    "  {}: addr=0x{:05x}, seg_id={:?}, state={}",
-                    xseq,
-                    page_no * PAGE_SIZE + xdes.addr,
-                    xdes.seg_id,
-                    xdes.state
+                    "addr=0x{:08x}, xdes={}-{:03?}, seg_id={}, state={}",
+                    addr, n_xdes, xdes.xdes_seq, xdes.seg_id, xdes.state
                 );
 
-                xseq += 1;
                 faddr = xdes.flst_node.next;
             }
         }
@@ -168,7 +165,7 @@ impl App {
 
         let mut n_xdes = 0;
         loop {
-            let page_no = n_xdes * 16 * 1024;
+            let page_no = n_xdes * EXTENT_PAGE_NUM;
             if page_no > fact.page_count() {
                 break;
             }
@@ -176,8 +173,8 @@ impl App {
             let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
-            for (seq, xdes) in xdes_list.iter().enumerate() {
-                print!("{}-{:03}: ", n_xdes, seq);
+            for xdes in xdes_list {
+                print!("{}-{:03}: ", n_xdes, xdes.xdes_seq);
                 for nth in 0..8 {
                     for shf in 0..8 {
                         let bits = &xdes.bitmap[nth * 8 + shf];

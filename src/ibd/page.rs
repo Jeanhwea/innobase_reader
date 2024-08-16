@@ -27,6 +27,7 @@ pub const FSP_HEADER_SIZE: usize = 112;
 pub const XDES_ENTRY_SIZE: usize = 40;
 pub const XDES_ENTRY_MAX_COUNT: usize = 256;
 pub const XDES_PAGE_COUNT: usize = 64;
+pub const EXTENT_PAGE_NUM: usize = XDES_PAGE_COUNT * XDES_ENTRY_MAX_COUNT;
 
 // inode
 pub const INODE_FLST_NODE_SIZE: usize = 12;
@@ -600,8 +601,8 @@ pub struct XDesEntry {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    /// entry position
-    pub ent_pos: usize,
+    /// XDes entry sequence
+    pub xdes_seq: usize,
 
     /// (8 bytes) segment ID
     pub seg_id: u64,
@@ -647,7 +648,7 @@ impl XDesEntry {
             .collect::<Vec<_>>();
 
         Self {
-            ent_pos: pos,
+            xdes_seq: pos,
             seg_id: util::u64_val(&buf, addr),
             flst_node: FlstNode::new(addr + 8, buf.clone()),
             state: util::u32_val(&buf, addr + 20).into(),
@@ -731,7 +732,8 @@ pub struct INodeEntry {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>, // page data buffer
 
-    pub ent_pos: usize,
+    /// INode sequence
+    pub inode_seq: usize,
 
     /// (8 bytes) file segment ID
     pub fseg_id: u64,
@@ -765,7 +767,7 @@ impl INodeEntry {
         debug!("INodeEntry::arr={:?}", arr);
 
         Self {
-            ent_pos: pos,
+            inode_seq: pos,
             fseg_id: util::u64_val(&buf, addr),
             fseg_not_full_n_used: util::u32_val(&buf, addr + 8),
             fseg_free: FlstBaseNode::new(addr + 12, buf.clone()),
