@@ -125,8 +125,9 @@ impl App {
         let inodes = &inode_page.page_body.inode_ent_list;
         for (seq, inode) in inodes.iter().enumerate() {
             println!(
-                "{}: free={}, not-full={}, full={}, frag={:?}",
+                "{}: fseg_id={}, free={}, not-full={}, full={}, frag={:?}",
                 seq.to_string().blue(),
+                inode.fseg_id,
                 inode.fseg_free.len,
                 inode.fseg_not_full.len,
                 inode.fseg_full.len,
