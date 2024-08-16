@@ -108,7 +108,7 @@ impl App {
 
     /// XDES bitmap
     fn do_info_xdes_bitmap(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("XDES bitmap:");
+        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => Dirty]");
 
         let mut n_xdes = 0;
         loop {
@@ -125,7 +125,14 @@ impl App {
                 for i in 0..8 {
                     for j in 0..8 {
                         let bits = &xdes.bitmap[j * 8 + i];
-                        print!("{}", if bits.1.free() { "F".on_green() } else { "F".on_red() });
+                        print!(
+                            "{}",
+                            if bits.1.free() {
+                                "F".on_green()
+                            } else {
+                                "X".on_magenta()
+                            }
+                        );
                     }
                 }
 
@@ -134,7 +141,7 @@ impl App {
                 for i in 0..8 {
                     for j in 0..8 {
                         let bits = &xdes.bitmap[j * 8 + i];
-                        print!("{}", if bits.2.clean() { "C".on_green() } else { "C".on_red() });
+                        print!("{}", if bits.2.clean() { "C".on_cyan() } else { "D".on_red() });
                     }
                 }
 
