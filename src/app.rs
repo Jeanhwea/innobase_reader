@@ -119,7 +119,7 @@ impl App {
     }
 
     fn do_info_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("INode entry list");
+        println!("INode entry list:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
