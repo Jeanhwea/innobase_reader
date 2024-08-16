@@ -383,7 +383,13 @@ mod app_tests {
     fn info_datafile() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app.run(Commands::Info).is_ok());
+        assert!(app
+            .run(Commands::Info {
+                inode_list: false,
+                xdes_bitmap: false,
+                all: true,
+            })
+            .is_ok());
     }
 
     #[test]
