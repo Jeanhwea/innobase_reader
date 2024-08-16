@@ -103,7 +103,7 @@ impl App {
         Ok(())
     }
 
-    /// page type statictis
+    /// page type statistic
     fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..fact.page_count() {
