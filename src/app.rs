@@ -143,11 +143,11 @@ impl App {
 
                 let addr = page_no * PAGE_SIZE + xdes.addr;
                 let page_no = faddr.page_no as usize;
-                let n_xdes = page_no / EXTENT_PAGE_NUM;
+                let xdes_no = page_no / EXTENT_PAGE_NUM;
                 let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
                 println!(
                     "addr=0x{:08x}, xdes={}-{:03?}, seg_id={}, state={}",
-                    addr, n_xdes, xdes.xdes_seq, xdes.seg_id, xdes.state
+                    addr, xdes_no, xdes.xdes_seq, xdes.seg_id, xdes.state
                 );
 
                 faddr = xdes.flst_node.next;
@@ -163,9 +163,9 @@ impl App {
 
         let mut counter = (0, 0, 0, 0); // F, X, C, D
 
-        let mut n_xdes = 0;
+        let mut xdes_no = 0;
         loop {
-            let page_no = n_xdes * EXTENT_PAGE_NUM;
+            let page_no = xdes_no * EXTENT_PAGE_NUM;
             if page_no > fact.page_count() {
                 break;
             }
@@ -174,7 +174,7 @@ impl App {
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
             for xdes in xdes_list {
-                print!("{}-{:03}: ", n_xdes, xdes.xdes_seq);
+                print!("{}-{:03}: ", xdes_no, xdes.xdes_seq);
                 for nth in 0..8 {
                     for shf in 0..8 {
                         let bits = &xdes.bitmap[nth * 8 + shf];
@@ -211,7 +211,7 @@ impl App {
 
                 println!();
             }
-            n_xdes += 1;
+            xdes_no += 1;
         }
 
         println!(
