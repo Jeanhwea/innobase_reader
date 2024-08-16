@@ -123,10 +123,10 @@ impl App {
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
-        for (seq, inode) in inodes.iter().enumerate() {
+        for (iseq, inode) in inodes.iter().enumerate() {
             println!(
                 "{}: fseg_id={}, free={}, not-full={}, full={}, frag={:?}",
-                seq.to_string().blue(),
+                iseq.to_string().blue(),
                 inode.fseg_id,
                 inode.fseg_free.len,
                 inode.fseg_not_full.len,
@@ -136,16 +136,23 @@ impl App {
             println!("  fseg_full:");
 
             let mut faddr = inode.fseg_full.first.clone();
-            let mut fseq = 0;
+            let mut xseq = 0;
             loop {
                 if faddr.page.is_none() {
                     break;
                 }
 
-                let xdes = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?;
-                println!("  {}: xdes={:?}", fseq, &xdes);
+                let page_no = faddr.page_no as usize;
+                let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+                println!(
+                    "  {}: addr=0x{:05x}, seg_id={:?}, state={}",
+                    xseq,
+                    page_no * PAGE_SIZE + xdes.addr,
+                    xdes.seg_id,
+                    xdes.state
+                );
 
-                fseq += 1;
+                xseq += 1;
                 faddr = xdes.flst_node.next;
             }
         }
