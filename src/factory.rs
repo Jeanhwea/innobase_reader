@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::PathBuf,
@@ -14,8 +15,8 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody,
-            FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, FlstNode, IndexPageBody, SdiPageBody,
+            XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
         record::{ColumnTypes, HiddenTypes, Record},
     },
@@ -58,9 +59,17 @@ pub struct ResultSet {
 
 #[derive(Debug)]
 pub struct DatafileFactory {
-    pub target: PathBuf, // Target datafile
-    pub file: File,      // Data file descriptor
-    pub size: usize,     // Data file size
+    /// Target datafile
+    pub target: PathBuf,
+
+    /// Data file descriptor
+    pub file: File,
+
+    /// Data file size
+    pub size: usize,
+
+    /// File Addr Cache
+    pub fil_addr_cache: HashMap<usize, HashMap<u16, FlstNode>>,
 }
 
 impl DatafileFactory {
@@ -74,7 +83,12 @@ impl DatafileFactory {
 
         info!("加载数据文件: {:?}", &file);
 
-        Ok(Self { target, size, file })
+        Ok(Self {
+            target,
+            size,
+            file,
+            fil_addr_cache: HashMap::new(),
+        })
     }
 
     pub fn page_count(&self) -> usize {
@@ -118,6 +132,21 @@ impl DatafileFactory {
     {
         let buf = self.page_buffer(page_no)?;
         Ok(BasePage::new(0, buf.clone()))
+    }
+
+    pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<FlstNode> {
+        if !self.fil_addr_cache.contains_key(&page_no) {
+            let page: BasePage<XDesPageBody> = self.read_page(page_no)?;
+            let mut hmap = HashMap::new();
+            for ent in page.page_body.xdes_ent_list {
+                hmap.insert(ent.flst_node.addr as u16, ent.flst_node.clone());
+            }
+            self.fil_addr_cache.insert(page_no, hmap);
+        }
+
+        let nodes = self.fil_addr_cache.get(&page_no).unwrap();
+
+        Ok(nodes.get(&boffset).expect("File list node not found").clone())
     }
 
     fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {
@@ -703,208 +732,42 @@ mod factory_tests_run {
 
     use anyhow::Error;
     use colored::Colorize;
-    use log::info;
 
     use crate::{
         factory::DatafileFactory,
-        ibd::page::{BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody},
+        ibd::page::{BasePage, FileSpaceHeaderPageBody},
         util,
     };
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
-    // const IBD_FILE: &str = "/opt/mysql/data/rtc/tb_row_version.ibd";
-    const IBD_FILE: &str = "./data/tb_row_version_4.ibd";
-
-    // #[test]
-    fn btr_traverse() -> Result<(), Error> {
-        util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-
-        let root_page: BasePage<IndexPageBody> = fact.read_page(4)?;
-        let fseg_hdr = root_page.page_body.fseg_hdr;
-        info!("fseg_hdr={:?}", &fseg_hdr);
-
-        let inode_page_no = fseg_hdr.leaf_page_no as usize;
-        let inode_page: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
-
-        let offset = fseg_hdr.leaf_offset as usize;
-        let head_inode = inode_page
-            .page_body
-            .inode_ent_list
-            .iter()
-            .find(|node| node.addr == offset)
-            .unwrap();
-        info!("head_inode={:#?}", head_inode);
-
-        Ok(())
-    }
-
-    // #[test]
-    fn leaf_walk_full() -> Result<(), Error> {
-        util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-
-        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
-        // info!("xdes={:#?}", &page0.page_body);
-
-        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
-
-        let inode_page_no = inode_free_first.page as usize;
-        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
-        // info!("inode={:#?}", &page2.page_body);
-
-        let inode_nonleaf = &page2.page_body.inode_ent_list[2];
-        info!("inode_nonleaf={:#?}", &inode_nonleaf);
-        let inode_leaf = &page2.page_body.inode_ent_list[3];
-        info!("inode_leaf={:#?}", &inode_leaf);
-
-        let mut faddr = &inode_leaf.fseg_full.first;
-        let mut seq = 1;
-        loop {
-            assert_eq!(faddr.page, 0);
-
-            let boffset = faddr.boffset as usize;
-            let xdes = page0
-                .page_body
-                .xdes_ent_list
-                .iter()
-                .find(|xdes| xdes.flst_node.addr == boffset);
-            if xdes.is_none() {
-                break;
-            }
-            info!("seq={}, xdes={:?}", &seq, &xdes);
-
-            faddr = &xdes.unwrap().flst_node.next;
-            if faddr.boffset == 0 {
-                break;
-            }
-
-            seq += 1;
-        }
-
-        Ok(())
-    }
-
-    // #[test]
-    fn leaf_walk_frag() -> Result<(), Error> {
-        util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-
-        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
-        // info!("xdes={:#?}", &page0.page_body);
-
-        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
-
-        let inode_page_no = inode_free_first.page as usize;
-        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
-        // info!("inode={:#?}", &page2.page_body);
-
-        let inode_leaf = &page2.page_body.inode_ent_list[3];
-        info!("inode_leaf={:#?}", &inode_leaf);
-
-        let mut faddr = &inode_leaf.fseg_not_full.first;
-        let mut seq = 1;
-        loop {
-            assert_eq!(faddr.page, 0);
-
-            let boffset = faddr.boffset as usize;
-            let xdes = page0
-                .page_body
-                .xdes_ent_list
-                .iter()
-                .find(|xdes| xdes.flst_node.addr == boffset);
-            if xdes.is_none() {
-                break;
-            }
-            info!("seq={}, xdes={:?}", &seq, &xdes);
-
-            faddr = &xdes.unwrap().flst_node.next;
-            if faddr.boffset == 0 {
-                break;
-            }
-
-            seq += 1;
-        }
-
-        Ok(())
-    }
-
-    // #[test]
-    fn nonleaf_walk_full() -> Result<(), Error> {
-        util::init_unit_test();
-        let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-
-        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(0)?;
-        // info!("xdes={:#?}", &page0.page_body);
-
-        let inode_free_first = page0.page_body.fsp_hdr.inodes_free.first.clone();
-
-        let inode_page_no = inode_free_first.page as usize;
-        let page2: BasePage<INodePageBody> = fact.read_page(inode_page_no)?;
-        // info!("inode={:#?}", &page2.page_body);
-
-        let inode_nonleaf = &page2.page_body.inode_ent_list[2];
-        info!("inode_nonleaf={:#?}", &inode_nonleaf);
-        let inode_leaf = &page2.page_body.inode_ent_list[3];
-        info!("inode_leaf={:#?}", &inode_leaf);
-
-        let mut faddr = &inode_nonleaf.fseg_full.first;
-        let mut seq = 1;
-        loop {
-            assert_eq!(faddr.page, 0);
-
-            let boffset = faddr.boffset as usize;
-            let xdes = page0
-                .page_body
-                .xdes_ent_list
-                .iter()
-                .find(|xdes| xdes.flst_node.addr == boffset);
-            if xdes.is_none() {
-                break;
-            }
-            info!("seq={}, xdes={:?}", &seq, &xdes);
-
-            faddr = &xdes.unwrap().flst_node.next;
-            if faddr.boffset == 0 {
-                break;
-            }
-
-            seq += 1;
-        }
-
-        Ok(())
-    }
+    const IBD_FILE: &str = "/opt/docker/mysql80027/rtc80027/tt.ibd";
 
     #[test]
-    fn unpack_5th_index_page() -> Result<(), Error> {
+    fn entry() -> Result<(), Error> {
         util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let ans = fact.unpack_index_page(4, false);
-        assert!(ans.is_ok());
-        for (i, col) in ans.as_ref().unwrap().tabdef.col_defs.iter().enumerate() {
-            info!(
-                "col(pos={};phy={}) => {} {}",
-                i,
-                &col.phy_pos,
-                &col.col_name.magenta(),
-                &col.utf8_def.green(),
-            );
-        }
-        let cols = &ans.as_ref().unwrap().tabdef.col_defs;
-        for (i, ele) in ans.as_ref().unwrap().tabdef.idx_defs[0].elements.iter().enumerate() {
-            let ref_col = &cols[ele.column_opx];
-            info!(
-                "idx(pos={};phy={}) => {} {}",
-                i,
-                ref_col.phy_pos,
-                &ele.col_name.magenta(),
-                &ele.utf8_def.green(),
-            );
-        }
+        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(16 * 1024 * 0)?;
+        let xdes_list = &page0.page_body.xdes_ent_inited;
+        for (seq, xdes) in xdes_list.iter().enumerate() {
+            print!("xdes{:03}: ", seq);
+            for i in 0..8 {
+                for j in 0..8 {
+                    let bits = &xdes.bitmap[j * 8 + i];
+                    print!("{}", if bits.1.free() { "F".on_green() } else { "F".on_red() });
+                }
+            }
 
-        for (ith, tuple) in ans.unwrap().tuples.iter().enumerate() {
-            info!("[{}]=> {:?}", ith.to_string().green(), tuple);
+            print!(" ");
+
+            for i in 0..8 {
+                for j in 0..8 {
+                    let bits = &xdes.bitmap[j * 8 + i];
+                    print!("{}", if bits.2.clean() { "C".on_green() } else { "C".on_red() });
+                }
+            }
+
+            println!();
         }
 
         Ok(())

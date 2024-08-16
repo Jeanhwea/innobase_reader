@@ -12,7 +12,7 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XdesPageBody,
+        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
         PAGE_SIZE,
     },
     Commands,
@@ -40,7 +40,11 @@ impl App {
         debug!("{:?}, {:?}", command, self);
 
         match command {
-            Commands::Info => self.do_info()?,
+            Commands::Info {
+                inode_list,
+                xdes_bitmap,
+                all,
+            } => self.do_info(inode_list, xdes_bitmap, all)?,
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_sdi_print()?,
@@ -56,11 +60,32 @@ impl App {
         Ok(())
     }
 
-    fn do_info(&self) -> Result<()> {
+    fn do_info(&self, flag_inode_list: bool, flag_xdes_bitmap: bool, flag_all: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
-        let hdr0 = fact.read_fil_hdr(0)?;
 
         // 基础信息
+        self.do_info_metadata(&mut fact)?;
+
+        // 页面类型统计
+        self.do_info_page_stat(&mut fact)?;
+
+        // 打印 INode 项
+        if flag_inode_list || flag_all {
+            self.do_info_inode(&mut fact)?;
+        }
+
+        // 打印 XDES bitmap 数据
+        if flag_xdes_bitmap || flag_all {
+            self.do_info_xdes_bitmap(&mut fact)?;
+        }
+
+        Ok(())
+    }
+
+    /// basic meta information
+    fn do_info_metadata(&self, fact: &mut DatafileFactory) -> Result<()> {
+        let hdr0 = fact.read_fil_hdr(0)?;
+
         println!("Meta Information:");
         println!(
             "{:>12} => server({}), space({})",
@@ -75,8 +100,11 @@ impl App {
             &fact.page_count().to_string().blue()
         );
         println!("{:>12} => {}", "file_size".green(), fact.size.to_string().blue());
+        Ok(())
+    }
 
-        // 页面类型统计
+    /// page type statictis
+    fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
         let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -86,6 +114,103 @@ impl App {
         for entry in &stats {
             println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
         }
+
+        Ok(())
+    }
+
+    fn do_info_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("INode entry list:");
+        let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
+
+        let inodes = &inode_page.page_body.inode_ent_list;
+        for (seq, inode) in inodes.iter().enumerate() {
+            println!(
+                "{}: free={}, not-full={}, full={}, frag={:?}",
+                seq.to_string().blue(),
+                inode.fseg_free.len,
+                inode.fseg_not_full.len,
+                inode.fseg_full.len,
+                inode.fseg_frag_arr,
+            );
+            println!("  fseg_full:");
+
+            let mut faddr = inode.fseg_full.first.clone();
+            let mut fseq = 0;
+            loop {
+                if faddr.page.is_none() {
+                    break;
+                }
+                println!("  {}: fil_addr={:?}", fseq, &faddr);
+                fseq += 1;
+                faddr = fact.read_flst_node(faddr.page_no as usize, faddr.boffset)?.next;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// XDES bitmap
+    fn do_info_xdes_bitmap(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
+
+        let mut counter = (0, 0, 0, 0); // F, X, C, D
+
+        let mut n_xdes = 0;
+        loop {
+            let page_no = n_xdes * 16 * 1024;
+            if page_no > fact.page_count() {
+                break;
+            }
+
+            let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
+            let xdes_list = &xdes_page.page_body.xdes_ent_inited;
+
+            for (seq, xdes) in xdes_list.iter().enumerate() {
+                print!("{}-{:03}: ", n_xdes, seq);
+                for nth in 0..8 {
+                    for shf in 0..8 {
+                        let bits = &xdes.bitmap[nth * 8 + shf];
+                        print!(
+                            "{}",
+                            if bits.1.free() {
+                                counter.0 += 1;
+                                "F".on_green()
+                            } else {
+                                counter.1 += 1;
+                                "X".on_magenta()
+                            }
+                        );
+                    }
+                }
+
+                print!(" ");
+
+                for nth in 0..8 {
+                    for shf in 0..8 {
+                        let bits = &xdes.bitmap[nth * 8 + shf];
+                        print!(
+                            "{}",
+                            if bits.2.clean() {
+                                counter.2 += 1;
+                                "C".on_cyan()
+                            } else {
+                                counter.3 += 1;
+                                "D".on_red()
+                            }
+                        );
+                    }
+                }
+
+                println!();
+            }
+            n_xdes += 1;
+        }
+
+        println!(
+            "XDES bitmap count: free={}, non-free={}, clean={}, dirty={}",
+            counter.0, counter.1, counter.2, counter.3
+        );
+
         Ok(())
     }
 
@@ -182,7 +307,7 @@ impl App {
                 println!("{:#?}", fsp_page);
             }
             PageTypes::XDES => {
-                let xdes_page: BasePage<XdesPageBody> = fact.read_page(page_no)?;
+                let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", xdes_page);
             }
             PageTypes::INODE => {
@@ -274,7 +399,13 @@ mod app_tests {
     fn info_datafile() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app.run(Commands::Info).is_ok());
+        assert!(app
+            .run(Commands::Info {
+                inode_list: false,
+                xdes_bitmap: false,
+                all: true,
+            })
+            .is_ok());
     }
 
     #[test]
