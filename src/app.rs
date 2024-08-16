@@ -108,10 +108,9 @@ impl App {
 
     /// XDES bitmap
     fn do_info_xdes_bitmap(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => Dirty]");
+        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
 
-        // F, X, C, D
-        let mut counter = (0, 0, 0, 0);
+        let mut counter = (0, 0, 0, 0); // F, X, C, D
 
         let mut n_xdes = 0;
         loop {
