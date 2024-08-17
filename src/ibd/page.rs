@@ -69,6 +69,7 @@ pub struct BasePage<B> {
     pub fil_trl: FilePageTrailer,
 }
 
+/// Base Page Body
 pub trait BasePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self;
 }
