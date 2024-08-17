@@ -128,7 +128,7 @@ pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
             if i < n - 1 {
                 let _ = writeln!(f, ", ");
             } else {
-                let _ = writeln!(f, "");
+                let _ = writeln!(f);
             }
         }
         write!(f, "]")

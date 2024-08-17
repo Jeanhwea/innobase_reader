@@ -378,16 +378,16 @@ pub struct FileSpaceFlags {
 impl FileSpaceFlags {
     pub fn new(flags: u32) -> Self {
         Self {
-            post_antelope: ((flags >> 0) & 1) > 0,
-            zip_ssize: ((flags >> 1) & 0xf) as u32,
+            post_antelope: (flags & 0x1) > 0,
+            zip_ssize: ((flags >> 1) & 0xf),
             atomic_blobs: ((flags >> 5) & 1) > 0,
-            page_ssize: ((flags >> 6) & 0xf) as u32,
+            page_ssize: ((flags >> 6) & 0xf),
             data_dir: ((flags >> 10) & 1) > 0,
             shared: ((flags >> 11) & 1) > 0,
             temporary: ((flags >> 12) & 1) > 0,
             encryption: ((flags >> 13) & 1) > 0,
             sdi: ((flags >> 14) & 1) > 0,
-            unused: ((flags >> 15) & 0x3ffff) as u32,
+            unused: (flags >> 15) & 0x3ffff,
         }
     }
 }
