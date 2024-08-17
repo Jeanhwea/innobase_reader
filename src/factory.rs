@@ -153,7 +153,7 @@ impl DatafileFactory {
                     .expect("未找到 XDesEntry 数据项")
                     .clone();
                 self.fil_addr_cache.insert(page_no, xdes_map);
-                xdes_entry.clone()
+                xdes_entry
             }
         };
 
