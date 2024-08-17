@@ -29,12 +29,15 @@ pub struct Args {
 enum Commands {
     /// Print basic information.
     Info {
-        // info the INode list, free/not full/full
+        // info the segement map
         #[arg(short, long, default_value_t = false)]
-        inode_list: bool,
-        // info the XDES bitmap info
+        segment_map: bool,
+        // info the extent map
         #[arg(short, long, default_value_t = false)]
-        xdes_bitmap: bool,
+        xdes_map: bool,
+        // info the page map
+        #[arg(short, long, default_value_t = false)]
+        page_map: bool,
         // info all information
         #[arg(short, long, default_value_t = false)]
         all: bool,

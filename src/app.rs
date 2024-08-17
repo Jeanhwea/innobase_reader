@@ -13,7 +13,7 @@ use crate::{
     factory::DatafileFactory,
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes,
-        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
+        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
     },
     Commands,
 };
@@ -41,10 +41,11 @@ impl App {
 
         match command {
             Commands::Info {
-                inode_list,
-                xdes_bitmap,
-                all,
-            } => self.do_info(inode_list, xdes_bitmap, all)?,
+                segment_map: disp_seg,
+                xdes_map: disp_extent,
+                page_map: disp_page,
+                all: disp_all,
+            } => self.do_info(disp_seg, disp_extent, disp_page, disp_all)?,
             Commands::List => self.do_list()?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_sdi_print()?,
@@ -60,7 +61,7 @@ impl App {
         Ok(())
     }
 
-    fn do_info(&self, flag_inode_list: bool, flag_xdes_bitmap: bool, flag_all: bool) -> Result<()> {
+    fn do_info(&self, seg: bool, ext: bool, page: bool, all: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         // 基础信息
@@ -70,13 +71,17 @@ impl App {
         self.do_info_page_stat(&mut fact)?;
 
         // 打印 INode 项
-        if flag_inode_list || flag_all {
+        if seg || all {
             self.do_info_inode(&mut fact)?;
         }
 
         // 打印 XDES bitmap 数据
-        if flag_xdes_bitmap || flag_all {
+        if ext || all {
             self.do_info_xdes_bitmap(&mut fact)?;
+        }
+
+        if page || all {
+            self.do_info_page_type(&mut fact)?;
         }
 
         Ok(())
@@ -125,6 +130,36 @@ impl App {
                 entry.0.to_string().yellow(),
                 entry.1.to_string().blue()
             );
+        }
+
+        Ok(())
+    }
+
+    fn do_info_page_type(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("Page Types Table:");
+        let mut page_types_vec = Vec::with_capacity(fact.page_count());
+        for page_no in 0..fact.page_count() {
+            let hdr = fact.read_fil_hdr(page_no)?;
+            page_types_vec.push(hdr.page_type);
+        }
+
+        for (i, page_type) in page_types_vec.iter().enumerate() {
+            let page_type_rept = match page_type {
+                PageTypes::FSP_HDR => "H".on_blue(),
+                PageTypes::XDES => "X".on_blue(),
+                PageTypes::INODE => "I".on_black(),
+                PageTypes::INDEX => "D".on_cyan(),
+                PageTypes::ALLOCATED => "U".on_green(),
+                _ => "?".on_red(),
+            };
+            if i % XDES_PAGE_COUNT == 0 {
+                let xdes_no = i / XDES_PAGE_COUNT;
+                print!(" {:>04}: ", xdes_no);
+            }
+            print!("{}", page_type_rept);
+            if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
+                println!();
+            }
         }
 
         Ok(())
@@ -187,13 +222,13 @@ impl App {
 
             let page_no = faddr.page_no as usize;
             let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
-            let xdes_no = page_no / EXTENT_PAGE_NUM;
 
             if i % 16 == 1 {
                 print!("   {:>03}:", i - 1);
             }
 
-            print!(" {}-{:03}", xdes_no, xdes.xdes_seq);
+            let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
+            print!(" {:>5}", xdes_no);
 
             if i % 16 == 0 {
                 println!();
@@ -216,18 +251,19 @@ impl App {
 
         let mut counter = (0, 0, 0, 0); // F, X, C, D
 
-        let mut xdes_no = 0;
+        let mut i = 0;
         loop {
-            let page_no = xdes_no * EXTENT_PAGE_NUM;
-            if page_no > fact.page_count() {
+            let xdes_page_no = i * EXTENT_PAGE_NUM;
+            if xdes_page_no > fact.page_count() {
                 break;
             }
 
-            let xdes_page: BasePage<XDesPageBody> = fact.read_page(page_no)?;
+            let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
             for xdes in xdes_list {
-                print!("{}-{:03}: ", xdes_no, xdes.xdes_seq);
+                let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
+                print!(" {:>04}: ", xdes_no);
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -266,7 +302,7 @@ impl App {
                 println!();
                 // println!(" {}", xdes.state);
             }
-            xdes_no += 1;
+            i += 1;
         }
 
         println!(
@@ -470,8 +506,9 @@ mod app_tests {
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app
             .run(Commands::Info {
-                inode_list: false,
-                xdes_bitmap: false,
+                segment_map: false,
+                xdes_map: false,
+                page_map: false,
                 all: true,
             })
             .is_ok());
