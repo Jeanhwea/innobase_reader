@@ -12,8 +12,8 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, INodePageBody, IndexPageBody, PageTypes, SdiPageBody, XDesPageBody,
-        EXTENT_PAGE_NUM, PAGE_SIZE,
+        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes, SdiPageBody,
+        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
@@ -123,35 +123,76 @@ impl App {
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
-        for (iseq, inode) in inodes.iter().enumerate() {
+        for inode in inodes {
             println!(
-                "{}: fseg_id={}, free={}, not-full={}, full={}, frag={:?}",
-                iseq.to_string().blue(),
+                " iseq={}: fseg_id={}, free={}, not-full={}, full={}, frag={}",
+                inode.inode_seq.to_string().blue(),
                 inode.fseg_id,
                 inode.fseg_free.len,
                 inode.fseg_not_full.len,
                 inode.fseg_full.len,
-                inode.fseg_frag_arr,
+                inode.fseg_frag_arr.len(),
             );
-            println!("  fseg_full:");
-
-            let mut faddr = inode.fseg_full.first.clone();
-            loop {
-                if faddr.page.is_none() {
-                    break;
-                }
-
-                let page_no = faddr.page_no as usize;
-                let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
-                let xdes_no = page_no / EXTENT_PAGE_NUM;
-                let addr = page_no * PAGE_SIZE + xdes.addr;
-                println!(
-                    "addr=0x{:08x}, xdes={}-{:03?}, seg_id={}, state={}",
-                    addr, xdes_no, xdes.xdes_seq, xdes.seg_id, xdes.state
-                );
-
-                faddr = xdes.flst_node.next;
+            if inode.fseg_free.len > 0 {
+                println!("  {}", "fseg_free:".green());
+                self.do_print_flst(fact, &inode.fseg_free)?;
             }
+            if inode.fseg_not_full.len > 0 {
+                println!("  {}", "fseg_not_full:".yellow());
+                self.do_print_flst(fact, &inode.fseg_not_full)?;
+            }
+            if inode.fseg_full.len > 0 {
+                println!("  {}", "fseg_full:".red());
+                self.do_print_flst(fact, &inode.fseg_full)?;
+            }
+            if inode.fseg_frag_arr.len() > 0 {
+                println!("  {}", "fseg_fray_arr:".cyan());
+                for (i, page_no) in inode.fseg_frag_arr.iter().enumerate() {
+                    if i % 16 == 0 {
+                        print!("   {:>03}:", i);
+                    }
+                    print!(" {:>5}", page_no);
+                    if (i + 1) % 16 == 0 {
+                        println!();
+                    }
+                }
+                if inode.fseg_frag_arr.len() % 16 != 0 {
+                    println!();
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn do_print_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
+        let mut faddr = base.first.clone();
+        let mut i = 1;
+        loop {
+            if faddr.page.is_none() {
+                break;
+            }
+
+            let page_no = faddr.page_no as usize;
+            let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+            let xdes_no = page_no / EXTENT_PAGE_NUM;
+
+            if i % 16 == 1 {
+                print!("   {:>03}:", i-1);
+            }
+
+            print!(" {}-{:03}", xdes_no, xdes.xdes_seq);
+
+            if i % 16 == 0 {
+                println!();
+            }
+
+            faddr = xdes.flst_node.next;
+            i += 1;
+        }
+
+        if i % 16 != 0 {
+            println!();
         }
 
         Ok(())
