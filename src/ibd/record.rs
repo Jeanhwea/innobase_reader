@@ -210,10 +210,18 @@ impl RowInfo {
         let buf = rec_hdr.buf.clone();
 
         // Handle the row version
-        let row_ver = if rec_hdr.is_version() { buf[rec_hdr.addr - 1] } else { 0 };
+        let row_ver = if rec_hdr.is_version() {
+            buf[rec_hdr.addr - 1]
+        } else {
+            0
+        };
 
         // Handle the row version
-        let n_ins_col = if rec_hdr.is_instant() { buf[rec_hdr.addr - 1] } else { 0 };
+        let n_ins_col = if rec_hdr.is_instant() {
+            buf[rec_hdr.addr - 1]
+        } else {
+            0
+        };
 
         Self {
             table_def: tabdef.clone(),
@@ -239,13 +247,11 @@ impl RowInfo {
     }
 
     fn get_patch_byte(&self) -> usize {
-        if self.row_version > 0 {
-            return 1;
+        if self.row_version > 0 || self.instant_flag {
+            1
+        } else {
+            0
         }
-        if self.instant_flag {
-            return 1;
-        }
-        return 0;
     }
 
     pub fn resolve(&self) -> Result<Vec<FieldMeta>, Error> {
@@ -256,13 +262,14 @@ impl RowInfo {
         // for INSTANT flag
         let n_ins_col = if self.instant_flag {
             self.n_instant_col as usize
+        } else if self.table_def.instant_col > 0 {
+            let n_hidden = cols
+                .iter()
+                .filter(|col| col.hidden != HiddenTypes::HT_VISIBLE)
+                .count();
+            n_hidden + self.table_def.instant_col as usize
         } else {
-            if self.table_def.instant_col > 0 {
-                let n_hidden = cols.iter().filter(|col| col.hidden != HiddenTypes::HT_VISIBLE).count();
-                n_hidden + self.table_def.instant_col as usize
-            } else {
-                0
-            }
+            0
         };
 
         // for VERSION flag
@@ -332,8 +339,16 @@ impl RowInfo {
             let col = &cols[col_pos];
             info!(
                 "exist[{},{}] pos[phy={},opx={}] version[row={},added={},dropped={}] => {}",
-                if phy_exist { "PHY=Y".green() } else { "PHY=N".red() },
-                if log_exist { "LOG=Y".green() } else { "LOG=N".red() },
+                if phy_exist {
+                    "PHY=Y".green()
+                } else {
+                    "PHY=N".red()
+                },
+                if log_exist {
+                    "LOG=Y".green()
+                } else {
+                    "LOG=N".red()
+                },
                 phy_pos,
                 col_pos,
                 row_ver,
@@ -471,7 +486,13 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: RecordHeader, row_info: Arc<RowInfo>, row_data: RowData) -> Self {
+    pub fn new(
+        addr: usize,
+        buf: Arc<Bytes>,
+        hdr: RecordHeader,
+        row_info: Arc<RowInfo>,
+        row_data: RowData,
+    ) -> Self {
         Self {
             rec_hdr: hdr,
             row_info: row_info.clone(),
@@ -489,7 +510,13 @@ impl Record {
             self.row_data
                 .meta_list
                 .iter()
-                .map(|m| if m.phy_exist && cols[m.opx].isnil { 1 } else { 0 })
+                .map(|m| {
+                    if m.phy_exist && cols[m.opx].isnil {
+                        1
+                    } else {
+                        0
+                    }
+                })
                 .sum(),
         );
         let va_size = self
@@ -637,7 +664,9 @@ pub struct DataDictObject {
 
 /// Column Type, see sql/dd/types/column.h, enum class enum_column_types
 #[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
@@ -676,7 +705,17 @@ pub enum ColumnTypes {
 
 /// see sql/dd/types/column.h, enum class enum_hidden_type
 #[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, PartialEq)]
+#[derive(
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Debug,
+    Display,
+    Default,
+    Clone,
+    PartialEq,
+)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -695,7 +734,17 @@ pub enum HiddenTypes {
 
 /// see sql/dd/types/column.h, enum class enum_column_type
 #[repr(u8)]
-#[derive(Debug, Default, Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Eq, PartialEq, Clone)]
+#[derive(
+    Debug,
+    Default,
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Clone,
+)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,
@@ -739,7 +788,9 @@ pub struct DataDictColumnElement {
 
 /// see sql/dd/types/index.h, enum class enum_index_type
 #[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
     IT_UNIQUE = 2,
@@ -752,7 +803,9 @@ pub enum IndexTypes {
 
 /// see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,
@@ -765,7 +818,17 @@ pub enum IndexAlgorithm {
 
 /// see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone, Copy)]
+#[derive(
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Debug,
+    Display,
+    Default,
+    Clone,
+    Copy,
+)]
 pub enum IndexOrder {
     #[default]
     ORDER_UNDEF = 1,

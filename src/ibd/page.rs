@@ -69,6 +69,7 @@ pub struct BasePage<B> {
     pub fil_trl: FilePageTrailer,
 }
 
+/// Base Page Body
 pub trait BasePageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self;
 }
@@ -80,7 +81,10 @@ where
     pub fn new(addr: usize, buf: Arc<Bytes>) -> BasePage<B> {
         let header = FilePageHeader::new(0, buf.clone());
         let trailer = FilePageTrailer::new(buf.len() - FIL_TRAILER_SIZE, buf.clone());
-        assert_eq!(header.check_sum, trailer.check_sum, "fil_hdr 和 trl_hdr 校验和不一致");
+        assert_eq!(
+            header.check_sum, trailer.check_sum,
+            "fil_hdr 和 trl_hdr 校验和不一致"
+        );
 
         let body = BasePageBody::new(FIL_HEADER_SIZE, buf.clone());
 
@@ -316,7 +320,11 @@ impl FilAddr {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let page_no = util::u32_val(&buf, addr);
         Self {
-            page: if page_no != PAGE_NONE { Some(page_no) } else { None },
+            page: if page_no != PAGE_NONE {
+                Some(page_no)
+            } else {
+                None
+            },
             page_no,
             boffset: util::u16_val(&buf, addr + 4),
             buf: buf.clone(),
@@ -370,16 +378,16 @@ pub struct FileSpaceFlags {
 impl FileSpaceFlags {
     pub fn new(flags: u32) -> Self {
         Self {
-            post_antelope: ((flags >> 0) & 1) > 0,
-            zip_ssize: ((flags >> 1) & 0xf) as u32,
+            post_antelope: (flags & 0x1) > 0,
+            zip_ssize: ((flags >> 1) & 0xf),
             atomic_blobs: ((flags >> 5) & 1) > 0,
-            page_ssize: ((flags >> 6) & 0xf) as u32,
+            page_ssize: ((flags >> 6) & 0xf),
             data_dir: ((flags >> 10) & 1) > 0,
             shared: ((flags >> 11) & 1) > 0,
             temporary: ((flags >> 12) & 1) > 0,
             encryption: ((flags >> 13) & 1) > 0,
             sdi: ((flags >> 14) & 1) > 0,
-            unused: ((flags >> 15) & 0x3ffff) as u32,
+            unused: (flags >> 15) & 0x3ffff,
         }
     }
 }
@@ -473,7 +481,7 @@ pub struct FileSpaceHeaderPageBody {
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
-    /// XDES entries that initilized
+    /// XDES entries that initialized
     pub xdes_ent_inited: Vec<XDesEntry>,
 }
 
@@ -488,7 +496,10 @@ impl FileSpaceHeaderPageBody {
 
     pub fn sdi_meta(&self) -> SdiMetaData {
         // sdi_addr, page offset = 10505
-        let sdi_addr = self.addr + FSP_HEADER_SIZE + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE + Self::INFO_MAX_SIZE;
+        let sdi_addr = self.addr
+            + FSP_HEADER_SIZE
+            + XDES_ENTRY_MAX_COUNT * XDES_ENTRY_SIZE
+            + Self::INFO_MAX_SIZE;
         SdiMetaData::new(sdi_addr, self.buf.clone())
     }
 }
@@ -496,12 +507,15 @@ impl FileSpaceHeaderPageBody {
 impl BasePageBody for FileSpaceHeaderPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let hdr = FileSpaceHeader::new(addr, buf.clone());
-        // let len: usize =
-        //     (hdr.fsp_free.len + hdr.free_frag.len + hdr.full_frag.len + hdr.inodes_free.len + hdr.inodes_full.len)
-        //         as usize;
-        let len = XDES_ENTRY_MAX_COUNT;
-        let entries = (0..len)
-            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
+
+        let entries = (0..XDES_ENTRY_MAX_COUNT)
+            .map(|offset| {
+                XDesEntry::new(
+                    addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE,
+                    buf.clone(),
+                    offset,
+                )
+            })
             .collect::<Vec<_>>();
 
         Self {
@@ -532,7 +546,7 @@ pub struct XDesPageBody {
     #[derivative(Debug = "ignore")]
     pub xdes_ent_list: Vec<XDesEntry>,
 
-    /// XDES entries that initiliezd
+    /// XDES entries that initialized
     pub xdes_ent_inited: Vec<XDesEntry>,
 }
 
@@ -540,7 +554,13 @@ impl BasePageBody for XDesPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let len = XDES_ENTRY_MAX_COUNT;
         let entries = (0..len)
-            .map(|offset| XDesEntry::new(addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE, buf.clone(), offset))
+            .map(|offset| {
+                XDesEntry::new(
+                    addr + FSP_HEADER_SIZE + offset * XDES_ENTRY_SIZE,
+                    buf.clone(),
+                    offset,
+                )
+            })
             .collect::<Vec<_>>();
 
         Self {
@@ -640,9 +660,13 @@ impl XDesEntry {
                     // which page number it refers
                     page_no as u32,
                     // the free flag
-                    if val & (1 << 2 * off) > 0 { F(1) } else { F(0) },
+                    if val & 1 << (2 * off) > 0 { F(1) } else { F(0) },
                     // the clean flag
-                    if val & (1 << (2 * off + 1)) > 0 { C(1) } else { C(0) },
+                    if val & 1 << (2 * off + 1) > 0 {
+                        C(1)
+                    } else {
+                        C(0)
+                    },
                 )
             })
             .collect::<Vec<_>>();
@@ -761,7 +785,12 @@ pub struct INodeEntry {
 impl INodeEntry {
     pub fn new(addr: usize, buf: Arc<Bytes>, pos: usize) -> Self {
         let arr = (0..INODE_ENTRY_ARR_COUNT)
-            .map(|offset| util::u32_val(&buf, addr + FSEG_FRAG_ARR_OFFSET + offset * FRAG_ARR_ENTRY_SIZE))
+            .map(|offset| {
+                util::u32_val(
+                    &buf,
+                    addr + FSEG_FRAG_ARR_OFFSET + offset * FRAG_ARR_ENTRY_SIZE,
+                )
+            })
             .filter(|page_no| *page_no != 0xffffffff)
             .collect();
         debug!("INodeEntry::arr={:?}", arr);
@@ -817,7 +846,11 @@ impl BasePageBody for IndexPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let idx_hdr = IndexHeader::new(addr, buf.clone());
         debug!("idx_hdr={:?}", &idx_hdr);
-        assert_eq!(idx_hdr.page_format, PageFormats::COMPACT, "只支持 COMPACT 行记录格式");
+        assert_eq!(
+            idx_hdr.page_format,
+            PageFormats::COMPACT,
+            "只支持 COMPACT 行记录格式"
+        );
 
         // Infimum
         let inf = RecordHeader::new(
@@ -860,7 +893,12 @@ impl BasePageBody for IndexPageBody {
 
         // Parse Page Directory Slots
         let slots = (0..idx_hdr.page_n_dir_slots as usize)
-            .map(|offset| util::u16_val(&buf, buf.len() - FIL_TRAILER_SIZE - (offset + 1) * PAGE_DIR_ENTRY_SIZE))
+            .map(|offset| {
+                util::u16_val(
+                    &buf,
+                    buf.len() - FIL_TRAILER_SIZE - (offset + 1) * PAGE_DIR_ENTRY_SIZE,
+                )
+            })
             .collect();
         debug!("slots={:?}", &slots);
 
@@ -893,7 +931,11 @@ impl BasePageBody for IndexPageBody {
 }
 
 impl IndexPageBody {
-    pub fn read_user_records(&self, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Vec<Record>, Error> {
+    pub fn read_user_records(
+        &self,
+        tabdef: Arc<TableDef>,
+        index_pos: usize,
+    ) -> Result<Vec<Record>, Error> {
         let inf = &self.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
 
@@ -905,11 +947,18 @@ impl IndexPageBody {
             records.push(rec);
         }
 
-        assert_eq!(rec_addr, SUP_PAGE_BYTE_OFF, "记录地址 rec_addr 应该到达上确界");
+        assert_eq!(
+            rec_addr, SUP_PAGE_BYTE_OFF,
+            "记录地址 rec_addr 应该到达上确界"
+        );
         Ok(records)
     }
 
-    pub fn read_free_records(&self, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Vec<Record>, Error> {
+    pub fn read_free_records(
+        &self,
+        tabdef: Arc<TableDef>,
+        index_pos: usize,
+    ) -> Result<Vec<Record>, Error> {
         let mut rec_addr = self.idx_hdr.page_free as usize;
         let mut free_records = Vec::new();
         loop {
@@ -933,7 +982,12 @@ impl IndexPageBody {
         Ok(free_records)
     }
 
-    fn parse_record(&self, rec_addr: usize, tabdef: Arc<TableDef>, index_pos: usize) -> Result<Record, Error> {
+    fn parse_record(
+        &self,
+        rec_addr: usize,
+        tabdef: Arc<TableDef>,
+        index_pos: usize,
+    ) -> Result<Record, Error> {
         // Record Header
         let rec_hdr = RecordHeader::new(rec_addr - RECORD_HEADER_SIZE, self.buf.clone());
 
@@ -951,7 +1005,13 @@ impl IndexPageBody {
         // Row Data: depends on table definition for unpack row
         let row_data = RowData::new(rec_addr, self.buf.clone(), row_info.clone());
 
-        let rec = Record::new(rec_addr, self.buf.clone(), rec_hdr, row_info.clone(), row_data);
+        let rec = Record::new(
+            rec_addr,
+            self.buf.clone(),
+            rec_hdr,
+            row_info.clone(),
+            row_data,
+        );
 
         Ok(rec)
     }

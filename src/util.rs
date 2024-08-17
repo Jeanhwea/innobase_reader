@@ -38,7 +38,10 @@ pub fn init() {
 pub fn init_unit_test() {
     INIT_LOGGER_ONCE.call_once(|| {
         set_var("RUST_LOG", "info");
-        env_logger::builder().is_test(true).format_timestamp(None).init();
+        env_logger::builder()
+            .is_test(true)
+            .format_timestamp(None)
+            .init();
     });
 }
 
@@ -125,7 +128,7 @@ pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
             if i < n - 1 {
                 let _ = writeln!(f, ", ");
             } else {
-                let _ = writeln!(f, "");
+                let _ = writeln!(f);
             }
         }
         write!(f, "]")
@@ -232,10 +235,28 @@ pub fn unpack_i32_val(buf: &[u8]) -> i32 {
 pub fn unpack_i64_val(buf: &[u8]) -> i64 {
     let signed = (buf[0] & 0x80) > 0;
     if signed {
-        let b = [buf[0] & 0x7f, buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]];
+        let b = [
+            buf[0] & 0x7f,
+            buf[1],
+            buf[2],
+            buf[3],
+            buf[4],
+            buf[5],
+            buf[6],
+            buf[7],
+        ];
         i64::from_be_bytes(b)
     } else {
-        let b = [buf[0] | 0x80, buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]];
+        let b = [
+            buf[0] | 0x80,
+            buf[1],
+            buf[2],
+            buf[3],
+            buf[4],
+            buf[5],
+            buf[6],
+            buf[7],
+        ];
         i64::from_be_bytes(b)
     }
 }
