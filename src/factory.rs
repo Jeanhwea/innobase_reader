@@ -15,8 +15,8 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody, SdiPageBody, XDesEntry,
-            XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody,
+            SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
         record::{ColumnTypes, HiddenTypes, Record},
     },
@@ -25,8 +25,8 @@ use crate::{
         def::{ColumnDef, IndexDef, IndexElementDef, TableDef},
     },
     util::{
-        self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val, unpack_newdate_val,
-        unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
+        self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
+        unpack_newdate_val, unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
     },
 };
 
@@ -144,9 +144,14 @@ impl DatafileFactory {
             self.fil_addr_cache.insert(page_no, hmap);
         }
 
-        let nodes = self.fil_addr_cache.get(&page_no).unwrap();
+        let xdes = self
+            .fil_addr_cache
+            .get(&page_no)
+            .unwrap()
+            .get(&boffset)
+            .expect("未找到 XDesEntry 数据项");
 
-        Ok(nodes.get(&boffset).expect("File list node not found").clone())
+        Ok(xdes.clone())
     }
 
     fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {
@@ -179,7 +184,11 @@ impl DatafileFactory {
         let coll = coll_find(ddobj.collation_id);
         info!("当前文件字符集: {:?}", &coll);
 
-        let coldefs = ddobj.columns.iter().map(ColumnDef::from).collect::<Vec<_>>();
+        let coldefs = ddobj
+            .columns
+            .iter()
+            .map(ColumnDef::from)
+            .collect::<Vec<_>>();
         let idxdefs = ddobj
             .indexes
             .iter()
@@ -205,15 +214,26 @@ impl DatafileFactory {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
         let page_level = page.page_body.idx_hdr.page_level;
         if page_level != 0 {
-            return Err(Error::msg(format!("不支持查看非叶子节点: page_level={:?}", page_level)));
+            return Err(Error::msg(format!(
+                "不支持查看非叶子节点: page_level={:?}",
+                page_level
+            )));
         }
 
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
-        let index = match tabdef.idx_defs.iter().enumerate().find(|idx| idx.1.idx_id == index_id) {
+        let index = match tabdef
+            .idx_defs
+            .iter()
+            .enumerate()
+            .find(|idx| idx.1.idx_id == index_id)
+        {
             Some(val) => val,
             None => {
-                return Err(Error::msg(format!("未找到索引的元信息: index_id={:?}", index_id)));
+                return Err(Error::msg(format!(
+                    "未找到索引的元信息: index_id={:?}",
+                    index_id
+                )));
             }
         };
         info!("当前页所引用的索引: index_name={}", index.1.idx_name);
@@ -239,13 +259,19 @@ impl DatafileFactory {
                                     ColumnTypes::LONG => DataValue::I32(unpack_i32_val(b)),
                                     ColumnTypes::LONGLONG => DataValue::I64(unpack_i64_val(b)),
                                     ColumnTypes::NEWDATE => DataValue::Date(
-                                        unpack_newdate_val(b).unwrap_or_else(|| panic!("日期格式错误: {:?}", &d)),
+                                        unpack_newdate_val(b)
+                                            .unwrap_or_else(|| panic!("日期格式错误: {:?}", &d)),
                                     ),
                                     ColumnTypes::DATETIME2 => DataValue::DateTime(
-                                        unpack_datetime2_val(b).unwrap_or_else(|| panic!("时间格式错误: {:?}", &d)),
+                                        unpack_datetime2_val(b)
+                                            .unwrap_or_else(|| panic!("时间格式错误: {:?}", &d)),
                                     ),
-                                    ColumnTypes::TIMESTAMP2 => DataValue::Timestamp(unpack_timestamp2_val(b)),
-                                    ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING => {
+                                    ColumnTypes::TIMESTAMP2 => {
+                                        DataValue::Timestamp(unpack_timestamp2_val(b))
+                                    }
+                                    ColumnTypes::VARCHAR
+                                    | ColumnTypes::VAR_STRING
+                                    | ColumnTypes::STRING => {
                                         let barr = b.to_vec();
                                         let text = std::str::from_utf8(&barr)
                                             .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &d));
@@ -755,7 +781,14 @@ mod factory_tests_run {
             for i in 0..8 {
                 for j in 0..8 {
                     let bits = &xdes.bitmap[j * 8 + i];
-                    print!("{}", if bits.1.free() { "F".on_green() } else { "F".on_red() });
+                    print!(
+                        "{}",
+                        if bits.1.free() {
+                            "F".on_green()
+                        } else {
+                            "F".on_red()
+                        }
+                    );
                 }
             }
 
@@ -764,7 +797,14 @@ mod factory_tests_run {
             for i in 0..8 {
                 for j in 0..8 {
                     let bits = &xdes.bitmap[j * 8 + i];
-                    print!("{}", if bits.2.clean() { "C".on_green() } else { "C".on_red() });
+                    print!(
+                        "{}",
+                        if bits.2.clean() {
+                            "C".on_green()
+                        } else {
+                            "C".on_red()
+                        }
+                    );
                 }
             }
 

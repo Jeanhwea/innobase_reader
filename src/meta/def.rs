@@ -3,8 +3,8 @@ use bytes::Bytes;
 use super::cst::Collation;
 use crate::{
     ibd::record::{
-        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject, HiddenTypes,
-        IndexAlgorithm, IndexOrder, IndexTypes,
+        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement,
+        DataDictObject, HiddenTypes, IndexAlgorithm, IndexOrder, IndexTypes,
     },
     meta::cst::coll_find,
     util::{self, conv_strdata_to_bytes},
@@ -25,7 +25,12 @@ pub struct TableDef {
 }
 
 impl TableDef {
-    pub fn from(ddo: &DataDictObject, coll: &Collation, coldefs: Vec<ColumnDef>, idxdefs: Vec<IndexDef>) -> Self {
+    pub fn from(
+        ddo: &DataDictObject,
+        coll: &Collation,
+        coldefs: Vec<ColumnDef>,
+        idxdefs: Vec<IndexDef>,
+    ) -> Self {
         let priv_data = util::conv_strdata_to_map(&ddo.se_private_data);
         Self {
             schema_ref: ddo.schema_ref.clone(),
@@ -68,7 +73,10 @@ impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         let coll = coll_find(ddc.collation_id);
         let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
-        let default_null = priv_data.get("default_null").map(|v| v == "1").unwrap_or(false);
+        let default_null = priv_data
+            .get("default_null")
+            .map(|v| v == "1")
+            .unwrap_or(false);
 
         let default = if !default_null {
             priv_data
@@ -86,8 +94,12 @@ impl ColumnDef {
             data_len: match ddc.hidden {
                 HiddenTypes::HT_HIDDEN_SE => ddc.char_length,
                 HiddenTypes::HT_VISIBLE => match ddc.dd_type {
-                    ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => ddc.char_length,
-                    ColumnTypes::VARCHAR => ddc.char_length + (if ddc.char_length < 256 { 1 } else { 2 }),
+                    ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => {
+                        ddc.char_length
+                    }
+                    ColumnTypes::VARCHAR => {
+                        ddc.char_length + (if ddc.char_length < 256 { 1 } else { 2 })
+                    }
                     ColumnTypes::YEAR | ColumnTypes::TINY => 1,
                     ColumnTypes::SHORT => 2,
                     ColumnTypes::INT24 | ColumnTypes::NEWDATE | ColumnTypes::TIME => 3,
@@ -108,7 +120,9 @@ impl ColumnDef {
             },
             isnil: ddc.is_nullable,
             isvar: match coll.charset {
-                "latin1" | "binary" => matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING),
+                "latin1" | "binary" => {
+                    matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING)
+                }
                 "utf8mb4" => matches!(
                     &ddc.dd_type,
                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING

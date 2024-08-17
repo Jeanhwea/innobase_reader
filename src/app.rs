@@ -12,8 +12,8 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes, SdiPageBody,
-        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
+        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes,
+        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
     },
     Commands,
 };
@@ -93,13 +93,21 @@ impl App {
             &hdr0.server_version().to_string().blue(),
             &hdr0.space_version().to_string().blue()
         );
-        println!("{:>12} => {}", "space_id".green(), &hdr0.space_id.to_string().blue());
+        println!(
+            "{:>12} => {}",
+            "space_id".green(),
+            &hdr0.space_id.to_string().blue()
+        );
         println!(
             "{:>12} => {}",
             "page_count".green(),
             &fact.page_count().to_string().blue()
         );
-        println!("{:>12} => {}", "file_size".green(), fact.file_size.to_string().blue());
+        println!(
+            "{:>12} => {}",
+            "file_size".green(),
+            fact.file_size.to_string().blue()
+        );
         Ok(())
     }
 
@@ -112,7 +120,11 @@ impl App {
         }
         println!("PageTypes Statistics:");
         for entry in &stats {
-            println!("{:>12} => {}", entry.0.to_string().yellow(), entry.1.to_string().blue());
+            println!(
+                "{:>12} => {}",
+                entry.0.to_string().yellow(),
+                entry.1.to_string().blue()
+            );
         }
 
         Ok(())
@@ -145,7 +157,7 @@ impl App {
                 println!("  {}", "fseg_full:".red());
                 self.do_print_flst(fact, &inode.fseg_full)?;
             }
-            if inode.fseg_frag_arr.len() > 0 {
+            if !inode.fseg_frag_arr.is_empty() {
                 println!("  {}", "fseg_fray_arr:".cyan());
                 for (i, page_no) in inode.fseg_frag_arr.iter().enumerate() {
                     if i % 16 == 0 {
@@ -178,7 +190,7 @@ impl App {
             let xdes_no = page_no / EXTENT_PAGE_NUM;
 
             if i % 16 == 1 {
-                print!("   {:>03}:", i-1);
+                print!("   {:>03}:", i - 1);
             }
 
             print!(" {}-{:03}", xdes_no, xdes.xdes_seq);
@@ -380,7 +392,13 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(&mut self, page_no: usize, limit: usize, garbage: bool, verbose: bool) -> Result<(), Error> {
+    fn do_dump(
+        &mut self,
+        page_no: usize,
+        limit: usize,
+        garbage: bool,
+        verbose: bool,
+    ) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
