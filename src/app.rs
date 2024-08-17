@@ -13,7 +13,8 @@ use crate::{
     factory::DatafileFactory,
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes,
-        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
+        XDES_PAGE_COUNT,
     },
     Commands,
 };
@@ -136,7 +137,7 @@ impl App {
     }
 
     fn do_info_page_type(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Page Types Table:");
+        println!("Pages: [H => FSH_HDR, X => XDES, I => INode, D => Index, U => Allocated, ? => Unknown]");
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -160,6 +161,10 @@ impl App {
             if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
                 println!();
             }
+        }
+
+        if page_types_vec.len() % XDES_PAGE_COUNT != 0 {
+            println!();
         }
 
         Ok(())
