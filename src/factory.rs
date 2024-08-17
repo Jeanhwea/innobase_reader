@@ -135,25 +135,29 @@ impl DatafileFactory {
     }
 
     pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<XDesEntry> {
-        if !self.fil_addr_cache.contains_key(&page_no) {
-            let xdes_map = self
-                .read_page::<XDesPageBody>(page_no)?
-                .page_body
-                .xdes_ent_list
-                .iter()
-                .map(|ent| (ent.flst_node.addr as u16, ent.clone()))
-                .collect();
-            self.fil_addr_cache.insert(page_no, xdes_map);
-        }
+        let xdes = match self.fil_addr_cache.get(&page_no) {
+            Some(xdes_map) => xdes_map
+                .get(&boffset)
+                .expect("未找到 XDesEntry 数据项")
+                .clone(),
+            None => {
+                let xdes_map = self
+                    .read_page::<XDesPageBody>(page_no)?
+                    .page_body
+                    .xdes_ent_list
+                    .iter()
+                    .map(|ent| (ent.flst_node.addr as u16, ent.clone()))
+                    .collect::<HashMap<_, _>>();
+                let xdes_entry = xdes_map
+                    .get(&boffset)
+                    .expect("未找到 XDesEntry 数据项")
+                    .clone();
+                self.fil_addr_cache.insert(page_no, xdes_map);
+                xdes_entry.clone()
+            }
+        };
 
-        let xdes = self
-            .fil_addr_cache
-            .get(&page_no)
-            .unwrap()
-            .get(&boffset)
-            .expect("未找到 XDesEntry 数据项");
-
-        Ok(xdes.clone())
+        Ok(xdes)
     }
 
     fn read_sdi_page(&mut self) -> Result<BasePage<SdiPageBody>, Error> {
