@@ -316,7 +316,7 @@ impl App {
     }
 
     fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Pages: [H => FSH_HDR, X => XDES, I => INode, D => Index, U => Allocated, ? => Unknown]");
+        println!("Pages: [H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated, ?:Unknown]");
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -325,11 +325,13 @@ impl App {
 
         for (i, page_type) in page_types_vec.iter().enumerate() {
             let page_type_rept = match page_type {
-                PageTypes::FSP_HDR => "H".on_blue(),
-                PageTypes::XDES => "X".on_blue(),
-                PageTypes::INODE => "I".on_black(),
+                PageTypes::FSP_HDR => "H".on_purple(),
+                PageTypes::XDES => "X".on_purple(),
+                PageTypes::INODE => "I".on_blue(),
                 PageTypes::INDEX => "D".on_cyan(),
-                PageTypes::ALLOCATED => "U".on_green(),
+                PageTypes::SDI => "S".on_purple(),
+                PageTypes::IBUF_BITMAP => "B".on_blue(),
+                PageTypes::ALLOCATED => "A".on_green(),
                 _ => "?".on_red(),
             };
             if i % XDES_PAGE_COUNT == 0 {
