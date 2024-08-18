@@ -1,14 +1,172 @@
 use bytes::Bytes;
+use num_enum::FromPrimitive;
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::{Display, EnumString};
 
 use super::cst::Collation;
 use crate::{
-    ibd::record::{
-        ColumnKeys, ColumnTypes, DataDictColumn, DataDictIndex, DataDictIndexElement,
-        DataDictObject, HiddenTypes, IndexAlgorithm, IndexOrder, IndexTypes,
-    },
+    ibd::record::{DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject},
     meta::cst::coll_find,
     util::{self, conv_strdata_to_bytes},
 };
+
+/// Column Type, see sql/dd/types/column.h, enum class enum_column_types
+#[repr(u8)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
+pub enum ColumnTypes {
+    DECIMAL = 1,
+    TINY = 2,
+    SHORT = 3,
+    LONG = 4,
+    FLOAT = 5,
+    DOUBLE = 6,
+    TYPE_NULL = 7,
+    TIMESTAMP = 8,
+    LONGLONG = 9,
+    INT24 = 10,
+    DATE = 11,
+    TIME = 12,
+    DATETIME = 13,
+    YEAR = 14,
+    NEWDATE = 15,
+    VARCHAR = 16,
+    BIT = 17,
+    TIMESTAMP2 = 18,
+    DATETIME2 = 19,
+    TIME2 = 20,
+    NEWDECIMAL = 21,
+    ENUM = 22,
+    SET = 23,
+    TINY_BLOB = 24,
+    MEDIUM_BLOB = 25,
+    LONG_BLOB = 26,
+    BLOB = 27,
+    VAR_STRING = 28,
+    STRING = 29,
+    GEOMETRY = 30,
+    JSON = 31,
+    #[default]
+    UNDEF,
+}
+
+/// see sql/dd/types/column.h, enum class enum_column_type
+#[repr(u8)]
+#[derive(
+    Debug,
+    Default,
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Clone,
+)]
+pub enum ColumnKeys {
+    CK_NONE = 1,
+    CK_PRIMARY = 2,
+    CK_UNIQUE = 3,
+    CK_MULTIPLE = 4,
+    #[default]
+    UNDEF,
+}
+
+/// see sql/dd/types/column.h, enum class enum_hidden_type
+#[repr(u8)]
+#[derive(
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Debug,
+    Display,
+    Default,
+    Clone,
+    PartialEq,
+)]
+pub enum HiddenTypes {
+    /// The column is visible (a normal column)
+    HT_VISIBLE = 1,
+    /// The column is completely invisible to the server
+    HT_HIDDEN_SE = 2,
+    /// The column is visible to the server, but hidden from the user.
+    /// This is used for i.e. implementing functional indexes.
+    HT_HIDDEN_SQL = 3,
+    /// User table column marked as INVISIBLE by using the column visibility
+    /// attribute. Column is hidden from the user unless it is explicitly
+    /// referenced in the statement. Column is visible to the server.
+    HT_HIDDEN_USER = 4,
+    #[default]
+    UNDEF,
+}
+
+/// Row Format, see sql/dd/types/table.h, enum enum_row_format {
+#[repr(i8)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
+pub enum RowFormats {
+    RF_FIXED = 1,
+    RF_DYNAMIC = 2,
+    RF_COMPRESSED = 3,
+    RF_REDUNDANT = 4,
+    RF_COMPACT = 5,
+    RF_PAGED = 6,
+    #[default]
+    UNDEF,
+}
+
+/// see sql/dd/types/index.h, enum class enum_index_type
+#[repr(u8)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
+pub enum IndexTypes {
+    IT_PRIMARY = 1,
+    IT_UNIQUE = 2,
+    IT_MULTIPLE = 3,
+    IT_FULLTEXT = 4,
+    IT_SPATIAL = 5,
+    #[default]
+    UNDEF,
+}
+
+/// see sql/dd/types/index.h, enum class enum_index_algorithm
+#[repr(u8)]
+#[derive(
+    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
+)]
+pub enum IndexAlgorithm {
+    IA_SE_SPECIFIC = 1,
+    IA_BTREE = 2,
+    IA_RTREE = 3,
+    IA_HASH = 4,
+    IA_FULLTEXT = 5,
+    #[default]
+    UNDEF,
+}
+
+/// see sql/dd/types/index.h, enum class enum_index_algorithm
+#[repr(u8)]
+#[derive(
+    Deserialize_repr,
+    Serialize_repr,
+    EnumString,
+    FromPrimitive,
+    Debug,
+    Display,
+    Default,
+    Clone,
+    Copy,
+)]
+pub enum IndexOrder {
+    #[default]
+    ORDER_UNDEF = 1,
+    ORDER_ASC = 2,
+    ORDER_DESC = 3,
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
@@ -17,6 +175,7 @@ pub struct TableDef {
     pub collation_id: u32,        // collation, see INFORMATION_SCHEMA.COLLATIONS
     pub collation: String,        // collation name
     pub charset: String,          // character set name
+    pub row_format: RowFormats,   // row format
     pub col_defs: Vec<ColumnDef>, // column definitions
     pub idx_defs: Vec<IndexDef>,  // index definitions
 
@@ -38,6 +197,7 @@ impl TableDef {
             collation_id: ddo.collation_id,
             collation: coll.name.into(),
             charset: coll.charset.into(),
+            row_format: ddo.row_format.into(),
             col_defs: coldefs,
             idx_defs: idxdefs,
             instant_col: priv_data
@@ -72,6 +232,7 @@ pub struct ColumnDef {
 impl ColumnDef {
     pub fn from(ddc: &DataDictColumn) -> Self {
         let coll = coll_find(ddc.collation_id);
+
         let priv_data = util::conv_strdata_to_map(&ddc.se_private_data);
         let default_null = priv_data
             .get("default_null")
@@ -87,13 +248,15 @@ impl ColumnDef {
             None
         };
 
+        let ddtype = ddc.dd_type.into();
+
         Self {
             pos: ddc.ordinal_position as usize,
             col_name: ddc.col_name.clone(),
-            col_key: ddc.column_key.clone(),
+            col_key: ddc.column_key.into(),
             data_len: match ddc.hidden {
                 HiddenTypes::HT_HIDDEN_SE => ddc.char_length,
-                HiddenTypes::HT_VISIBLE => match ddc.dd_type {
+                HiddenTypes::HT_VISIBLE => match ddtype {
                     ColumnTypes::VAR_STRING | ColumnTypes::STRING | ColumnTypes::DECIMAL => {
                         ddc.char_length
                     }
@@ -112,7 +275,7 @@ impl ColumnDef {
                     ColumnTypes::JSON => ddc.char_length,
                     _ => todo!(
                         "不支持的数据长度类型: ColumType::{}, utf8_def={}",
-                        ddc.dd_type,
+                        ddtype,
                         ddc.column_type_utf8
                     ),
                 },
@@ -121,16 +284,15 @@ impl ColumnDef {
             isnil: ddc.is_nullable,
             isvar: match coll.charset {
                 "latin1" | "binary" => {
-                    matches!(&ddc.dd_type, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING)
+                    matches!(ddtype, ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING)
                 }
                 "utf8mb4" => matches!(
-                    &ddc.dd_type,
+                    ddtype,
                     ColumnTypes::VARCHAR | ColumnTypes::VAR_STRING | ColumnTypes::STRING
                 ),
                 _ => todo!("不支持的字符集: {:?}", &coll),
             },
-
-            dd_type: ddc.dd_type.clone(),
+            dd_type: ddtype,
             comment: ddc.comment.clone(),
             coll_id: ddc.collation_id,
             coll_name: coll.name.into(),
@@ -175,8 +337,8 @@ impl IndexDef {
             idx_name: ddi.name.clone(),
             idx_id: id,
             hidden: ddi.hidden,
-            idx_type: ddi.idx_type.clone(),
-            algorithm: ddi.algorithm.clone(),
+            idx_type: ddi.idx_type.into(),
+            algorithm: ddi.algorithm.into(),
             comment: ddi.comment.clone(),
             elements: ele_defs,
         }
@@ -205,7 +367,7 @@ impl IndexElementDef {
             utf8_def: col.utf8_def.clone(),
             pos: ele.ordinal_position as usize,
             ele_len: len,
-            order: ele.order,
+            order: ele.order.into(),
             hidden: ele.hidden,
             column_opx: ele.column_opx as usize,
             col_hidden: col.hidden.clone(),

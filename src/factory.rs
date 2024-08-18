@@ -18,11 +18,11 @@ use crate::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody,
             SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
-        record::{ColumnTypes, HiddenTypes, Record},
+        record::Record,
     },
     meta::{
         cst::coll_find,
-        def::{ColumnDef, IndexDef, IndexElementDef, TableDef},
+        def::{ColumnDef, ColumnTypes, HiddenTypes, IndexDef, IndexElementDef, TableDef},
     },
     util::{
         self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
@@ -763,8 +763,6 @@ mod factory_tests_run {
     use std::path::PathBuf;
 
     use anyhow::Error;
-    
-    
 
     use crate::{
         factory::DatafileFactory,
