@@ -10,7 +10,7 @@ use crate::{
     util::{self, conv_strdata_to_bytes},
 };
 
-/// Column Type, see sql/dd/types/column.h, enum class enum_column_types
+/// column type, see sql/dd/types/column.h, enum class enum_column_types
 #[repr(u8)]
 #[derive(
     Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
@@ -51,7 +51,7 @@ pub enum ColumnTypes {
     UNDEF,
 }
 
-/// see sql/dd/types/column.h, enum class enum_column_type
+/// column keys, see sql/dd/types/column.h
 #[repr(u8)]
 #[derive(
     Debug,
@@ -73,7 +73,7 @@ pub enum ColumnKeys {
     UNDEF,
 }
 
-/// see sql/dd/types/column.h, enum class enum_hidden_type
+/// column hidden type, see sql/dd/types/column.h, enum class enum_hidden_type
 #[repr(u8)]
 #[derive(
     Deserialize_repr,
@@ -102,7 +102,7 @@ pub enum HiddenTypes {
     UNDEF,
 }
 
-/// Row Format, see sql/dd/types/table.h, enum enum_row_format {
+/// row format, see sql/dd/types/table.h, enum enum_row_format {
 #[repr(i8)]
 #[derive(
     Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
@@ -118,7 +118,7 @@ pub enum RowFormats {
     UNDEF,
 }
 
-/// see sql/dd/types/index.h, enum class enum_index_type
+/// index type, see sql/dd/types/index.h, enum class enum_index_type
 #[repr(u8)]
 #[derive(
     Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
@@ -133,7 +133,7 @@ pub enum IndexTypes {
     UNDEF,
 }
 
-/// see sql/dd/types/index.h, enum class enum_index_algorithm
+/// index algorithm, see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
 #[derive(
     Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
@@ -148,7 +148,7 @@ pub enum IndexAlgorithm {
     UNDEF,
 }
 
-/// see sql/dd/types/index.h, enum class enum_index_algorithm
+/// index order, see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
 #[derive(
     Deserialize_repr,
@@ -168,16 +168,32 @@ pub enum IndexOrder {
     ORDER_DESC = 3,
 }
 
+/// table definition
 #[derive(Debug, Default, Clone)]
 pub struct TableDef {
-    pub schema_ref: String,       // schema name
-    pub tab_name: String,         // table name
-    pub collation_id: u32,        // collation, see INFORMATION_SCHEMA.COLLATIONS
-    pub collation: String,        // collation name
-    pub charset: String,          // character set name
-    pub row_format: RowFormats,   // row format
-    pub col_defs: Vec<ColumnDef>, // column definitions
-    pub idx_defs: Vec<IndexDef>,  // index definitions
+    /// schema name
+    pub schema_ref: String,
+
+    /// table name
+    pub tab_name: String,
+
+    /// collation, see INFORMATION_SCHEMA.COLLATIONS
+    pub collation_id: u32,
+
+    /// collation name
+    pub collation: String,
+
+    /// character set name
+    pub charset: String,
+
+    /// row format
+    pub row_format: RowFormats,
+
+    /// column definitions
+    pub col_defs: Vec<ColumnDef>,
+
+    /// index definitions
+    pub idx_defs: Vec<IndexDef>,
 
     /// indicate how many columns exist before first instant ADD COLUMN in table level
     pub instant_col: i32,
@@ -208,25 +224,59 @@ impl TableDef {
     }
 }
 
+/// column definition
 #[derive(Debug, Default, Clone)]
 pub struct ColumnDef {
-    pub pos: usize,            // ordinal position
-    pub col_name: String,      // column name
-    pub data_len: u32,         // data length in bytes
-    pub isnil: bool,           // is nullable field
-    pub isvar: bool,           // is variadic field
-    pub dd_type: ColumnTypes,  // data dictionary type
-    pub hidden: HiddenTypes,   // hidden type
-    pub col_key: ColumnKeys,   // column key type
-    pub utf8_def: String,      // utf8 column definition
-    pub comment: String,       // comment
-    pub coll_id: u32,          // collation
-    pub coll_name: String,     // collation name
-    pub charset: String,       // character set name
-    pub version_added: u32,    // which version this column was added
-    pub version_dropped: u32,  // which version this column waw dropped
-    pub defval: Option<Bytes>, // default value in se_private_data
-    pub phy_pos: i32,          // physical position
+    /// ordinal position
+    pub pos: usize,
+
+    /// column name
+    pub col_name: String,
+
+    /// data length in bytes
+    pub data_len: u32,
+
+    /// is nullable field
+    pub isnil: bool,
+
+    /// is variadic field
+    pub isvar: bool,
+
+    /// data dictionary type
+    pub dd_type: ColumnTypes,
+
+    /// hidden type
+    pub hidden: HiddenTypes,
+
+    /// column key type
+    pub col_key: ColumnKeys,
+
+    /// utf8 column definition
+    pub utf8_def: String,
+
+    /// comment
+    pub comment: String,
+
+    /// collation
+    pub coll_id: u32,
+
+    /// collation name
+    pub coll_name: String,
+
+    /// character set name
+    pub charset: String,
+
+    /// which version this column was added
+    pub version_added: u32,
+
+    /// which version this column waw dropped
+    pub version_dropped: u32,
+
+    /// default value in se_private_data
+    pub defval: Option<Bytes>,
+
+    /// physical position
+    pub phy_pos: i32,
 }
 
 impl ColumnDef {
@@ -316,16 +366,32 @@ impl ColumnDef {
     }
 }
 
+/// index definition
 #[derive(Debug, Default, Clone)]
 pub struct IndexDef {
-    pub pos: usize,                     // ordinal position
-    pub idx_name: String,               // index name
-    pub idx_id: u64,                    // index id
-    pub hidden: bool,                   // hidden
-    pub idx_type: IndexTypes,           // index type
-    pub algorithm: IndexAlgorithm,      // index algorithm
-    pub comment: String,                // Comment
-    pub elements: Vec<IndexElementDef>, // index elememts
+    /// ordinal position
+    pub pos: usize,
+
+    /// index name
+    pub idx_name: String,
+
+    /// index id
+    pub idx_id: u64,
+
+    /// hidden
+    pub hidden: bool,
+
+    /// index type
+    pub idx_type: IndexTypes,
+
+    /// index algorithm
+    pub algorithm: IndexAlgorithm,
+
+    /// comment
+    pub comment: String,
+
+    /// index elememts
+    pub elements: Vec<IndexElementDef>,
 }
 
 impl IndexDef {
@@ -345,18 +411,35 @@ impl IndexDef {
     }
 }
 
+/// index element definition
 #[derive(Debug, Default, Clone)]
 pub struct IndexElementDef {
-    pub col_name: String,  // referenced column name
-    pub utf8_def: String,  // utf8 column definition
-    pub pos: usize,        // ordinal position
-    pub ele_len: i32,      // element length
-    pub order: IndexOrder, // order, ASC/DESC
-    pub hidden: bool,      // hidden
+    /// referenced column name
+    pub col_name: String,
+
+    /// utf8 column definition
+    pub utf8_def: String,
+
+    /// ordinal position
+    pub pos: usize,
+
+    /// element length
+    pub ele_len: i32,
+
+    /// order, ASC/DESC
+    pub order: IndexOrder,
+
+    /// hidden
+    pub hidden: bool,
+
     /// see write_opx_reference(w, m_column, STRING_WITH_LEN("column_opx"));
     pub column_opx: usize, // opx: ordinal position index
-    pub col_hidden: HiddenTypes, // hidden type
-    pub data_len: u32,     // data length
+
+    /// hidden type
+    pub col_hidden: HiddenTypes,
+
+    /// data length
+    pub data_len: u32,
 }
 
 impl IndexElementDef {
