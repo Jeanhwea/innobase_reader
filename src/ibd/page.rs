@@ -494,7 +494,7 @@ pub struct FileSpaceHeaderPageBody {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
 
-    /// page buffer
+    /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
@@ -565,7 +565,7 @@ pub struct XDesPageBody {
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
 
-    /// page buffer
+    /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
