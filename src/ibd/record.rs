@@ -11,12 +11,11 @@ use log::{debug, info};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use crate::{
     ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
-    meta::def::TableDef,
+    meta::def::{HiddenTypes, TableDef},
     util,
     util::align8,
 };
@@ -59,10 +58,13 @@ pub enum RecInfoFlag {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// Original byte for info_bits
     #[derivative(Debug = "ignore")]
@@ -158,13 +160,24 @@ impl RecordHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldMeta {
+    /// page offset
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page offset
-    pub opx: usize,      // column opx
-    pub isnull: bool,    // is null value
-    pub length: usize,   // row length
-    pub phy_exist: bool, // physical exists
-    pub log_exist: bool, // logical exists
+    pub addr: usize,
+
+    /// column opx
+    pub opx: usize,
+
+    /// is null value
+    pub isnull: bool,
+
+    /// row length
+    pub length: usize,
+
+    /// physical exists
+    pub phy_exist: bool,
+
+    /// logical exists
+    pub log_exist: bool,
 }
 
 /// Field datum, data bytes
@@ -186,18 +199,21 @@ pub struct FieldDatum {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowInfo {
+    /// page address, [nilfld, varfld], access in reverse order
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address, [nilfld, varfld], access in reverse order
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub addr: usize,
 
-    /// Instant add column flag
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// instant add column flag
     pub instant_flag: bool,
 
-    /// Number of Instant Column
+    /// number of instant column
     pub n_instant_col: u8,
 
-    /// Row version
+    /// row version
     pub row_version: u8,
 
     #[derivative(Debug = "ignore")]
@@ -425,10 +441,13 @@ impl RowInfo {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowData {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// Row Info
     pub row_info: Arc<RowInfo>,
@@ -473,10 +492,13 @@ impl RowData {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct Record {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub row_info: Arc<RowInfo>, // row information
@@ -557,10 +579,13 @@ impl Record {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordLayout {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
+
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub rec_addr: usize,
+
     pub var_area_size: usize,
     pub nil_area_size: usize,
     pub row_version_size: usize,
@@ -573,10 +598,13 @@ pub struct RecordLayout {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiRecord {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub rec_hdr: RecordHeader, // record header
@@ -604,10 +632,13 @@ impl SdiRecord {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiDataHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) Length of TYPE field in record of SDI Index.
     pub data_type: u32,
@@ -655,103 +686,12 @@ pub struct DataDictObject {
     pub last_altered: u64,
     pub hidden: u8,
     pub collation_id: u32,
+    pub row_format: i8,
     pub columns: Vec<DataDictColumn>,
     pub indexes: Vec<DataDictIndex>,
     pub se_private_data: String,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
-}
-
-/// Column Type, see sql/dd/types/column.h, enum class enum_column_types
-#[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
-pub enum ColumnTypes {
-    DECIMAL = 1,
-    TINY = 2,
-    SHORT = 3,
-    LONG = 4,
-    FLOAT = 5,
-    DOUBLE = 6,
-    TYPE_NULL = 7,
-    TIMESTAMP = 8,
-    LONGLONG = 9,
-    INT24 = 10,
-    DATE = 11,
-    TIME = 12,
-    DATETIME = 13,
-    YEAR = 14,
-    NEWDATE = 15,
-    VARCHAR = 16,
-    BIT = 17,
-    TIMESTAMP2 = 18,
-    DATETIME2 = 19,
-    TIME2 = 20,
-    NEWDECIMAL = 21,
-    ENUM = 22,
-    SET = 23,
-    TINY_BLOB = 24,
-    MEDIUM_BLOB = 25,
-    LONG_BLOB = 26,
-    BLOB = 27,
-    VAR_STRING = 28,
-    STRING = 29,
-    GEOMETRY = 30,
-    JSON = 31,
-    #[default]
-    UNDEF,
-}
-
-/// see sql/dd/types/column.h, enum class enum_hidden_type
-#[repr(u8)]
-#[derive(
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Debug,
-    Display,
-    Default,
-    Clone,
-    PartialEq,
-)]
-pub enum HiddenTypes {
-    /// The column is visible (a normal column)
-    HT_VISIBLE = 1,
-    /// The column is completely invisible to the server
-    HT_HIDDEN_SE = 2,
-    /// The column is visible to the server, but hidden from the user.
-    /// This is used for i.e. implementing functional indexes.
-    HT_HIDDEN_SQL = 3,
-    /// User table column marked as INVISIBLE by using the column visibility
-    /// attribute. Column is hidden from the user unless it is explicitly
-    /// referenced in the statement. Column is visible to the server.
-    HT_HIDDEN_USER = 4,
-    #[default]
-    UNDEF,
-}
-
-/// see sql/dd/types/column.h, enum class enum_column_type
-#[repr(u8)]
-#[derive(
-    Debug,
-    Default,
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Eq,
-    PartialEq,
-    Clone,
-)]
-pub enum ColumnKeys {
-    CK_NONE = 1,
-    CK_PRIMARY = 2,
-    CK_UNIQUE = 3,
-    CK_MULTIPLE = 4,
-    #[default]
-    UNDEF,
 }
 
 /// see sql/dd/impl/types/column_impl.h, class Column_impl : public Entity_object_impl, public Column {
@@ -761,7 +701,7 @@ pub struct DataDictColumn {
     #[serde(rename = "name")]
     pub col_name: String,
     #[serde(rename = "type")]
-    pub dd_type: ColumnTypes,
+    pub dd_type: u8,
     pub is_nullable: bool,
     pub is_zerofill: bool,
     pub is_unsigned: bool,
@@ -771,7 +711,7 @@ pub struct DataDictColumn {
     pub char_length: u32,
     pub comment: String,
     pub collation_id: u32,
-    pub column_key: ColumnKeys,
+    pub column_key: u8,
     pub column_type_utf8: String,
     pub se_private_data: String,
     pub elements: Vec<DataDictColumnElement>,
@@ -786,56 +726,6 @@ pub struct DataDictColumnElement {
     pub name: String,
 }
 
-/// see sql/dd/types/index.h, enum class enum_index_type
-#[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
-pub enum IndexTypes {
-    IT_PRIMARY = 1,
-    IT_UNIQUE = 2,
-    IT_MULTIPLE = 3,
-    IT_FULLTEXT = 4,
-    IT_SPATIAL = 5,
-    #[default]
-    UNDEF,
-}
-
-/// see sql/dd/types/index.h, enum class enum_index_algorithm
-#[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
-pub enum IndexAlgorithm {
-    IA_SE_SPECIFIC = 1,
-    IA_BTREE = 2,
-    IA_RTREE = 3,
-    IA_HASH = 4,
-    IA_FULLTEXT = 5,
-    #[default]
-    UNDEF,
-}
-
-/// see sql/dd/types/index.h, enum class enum_index_algorithm
-#[repr(u8)]
-#[derive(
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Debug,
-    Display,
-    Default,
-    Clone,
-    Copy,
-)]
-pub enum IndexOrder {
-    #[default]
-    ORDER_UNDEF = 1,
-    ORDER_ASC = 2,
-    ORDER_DESC = 3,
-}
-
 /// see sql/dd/impl/types/index_impl.h, class Index_impl : public Entity_object_impl, public Index {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataDictIndex {
@@ -844,8 +734,8 @@ pub struct DataDictIndex {
     pub hidden: bool,
     pub comment: String,
     #[serde(rename = "type")]
-    pub idx_type: IndexTypes,
-    pub algorithm: IndexAlgorithm,
+    pub idx_type: u8,
+    pub algorithm: u8,
     pub is_visible: bool,
     pub engine: String,
     pub se_private_data: String,
@@ -859,7 +749,7 @@ pub struct DataDictIndex {
 pub struct DataDictIndexElement {
     pub ordinal_position: u32,
     pub length: u32,
-    pub order: IndexOrder,
+    pub order: u8,
     pub hidden: bool,
     pub column_opx: u32,
 }

@@ -18,11 +18,11 @@ use crate::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody,
             SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
-        record::{ColumnTypes, HiddenTypes, Record},
+        record::Record,
     },
     meta::{
         cst::coll_find,
-        def::{ColumnDef, IndexDef, IndexElementDef, TableDef},
+        def::{ColumnDef, ColumnTypes, HiddenTypes, IndexDef, IndexElementDef, TableDef},
     },
     util::{
         self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
@@ -763,11 +763,10 @@ mod factory_tests_run {
     use std::path::PathBuf;
 
     use anyhow::Error;
-    use colored::Colorize;
 
     use crate::{
         factory::DatafileFactory,
-        ibd::page::{BasePage, FileSpaceHeaderPageBody},
+        ibd::page::{BasePage, IndexPageBody, PageTypes},
         util,
     };
 
@@ -780,41 +779,16 @@ mod factory_tests_run {
         util::init_unit_test();
 
         let mut fact = DatafileFactory::from_file(PathBuf::from(IBD_FILE))?;
-        let page0: BasePage<FileSpaceHeaderPageBody> = fact.read_page(16 * 1024 * 0)?;
-        let xdes_list = &page0.page_body.xdes_ent_inited;
-        for (seq, xdes) in xdes_list.iter().enumerate() {
-            print!("xdes{:03}: ", seq);
-            for i in 0..8 {
-                for j in 0..8 {
-                    let bits = &xdes.bitmap[j * 8 + i];
-                    print!(
-                        "{}",
-                        if bits.1.free() {
-                            "F".on_green()
-                        } else {
-                            "F".on_red()
-                        }
-                    );
-                }
+        for page_no in 0..fact.page_count() {
+            let hdr = fact.read_fil_hdr(page_no)?;
+            if hdr.page_type != PageTypes::INDEX {
+                continue;
             }
-
-            print!(" ");
-
-            for i in 0..8 {
-                for j in 0..8 {
-                    let bits = &xdes.bitmap[j * 8 + i];
-                    print!(
-                        "{}",
-                        if bits.2.clean() {
-                            "C".on_green()
-                        } else {
-                            "C".on_red()
-                        }
-                    );
-                }
+            let idx: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+            let fs = idx.page_body.fseg_hdr;
+            if fs.leaf_page_no > 0 || fs.nonleaf_page_no > 0 {
+                println!("page_no={}, {:#?}", page_no, fs);
             }
-
-            println!();
         }
 
         Ok(())

@@ -54,10 +54,13 @@ pub const SDI_DATA_HEADER_SIZE: usize = 33;
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct BasePage<B> {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (38 bytes) File page header
     pub fil_hdr: FilePageHeader,
@@ -143,10 +146,13 @@ pub enum PageTypes {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilePageHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) checksum, FIL_PAGE_SPACE_OR_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
@@ -209,10 +215,13 @@ impl FilePageHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilePageTrailer {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) Old-style Checksum, FIL_PAGE_END_LSN_OLD_CHKSUM
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
@@ -238,10 +247,13 @@ impl FilePageTrailer {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstBaseNode {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) Length
     pub len: u32,
@@ -271,10 +283,13 @@ impl FlstBaseNode {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FlstNode {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (6 bytes) previous node link
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
@@ -300,10 +315,13 @@ impl FlstNode {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FilAddr {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// page number representation
     pub page: Option<u32>,
@@ -396,10 +414,13 @@ impl FileSpaceFlags {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FileSpaceHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) tablespace ID
     pub space_id: u32,
@@ -469,8 +490,11 @@ impl FileSpaceHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FileSpaceHeaderPageBody {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
@@ -537,8 +561,11 @@ impl BasePageBody for FileSpaceHeaderPageBody {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct XDesPageBody {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
@@ -616,10 +643,13 @@ impl C {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct XDesEntry {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// XDes entry sequence
     pub xdes_seq: usize,
@@ -688,10 +718,13 @@ impl XDesEntry {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiMetaData {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     pub sdi_version: u32, // SDI Version
     pub sdi_page_no: u32, // SDI Page Number
@@ -712,10 +745,13 @@ impl SdiMetaData {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct INodePageBody {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (12 bytes) The list node for linking segment inode pages, see
     /// FSEG_INODE_PAGE_NODE
@@ -751,10 +787,13 @@ impl BasePageBody for INodePageBody {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct INodeEntry {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// INode sequence
     pub inode_seq: usize,
@@ -814,10 +853,13 @@ impl INodeEntry {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct IndexPageBody {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (36 bytes) index header
     pub idx_hdr: IndexHeader,
@@ -1044,10 +1086,13 @@ pub enum PageDirections {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct IndexHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (2 bytes) number of slots in page directory
     pub page_n_dir_slots: u16,
@@ -1126,10 +1171,13 @@ impl IndexHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FSegHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) leaf page, space id
     pub leaf_space_id: u32,
@@ -1165,10 +1213,13 @@ impl FSegHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiPageBody {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     pub index: IndexPageBody, // common Index Page
 }

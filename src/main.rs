@@ -47,7 +47,11 @@ enum Commands {
     /// Describe Datafile Information by SDI page
     Desc,
     /// Print SDI Json
-    Sdi,
+    Sdi {
+        // print parsed table definition
+        #[arg(short, long, default_value_t = false)]
+        table_define: bool,
+    },
     /// View page data with given page_no.
     View {
         /// Page number, starts from 0.
