@@ -28,22 +28,22 @@ pub struct Args {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Print basic information.
-    Info {
-        // info the segement map
+    Info,
+    /// List all page. page_type, page_number and more
+    List {
+        // list the segments
         #[arg(short, long, default_value_t = false)]
-        segment_map: bool,
-        // info the extent map
+        segments: bool,
+        // list the extents
         #[arg(short, long, default_value_t = false)]
-        xdes_map: bool,
-        // info the page map
+        extents: bool,
+        // list the pages
         #[arg(short, long, default_value_t = false)]
-        page_map: bool,
-        // info all information
+        pages: bool,
+        // list all map
         #[arg(short, long, default_value_t = false)]
         all: bool,
     },
-    /// List all page. page_type, page_number and more
-    List,
     /// Describe Datafile Information by SDI page
     Desc,
     /// Print SDI Json

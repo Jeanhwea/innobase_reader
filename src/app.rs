@@ -41,13 +41,13 @@ impl App {
         debug!("{:?}, {:?}", command, self);
 
         match command {
-            Commands::Info {
-                segment_map: disp_seg,
-                xdes_map: disp_extent,
-                page_map: disp_page,
-                all: disp_all,
-            } => self.do_info(disp_seg, disp_extent, disp_page, disp_all)?,
-            Commands::List => self.do_list()?,
+            Commands::Info => self.do_info()?,
+            Commands::List {
+                segments: seg,
+                extents: ext,
+                pages: pag,
+                all,
+            } => self.do_list(seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi => self.do_sdi_print()?,
             Commands::View { page_no } => self.do_view(page_no)?,
@@ -62,7 +62,7 @@ impl App {
         Ok(())
     }
 
-    fn do_info(&self, seg: bool, ext: bool, page: bool, all: bool) -> Result<()> {
+    fn do_info(&self) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         // 基础信息
@@ -70,20 +70,6 @@ impl App {
 
         // 页面类型统计
         self.do_info_page_stat(&mut fact)?;
-
-        // 打印 INode 项
-        if seg || all {
-            self.do_info_inode(&mut fact)?;
-        }
-
-        // 打印 XDES bitmap 数据
-        if ext || all {
-            self.do_info_xdes_bitmap(&mut fact)?;
-        }
-
-        if page || all {
-            self.do_info_page_type(&mut fact)?;
-        }
 
         Ok(())
     }
@@ -136,41 +122,53 @@ impl App {
         Ok(())
     }
 
-    fn do_info_page_type(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Pages: [H => FSH_HDR, X => XDES, I => INode, D => Index, U => Allocated, ? => Unknown]");
-        let mut page_types_vec = Vec::with_capacity(fact.page_count());
+    fn do_list(&self, seg: bool, ext: bool, pag: bool, all: bool) -> Result<()> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+
+        if all {
+            self.do_list_inodes(&mut fact)?;
+            self.do_list_extents(&mut fact)?;
+            self.do_list_pages(&mut fact)?;
+            return Ok(());
+        }
+
+        if seg {
+            self.do_list_inodes(&mut fact)?;
+            return Ok(());
+        }
+
+        if ext {
+            self.do_list_extents(&mut fact)?;
+            return Ok(());
+        }
+
+        if pag {
+            self.do_list_pages(&mut fact)?;
+            return Ok(());
+        }
+
+        self.do_list_metadata(&mut fact)
+    }
+
+    fn do_list_metadata(&self, fact: &mut DatafileFactory) -> Result<()> {
         for page_no in 0..fact.page_count() {
-            let hdr = fact.read_fil_hdr(page_no)?;
-            page_types_vec.push(hdr.page_type);
+            let fil_hdr = fact.read_fil_hdr(page_no)?;
+            let page_type = &fil_hdr.page_type;
+            let offset = page_no * PAGE_SIZE;
+            println!(
+                "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
+                &page_no.to_string().magenta(),
+                &page_type.to_string().yellow(),
+                &fil_hdr.space_id.to_string().blue(),
+                &fil_hdr.lsn.to_string().green(),
+                offset,
+                offset.to_string().blue(),
+            );
         }
-
-        for (i, page_type) in page_types_vec.iter().enumerate() {
-            let page_type_rept = match page_type {
-                PageTypes::FSP_HDR => "H".on_blue(),
-                PageTypes::XDES => "X".on_blue(),
-                PageTypes::INODE => "I".on_black(),
-                PageTypes::INDEX => "D".on_cyan(),
-                PageTypes::ALLOCATED => "U".on_green(),
-                _ => "?".on_red(),
-            };
-            if i % XDES_PAGE_COUNT == 0 {
-                let xdes_no = i / XDES_PAGE_COUNT;
-                print!(" {:>04}: ", xdes_no);
-            }
-            print!("{}", page_type_rept);
-            if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
-                println!();
-            }
-        }
-
-        if page_types_vec.len() % XDES_PAGE_COUNT != 0 {
-            println!();
-        }
-
         Ok(())
     }
 
-    fn do_info_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
+    fn do_list_inodes(&self, fact: &mut DatafileFactory) -> Result<()> {
         println!("INode Entry List:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
@@ -187,15 +185,15 @@ impl App {
             );
             if inode.fseg_free.len > 0 {
                 println!("  {}", "fseg_free:".green());
-                self.do_print_flst(fact, &inode.fseg_free)?;
+                self.do_walk_flst(fact, &inode.fseg_free)?;
             }
             if inode.fseg_not_full.len > 0 {
                 println!("  {}", "fseg_not_full:".yellow());
-                self.do_print_flst(fact, &inode.fseg_not_full)?;
+                self.do_walk_flst(fact, &inode.fseg_not_full)?;
             }
             if inode.fseg_full.len > 0 {
                 println!("  {}", "fseg_full:".red());
-                self.do_print_flst(fact, &inode.fseg_full)?;
+                self.do_walk_flst(fact, &inode.fseg_full)?;
             }
             if !inode.fseg_frag_arr.is_empty() {
                 println!("  {}", "fseg_fray_arr:".cyan());
@@ -217,7 +215,7 @@ impl App {
         Ok(())
     }
 
-    fn do_print_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
+    fn do_walk_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
         let mut faddr = base.first.clone();
         let mut i = 1;
         loop {
@@ -250,8 +248,7 @@ impl App {
         Ok(())
     }
 
-    /// XDES bitmap
-    fn do_info_xdes_bitmap(&self, fact: &mut DatafileFactory) -> Result<()> {
+    fn do_list_extents(&self, fact: &mut DatafileFactory) -> Result<()> {
         println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
 
         let mut counter = (0, 0, 0, 0); // F, X, C, D
@@ -318,22 +315,37 @@ impl App {
         Ok(())
     }
 
-    fn do_list(&self) -> Result<()> {
-        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+    fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("Pages: [H => FSH_HDR, X => XDES, I => INode, D => Index, U => Allocated, ? => Unknown]");
+        let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
-            let fil_hdr = fact.read_fil_hdr(page_no)?;
-            let page_type = &fil_hdr.page_type;
-            let offset = page_no * PAGE_SIZE;
-            println!(
-                "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
-                &page_no.to_string().magenta(),
-                &page_type.to_string().yellow(),
-                &fil_hdr.space_id.to_string().blue(),
-                &fil_hdr.lsn.to_string().green(),
-                offset,
-                offset.to_string().blue(),
-            );
+            let hdr = fact.read_fil_hdr(page_no)?;
+            page_types_vec.push(hdr.page_type);
         }
+
+        for (i, page_type) in page_types_vec.iter().enumerate() {
+            let page_type_rept = match page_type {
+                PageTypes::FSP_HDR => "H".on_blue(),
+                PageTypes::XDES => "X".on_blue(),
+                PageTypes::INODE => "I".on_black(),
+                PageTypes::INDEX => "D".on_cyan(),
+                PageTypes::ALLOCATED => "U".on_green(),
+                _ => "?".on_red(),
+            };
+            if i % XDES_PAGE_COUNT == 0 {
+                let xdes_no = i / XDES_PAGE_COUNT;
+                print!(" {:>04}: ", xdes_no);
+            }
+            print!("{}", page_type_rept);
+            if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
+                println!();
+            }
+        }
+
+        if page_types_vec.len() % XDES_PAGE_COUNT != 0 {
+            println!();
+        }
+
         Ok(())
     }
 
@@ -509,21 +521,21 @@ mod app_tests {
     fn info_datafile() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app
-            .run(Commands::Info {
-                segment_map: false,
-                xdes_map: false,
-                page_map: false,
-                all: true,
-            })
-            .is_ok());
+        assert!(app.run(Commands::Info {}).is_ok());
     }
 
     #[test]
     fn list_datafile() {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
-        assert!(app.run(Commands::List).is_ok());
+        assert!(app
+            .run(Commands::List {
+                segments: false,
+                extents: false,
+                pages: false,
+                all: true,
+            })
+            .is_ok());
     }
 
     #[test]
