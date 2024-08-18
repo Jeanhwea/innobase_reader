@@ -19,6 +19,8 @@ use crate::{
     Commands,
 };
 
+const NUM_PER_LINE: usize = 8;
+
 #[derive(Debug)]
 pub struct App {
     pub timer: Instant,
@@ -198,15 +200,15 @@ impl App {
             if !inode.fseg_frag_arr.is_empty() {
                 println!("  {}", "fseg_fray_arr:".cyan());
                 for (i, page_no) in inode.fseg_frag_arr.iter().enumerate() {
-                    if i % 16 == 0 {
+                    if i % NUM_PER_LINE == 0 {
                         print!("   {:>03}:", i);
                     }
                     print!(" {:>5}", page_no);
-                    if (i + 1) % 16 == 0 {
+                    if (i + 1) % NUM_PER_LINE == 0 {
                         println!();
                     }
                 }
-                if inode.fseg_frag_arr.len() % 16 != 0 {
+                if inode.fseg_frag_arr.len() % NUM_PER_LINE != 0 {
                     println!();
                 }
             }
@@ -226,14 +228,14 @@ impl App {
             let page_no = faddr.page_no as usize;
             let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
 
-            if i % 16 == 1 {
+            if i % NUM_PER_LINE == 1 {
                 print!("   {:>03}:", i - 1);
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
             print!(" {:>5}", xdes_no);
 
-            if i % 16 == 0 {
+            if i % NUM_PER_LINE == 0 {
                 println!();
             }
 
@@ -241,7 +243,7 @@ impl App {
             i += 1;
         }
 
-        if i % 16 != 0 {
+        if i % NUM_PER_LINE != 0 {
             println!();
         }
 
