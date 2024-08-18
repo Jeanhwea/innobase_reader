@@ -51,7 +51,7 @@ impl App {
                 all,
             } => self.do_list(seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
-            Commands::Sdi => self.do_sdi_print()?,
+            Commands::Sdi { table_define } => self.do_sdi_print(table_define)?,
             Commands::View { page_no } => self.do_view(page_no)?,
             Commands::Dump {
                 page_no,
@@ -408,11 +408,19 @@ impl App {
         Ok(())
     }
 
-    fn do_sdi_print(&self) -> Result<()> {
+    fn do_sdi_print(&self, table_define: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
+
+        if table_define {
+            let tabledef = fact.load_table_def()?;
+            println!("{:#?}", tabledef);
+            return Ok(());
+        }
+
         for e in fact.load_sdi_string()?.iter().enumerate() {
             println!("[{}] = {}", e.0.to_string().yellow(), e.1);
         }
+
         Ok(())
     }
 
