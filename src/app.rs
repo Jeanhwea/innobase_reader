@@ -243,7 +243,7 @@ impl App {
             i += 1;
         }
 
-        if i % NUM_PER_LINE != 0 {
+        if i % NUM_PER_LINE != 1 {
             println!();
         }
 
