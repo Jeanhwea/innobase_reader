@@ -51,7 +51,10 @@ impl App {
                 all,
             } => self.do_list(seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
-            Commands::Sdi { table_define } => self.do_sdi_print(table_define)?,
+            Commands::Sdi {
+                table_define,
+                root_segments,
+            } => self.do_sdi_print(table_define, root_segments)?,
             Commands::View { page_no } => self.do_view(page_no)?,
             Commands::Dump {
                 page_no,
@@ -409,12 +412,31 @@ impl App {
         Ok(())
     }
 
-    fn do_sdi_print(&self, table_define: bool) -> Result<()> {
+    fn do_sdi_print(&self, table_define: bool, root_segments: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         if table_define {
             let tabledef = fact.load_table_def()?;
             println!("{:#?}", tabledef);
+            return Ok(());
+        }
+
+        if root_segments {
+            let tabledef = fact.load_table_def()?;
+            for idxdef in &tabledef.idx_defs {
+                let root = idxdef.idx_root;
+                if root <= 0 {
+                    error!("错误的索引根页码: {:?}", &idxdef);
+                    continue;
+                }
+                let index_page: BasePage<IndexPageBody> = fact.read_page(root as usize)?;
+                println!(
+                    "index={}, root={}, fseg={:#?}",
+                    idxdef.idx_name.to_string().magenta(),
+                    root.to_string().blue(),
+                    index_page.page_body.fseg_hdr
+                );
+            }
             return Ok(());
         }
 
