@@ -59,10 +59,13 @@ pub enum RecInfoFlag {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// Original byte for info_bits
     #[derivative(Debug = "ignore")]
@@ -158,13 +161,24 @@ impl RecordHeader {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct FieldMeta {
+    /// page offset
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page offset
-    pub opx: usize,      // column opx
-    pub isnull: bool,    // is null value
-    pub length: usize,   // row length
-    pub phy_exist: bool, // physical exists
-    pub log_exist: bool, // logical exists
+    pub addr: usize,
+
+    /// column opx
+    pub opx: usize,
+
+    /// is null value
+    pub isnull: bool,
+
+    /// row length
+    pub length: usize,
+
+    /// physical exists
+    pub phy_exist: bool,
+
+    /// logical exists
+    pub log_exist: bool,
 }
 
 /// Field datum, data bytes
@@ -186,18 +200,21 @@ pub struct FieldDatum {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowInfo {
+    /// page address, [nilfld, varfld], access in reverse order
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address, [nilfld, varfld], access in reverse order
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub addr: usize,
 
-    /// Instant add column flag
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// instant add column flag
     pub instant_flag: bool,
 
-    /// Number of Instant Column
+    /// number of instant column
     pub n_instant_col: u8,
 
-    /// Row version
+    /// row version
     pub row_version: u8,
 
     #[derivative(Debug = "ignore")]
@@ -425,10 +442,13 @@ impl RowInfo {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RowData {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// Row Info
     pub row_info: Arc<RowInfo>,
@@ -473,10 +493,13 @@ impl RowData {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct Record {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub row_info: Arc<RowInfo>, // row information
@@ -557,10 +580,13 @@ impl Record {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RecordLayout {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
+
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub rec_addr: usize,
+
     pub var_area_size: usize,
     pub nil_area_size: usize,
     pub row_version_size: usize,
@@ -573,10 +599,13 @@ pub struct RecordLayout {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiRecord {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub rec_hdr: RecordHeader, // record header
@@ -604,10 +633,13 @@ impl SdiRecord {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SdiDataHeader {
+    /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize, // page address
+    pub addr: usize,
+
+    /// page data buffer
     #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>, // page data buffer
+    pub buf: Arc<Bytes>,
 
     /// (4 bytes) Length of TYPE field in record of SDI Index.
     pub data_type: u32,
