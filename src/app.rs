@@ -263,6 +263,7 @@ impl App {
             let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
+            // Print Free Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
                 print!(" {:>04}: ", xdes_no);
@@ -283,7 +284,13 @@ impl App {
                     }
                 }
 
-                print!(" ");
+                println!();
+            }
+
+            // Print Clean Bit Map
+            for xdes in xdes_list {
+                let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
+                print!(" {:>04}: ", xdes_no);
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -302,8 +309,8 @@ impl App {
                 }
 
                 println!();
-                // println!(" {}", xdes.state);
             }
+
             i += 1;
         }
 
@@ -327,10 +334,13 @@ impl App {
             let page_type_rept = match page_type {
                 PageTypes::FSP_HDR => "H".on_purple(),
                 PageTypes::XDES => "X".on_purple(),
+                PageTypes::SYS => "Y".on_purple(),
+                PageTypes::TRX_SYS => "T".on_purple(),
                 PageTypes::INODE => "I".on_blue(),
                 PageTypes::INDEX => "D".on_cyan(),
                 PageTypes::SDI => "S".on_purple(),
                 PageTypes::IBUF_BITMAP => "B".on_blue(),
+                PageTypes::UNDO_LOG => "U".on_cyan(),
                 PageTypes::ALLOCATED => "A".on_green(),
                 _ => "?".on_red(),
             };
