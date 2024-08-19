@@ -65,8 +65,8 @@ impl App {
                 garbage,
                 verbose,
             } => match page_no {
-                Some(page_no) => self.do_dump_index_records(page_no, limit, garbage, verbose)?,
-                None => self.do_dump_index_headers()?,
+                Some(page_no) => self.do_dump_index_record(page_no, limit, garbage, verbose)?,
+                None => self.do_dump_index_header()?,
             },
         }
 
@@ -587,7 +587,7 @@ impl App {
         Ok(())
     }
 
-    fn do_dump_index_headers(&self) -> Result<(), Error> {
+    fn do_dump_index_header(&self) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         for page_no in 0..fact.page_count() {
             let fil_hdr = fact.read_fil_hdr(page_no)?;
@@ -612,7 +612,7 @@ impl App {
         Ok(())
     }
 
-    fn do_dump_index_records(
+    fn do_dump_index_record(
         &mut self,
         page_no: usize,
         limit: usize,
