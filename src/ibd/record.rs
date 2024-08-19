@@ -612,7 +612,9 @@ impl Record {
                 .meta_list
                 .iter()
                 .map(|m| {
-                    if m.phy_exist && cols[m.opx].isnil {
+                    if m.opx == PAGE_NONE as usize {
+                        0
+                    } else if m.phy_exist && cols[m.opx].isnil {
                         1
                     } else {
                         0
@@ -625,6 +627,9 @@ impl Record {
             .meta_list
             .iter()
             .map(|m| {
+                if m.opx == PAGE_NONE as usize {
+                    return 0;
+                }
                 let col = &cols[m.opx];
                 if m.phy_exist && col.isvar {
                     RowInfo::field_byte(col.data_len)
