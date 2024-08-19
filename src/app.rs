@@ -221,7 +221,7 @@ impl App {
             }
 
             let page_no = faddr.page_no as usize;
-            let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+            let xdes = fact.read_xdes_entry(page_no, faddr.boffset)?;
 
             if i % ELEMENT_PER_LINE == 1 {
                 print!("   {:>3} => ", i);
