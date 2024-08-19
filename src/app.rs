@@ -217,7 +217,7 @@ impl App {
     fn do_walk_seg_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
         let tabdef = fact.load_table_def()?;
         for idxdef in &tabdef.idx_defs {
-            info!("idxdef={:?}", idxdef);
+            debug!("idxdef={:?}", idxdef);
             if idxdef.idx_root <= 0 {
                 return Err(Error::msg(format!(
                     "无法找到索引的 root 字段: {:?}",
@@ -228,7 +228,20 @@ impl App {
             let page_no = idxdef.idx_root as usize;
             let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
             let fseg_hdr = &index_page.page_body.fseg_hdr;
-            let ient = fact.read_inode_entry(fseg_hdr.leaf_page_no, fseg_hdr.leaf_offset)?;
+            println!(
+                "  index={}(non-leaf), space_id={}, page_no={}, boffset={}",
+                &idxdef.idx_name,
+                fseg_hdr.nonleaf_space_id,
+                fseg_hdr.nonleaf_page_no,
+                fseg_hdr.nonleaf_offset
+            );
+            println!(
+                "  index={}(leaf), space_id={}, page_no={}, boffset={}",
+                &idxdef.idx_name,
+                fseg_hdr.leaf_space_id,
+                fseg_hdr.leaf_page_no,
+                fseg_hdr.leaf_offset
+            );
         }
         Ok(())
     }
