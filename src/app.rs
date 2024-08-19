@@ -222,7 +222,7 @@ impl App {
             let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
 
             if i % NUM_PER_LINE == 1 {
-                print!("   {:>03}:", i - 1);
+                print!("   {:>3}:", i - 1);
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
@@ -246,7 +246,7 @@ impl App {
     fn do_walk_page(&self, arr: &Vec<u32>) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
             if i % NUM_PER_LINE == 0 {
-                print!("   {:>03}:", i);
+                print!("   {:>3}:", i);
             }
             print!(" {}", pagno(*page_no as usize));
             if (i + 1) % NUM_PER_LINE == 0 {
