@@ -48,9 +48,12 @@ enum Commands {
     Desc,
     /// Print SDI Json
     Sdi {
-        // print parsed table definition
+        /// print parsed table definition
         #[arg(short, long, default_value_t = false)]
         table_define: bool,
+        /// print index root segements
+        #[arg(short, long, default_value_t = false)]
+        root_segments: bool,
     },
     /// View page data with given page_no.
     View {

@@ -378,6 +378,9 @@ pub struct IndexDef {
     /// index id
     pub idx_id: u64,
 
+    /// index root page_no
+    pub idx_root: i64,
+
     /// hidden
     pub hidden: bool,
 
@@ -402,6 +405,7 @@ impl IndexDef {
             pos: ddi.ordinal_position as usize,
             idx_name: ddi.name.clone(),
             idx_id: id,
+            idx_root: priv_data["root"].parse().unwrap_or(-1),
             hidden: ddi.hidden,
             idx_type: ddi.idx_type.into(),
             algorithm: ddi.algorithm.into(),

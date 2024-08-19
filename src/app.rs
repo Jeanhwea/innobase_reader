@@ -16,6 +16,7 @@ use crate::{
         SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
         XDES_PAGE_COUNT,
     },
+    util::{extno, pagno},
     Commands,
 };
 
@@ -51,7 +52,10 @@ impl App {
                 all,
             } => self.do_list(seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
-            Commands::Sdi { table_define } => self.do_sdi_print(table_define)?,
+            Commands::Sdi {
+                table_define,
+                root_segments,
+            } => self.do_sdi_print(table_define, root_segments)?,
             Commands::View { page_no } => self.do_view(page_no)?,
             Commands::Dump {
                 page_no,
@@ -171,7 +175,7 @@ impl App {
     }
 
     fn do_list_inodes(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("INode Entry List:");
+        println!("INode:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
@@ -198,19 +202,8 @@ impl App {
                 self.do_walk_flst(fact, &inode.fseg_full)?;
             }
             if !inode.fseg_frag_arr.is_empty() {
-                println!("  {}", "fseg_fray_arr:".cyan());
-                for (i, page_no) in inode.fseg_frag_arr.iter().enumerate() {
-                    if i % NUM_PER_LINE == 0 {
-                        print!("   {:>03}:", i);
-                    }
-                    print!(" {:>5}", page_no);
-                    if (i + 1) % NUM_PER_LINE == 0 {
-                        println!();
-                    }
-                }
-                if inode.fseg_frag_arr.len() % NUM_PER_LINE != 0 {
-                    println!();
-                }
+                println!("  {}", "fseg_frag_arr:".cyan());
+                self.do_walk_page(&inode.fseg_frag_arr)?;
             }
         }
 
@@ -229,11 +222,11 @@ impl App {
             let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
 
             if i % NUM_PER_LINE == 1 {
-                print!("   {:>03}:", i - 1);
+                print!("   {:>3}:", i - 1);
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!(" {:>5}", xdes_no);
+            print!(" {:>5}", extno(xdes_no));
 
             if i % NUM_PER_LINE == 0 {
                 println!();
@@ -250,10 +243,34 @@ impl App {
         Ok(())
     }
 
-    fn do_list_extents(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
+    fn do_walk_page(&self, arr: &Vec<u32>) -> Result<()> {
+        for (i, page_no) in arr.iter().enumerate() {
+            if i % NUM_PER_LINE == 0 {
+                print!("   {:>3}:", i);
+            }
+            print!(" {:>5}", pagno(*page_no as usize));
+            if (i + 1) % NUM_PER_LINE == 0 {
+                println!();
+            }
+        }
+        if arr.len() % NUM_PER_LINE != 0 {
+            println!();
+        }
+        Ok(())
+    }
 
-        let mut counter = (0, 0, 0, 0); // F, X, C, D
+    fn do_list_extents(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!("XDES: ");
+
+        self.do_list_ext_free_map(fact)?;
+        self.do_list_ext_clean_map(fact)?;
+
+        Ok(())
+    }
+
+    fn do_list_ext_free_map(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!(" free bitmap: F => free, X => non-free");
+        let mut counter = (0, 0);
 
         let mut i = 0;
         loop {
@@ -265,10 +282,9 @@ impl App {
             let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
-            // Print Free Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {:>5} ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -289,10 +305,35 @@ impl App {
                 println!();
             }
 
+            i += 1;
+        }
+
+        println!(
+            " free bits count: free={}, non-free={}",
+            counter.0, counter.1
+        );
+
+        Ok(())
+    }
+
+    fn do_list_ext_clean_map(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!(" clean bitmap: C => clean, D => dirty");
+        let mut counter = (0, 0);
+
+        let mut i = 0;
+        loop {
+            let xdes_page_no = i * EXTENT_PAGE_NUM;
+            if xdes_page_no > fact.page_count() {
+                break;
+            }
+
+            let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
+            let xdes_list = &xdes_page.page_body.xdes_ent_inited;
+
             // Print Clean Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {:>5} ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -300,10 +341,10 @@ impl App {
                         print!(
                             "{}",
                             if bits.2.clean() {
-                                counter.2 += 1;
+                                counter.0 += 1;
                                 "C".on_cyan()
                             } else {
-                                counter.3 += 1;
+                                counter.1 += 1;
                                 "D".on_red()
                             }
                         );
@@ -317,15 +358,15 @@ impl App {
         }
 
         println!(
-            "XDES bitmap count: free={}, non-free={}, clean={}, dirty={}",
-            counter.0, counter.1, counter.2, counter.3
+            " clean bits count: clean={}, dirty={}",
+            counter.0, counter.1
         );
-
         Ok(())
     }
 
     fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Pages: [H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated, ?:Unknown]");
+        println!("Pages: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated");
+        println!("       Y:SYS, T:TRX_SYS, U:UNDO_LOG, B:IBUF_BITMAP, ?:Unknown");
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -348,7 +389,7 @@ impl App {
             };
             if i % XDES_PAGE_COUNT == 0 {
                 let xdes_no = i / XDES_PAGE_COUNT;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {:>5} ", extno(xdes_no));
             }
             print!("{}", page_type_rept);
             if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
@@ -408,12 +449,31 @@ impl App {
         Ok(())
     }
 
-    fn do_sdi_print(&self, table_define: bool) -> Result<()> {
+    fn do_sdi_print(&self, table_define: bool, root_segments: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         if table_define {
             let tabledef = fact.load_table_def()?;
             println!("{:#?}", tabledef);
+            return Ok(());
+        }
+
+        if root_segments {
+            let tabledef = fact.load_table_def()?;
+            for idxdef in &tabledef.idx_defs {
+                let root = idxdef.idx_root;
+                if root <= 0 {
+                    error!("错误的索引根页码: {:?}", &idxdef);
+                    continue;
+                }
+                let index_page: BasePage<IndexPageBody> = fact.read_page(root as usize)?;
+                println!(
+                    "index={}, root={}, fseg={:#?}",
+                    idxdef.idx_name.to_string().magenta(),
+                    root.to_string().blue(),
+                    index_page.page_body.fseg_hdr
+                );
+            }
             return Ok(());
         }
 
