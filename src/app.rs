@@ -202,7 +202,7 @@ impl App {
                 self.do_walk_flst(fact, &inode.fseg_full)?;
             }
             if !inode.fseg_frag_arr.is_empty() {
-                println!("  {}", "fseg_fray_arr:".cyan());
+                println!("  {}", "fseg_frag_arr:".cyan());
                 self.do_walk_page(&inode.fseg_frag_arr)?;
             }
         }
