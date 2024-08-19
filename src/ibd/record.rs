@@ -15,13 +15,17 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use crate::{
-    ibd::page::{RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
+    ibd::{
+        page::{PAGE_NONE, RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
+        record::RecordStatus::NODE_PTR,
+    },
     meta::def::{HiddenTypes, TableDef},
     util,
     util::align8,
 };
 
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
+pub const REC_NODE_PTR_SIZE: usize = 4;
 
 /// Record Status, rec.h:152
 #[repr(u8)]
@@ -218,6 +222,9 @@ pub struct RowInfo {
     /// row version
     pub row_version: u8,
 
+    /// record status
+    pub rec_status: RecordStatus,
+
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
     pub index_pos: usize, // &tabdef.clone().idx_defs[index_pos]
@@ -247,6 +254,7 @@ impl RowInfo {
             instant_flag: rec_hdr.is_instant(),
             n_instant_col: n_ins_col,
             row_version: row_ver,
+            rec_status: rec_hdr.rec_status.clone(),
             buf: buf.clone(),
             addr: rec_hdr.addr,
         }
@@ -272,7 +280,16 @@ impl RowInfo {
         }
     }
 
-    pub fn resolve(&self) -> Result<Vec<FieldMeta>, Error> {
+    pub fn resolve_metadata(&self) -> Result<Vec<FieldMeta>, Error> {
+        if self.rec_status == NODE_PTR {
+            self.resolve_node_ptr_metadata()
+        } else {
+            self.resolve_ordinary_metadata()
+        }
+    }
+
+    /// resolve ordinary record
+    pub fn resolve_ordinary_metadata(&self) -> Result<Vec<FieldMeta>, Error> {
         let row_ver = self.row_version as u32;
         let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
         let cols = &self.table_def.clone().col_defs;
@@ -405,7 +422,67 @@ impl RowInfo {
 
         assert_eq!(nilfld_nth, n_nilfld, "所有可空的字段都应访问到");
         for (i, meta) in row_meta_list.iter().enumerate() {
-            info!("meta[{}]={:?}, {}", i, meta, &cols[meta.opx].col_name);
+            debug!("meta[{}]={:?}, {}", i, meta, &cols[meta.opx].col_name);
+        }
+
+        Ok(row_meta_list)
+    }
+
+    /// resolve node_ptr
+    pub fn resolve_node_ptr_metadata(&self) -> Result<Vec<FieldMeta>, Error> {
+        let eles = &self.table_def.clone().idx_defs[self.index_pos].elements;
+        let cols = &self.table_def.clone().col_defs;
+
+        // resolve physical layout
+        let phy_layout = eles
+            .iter()
+            .enumerate()
+            .map(|(phy_pos, ele)| (phy_pos, (ele.column_opx, true, true)))
+            .collect::<BTreeMap<usize, _>>();
+
+        let mut row_meta_list = Vec::new();
+        let mut varptr = self.addr;
+        let mut fldaddr = self.addr + RECORD_HEADER_SIZE;
+        for (_, (col_pos, phy_exist, log_exist)) in phy_layout {
+            let col = &cols[col_pos];
+            if col.hidden == HiddenTypes::HT_HIDDEN_SE {
+                break;
+            }
+            let mut vlen = 0;
+            if phy_exist {
+                if col.isvar {
+                    let (nbyte, len) = self.varfld_len(varptr, col.data_len);
+                    varptr -= nbyte;
+                    vlen = len;
+                } else {
+                    vlen = col.data_len as usize;
+                }
+            }
+            row_meta_list.push(FieldMeta {
+                addr: fldaddr,
+                opx: col_pos,
+                isnull: false,
+                length: vlen,
+                phy_exist,
+                log_exist,
+            });
+            fldaddr += vlen;
+        }
+
+        row_meta_list.push(FieldMeta {
+            addr: fldaddr,
+            opx: PAGE_NONE as usize,
+            isnull: false,
+            length: REC_NODE_PTR_SIZE,
+            phy_exist: true,
+            log_exist: true,
+        });
+
+        for (i, meta) in row_meta_list.iter().enumerate() {
+            if meta.opx == PAGE_NONE as usize {
+                continue;
+            }
+            debug!("meta[{}]={:?}, {}", i, meta, &cols[meta.opx].col_name);
         }
 
         Ok(row_meta_list)
@@ -451,17 +528,17 @@ pub struct RowData {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// Row Info
+    /// row info
     pub row_info: Arc<RowInfo>,
-    /// Row metadata list
+    /// row metadata list
     pub meta_list: Vec<FieldMeta>,
-    /// Row data list
+    /// row data list
     pub data_list: Vec<FieldDatum>,
 }
 
 impl RowData {
     pub fn new(addr: usize, buf: Arc<Bytes>, row_info: Arc<RowInfo>) -> Self {
-        let field_meta_list = row_info.resolve().unwrap();
+        let field_meta_list = row_info.resolve_metadata().unwrap();
         let cols = &row_info.table_def.clone().col_defs;
         let field_data_list = field_meta_list
             .iter()
