@@ -266,6 +266,9 @@ pub struct ColumnDef {
     /// character set name
     pub charset: String,
 
+    /// table id
+    pub table_id: i32,
+
     /// which version this column was added
     pub version_added: u32,
 
@@ -347,6 +350,10 @@ impl ColumnDef {
             coll_id: ddc.collation_id,
             coll_name: coll.name.into(),
             charset: coll.charset.into(),
+            table_id: priv_data
+                .get("table_id")
+                .map(|v| v.parse::<i32>().unwrap_or(0))
+                .unwrap_or(-1),
             hidden: ddc.hidden.clone(),
             utf8_def: ddc.column_type_utf8.clone(),
             phy_pos: priv_data
@@ -375,11 +382,14 @@ pub struct IndexDef {
     /// index name
     pub idx_name: String,
 
+    /// table id
+    pub table_id: i32,
+
     /// index id
-    pub idx_id: u64,
+    pub idx_id: i32,
 
     /// index root page_no
-    pub idx_root: i64,
+    pub idx_root: i32,
 
     /// hidden
     pub hidden: bool,
@@ -400,12 +410,22 @@ pub struct IndexDef {
 impl IndexDef {
     pub fn from(ddi: &DataDictIndex, ele_defs: Vec<IndexElementDef>) -> Self {
         let priv_data = util::conv_strdata_to_map(&ddi.se_private_data);
-        let id: u64 = priv_data["id"].parse().unwrap_or(0);
+        let index_id: i32 = priv_data
+            .get("id")
+            .map(|v| v.parse::<i32>().unwrap_or(0))
+            .unwrap_or(-1);
         Self {
             pos: ddi.ordinal_position as usize,
+            table_id: priv_data
+                .get("table_id")
+                .map(|v| v.parse::<i32>().unwrap_or(0))
+                .unwrap_or(-1),
             idx_name: ddi.name.clone(),
-            idx_id: id,
-            idx_root: priv_data["root"].parse().unwrap_or(-1),
+            idx_id: index_id,
+            idx_root: priv_data
+                .get("root")
+                .map(|v| v.parse::<i32>().unwrap_or(0))
+                .unwrap_or(-1),
             hidden: ddi.hidden,
             idx_type: ddi.idx_type.into(),
             algorithm: ddi.algorithm.into(),
