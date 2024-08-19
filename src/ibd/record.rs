@@ -229,8 +229,8 @@ pub struct RowInfo {
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
 
-    /// which index, &tabdef.clone().idx_defs[index_pos]
-    pub index_pos: usize,
+    /// which index in table_def
+    pub index_pos: usize, // &tabdef.clone().idx_defs[index_pos]
 }
 
 impl RowInfo {
