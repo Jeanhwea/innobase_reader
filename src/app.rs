@@ -627,10 +627,10 @@ impl App {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
 
-        let rs = fact.unpack_index_page(page_no, garbage)?;
-        let n_dump_rows = min(rs.tuples.len(), limit);
-        for (i, tuple) in rs.tuples[..n_dump_rows].iter().enumerate() {
-            let rec = &rs.records[i];
+        let result_set = fact.unpack_index_page(page_no, garbage)?;
+        let n_dump_rows = min(result_set.tuples.len(), limit);
+        for (i, tuple) in result_set.tuples[..n_dump_rows].iter().enumerate() {
+            let rec = &result_set.records[i];
             let seq = i + 1;
 
             // 打印分割线
@@ -663,11 +663,11 @@ impl App {
             }
         }
 
-        if n_dump_rows < rs.tuples.len() {
+        if n_dump_rows < result_set.tuples.len() {
             println!(
                 "ONLY dump {} of {} rows, use `--limit num' to dump more",
                 n_dump_rows,
-                rs.tuples.len()
+                result_set.tuples.len()
             )
         }
 

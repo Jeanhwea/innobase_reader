@@ -38,7 +38,7 @@ pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 pub enum DataValue {
     RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
-    RollPtr(#[derivative(Debug(format_with = "util::fmt_hex56"))] u64),
+    RollPtr(RollbackPointer),
     I32(i32),
     I64(i64),
     Str(String),
@@ -48,6 +48,39 @@ pub enum DataValue {
     Timestamp(DateTime<Local>),
     Unknown(Bytes),
     Null,
+}
+
+/// Parsed rollback porinter
+#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derivative(Debug)]
+pub struct RollbackPointer {
+    #[derivative(Debug(format_with = "util::fmt_hex56"))]
+    /// (7 bytes) origin bytes value
+    pub roll_ptr: u64,
+
+    /// (1 bit) insert flag
+    pub insert_flag: bool,
+
+    /// (7 bits) rollback segment id
+    pub rb_seg_id: u8,
+
+    /// (4 bytes) page number
+    pub page_no: usize,
+
+    /// (2 bytes) page offset
+    pub boffset: u16,
+}
+
+impl RollbackPointer {
+    pub fn from(roll_ptr: u64) -> Self {
+        Self {
+            roll_ptr,
+            insert_flag: ((roll_ptr >> 55) & 0x1) > 0,
+            rb_seg_id: ((roll_ptr >> 48) & 0x7f) as u8,
+            page_no: ((roll_ptr >> 16) & 0xffffffff) as usize,
+            boffset: (roll_ptr & 0xffff) as u16,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -341,7 +374,9 @@ impl DatafileFactory {
                                 HiddenTypes::HT_HIDDEN_SE => match col.col_name.as_str() {
                                     "DB_ROW_ID" => DataValue::RowId(unpack_u48_val(b)),
                                     "DB_TRX_ID" => DataValue::TrxId(unpack_u48_val(b)),
-                                    "DB_ROLL_PTR" => DataValue::RollPtr(unpack_u56_val(b)),
+                                    "DB_ROLL_PTR" => {
+                                        DataValue::RollPtr(RollbackPointer::from(unpack_u56_val(b)))
+                                    }
                                     _ => todo!("不支持的隐藏字段名称: {:?}", col),
                                 },
                                 _ => todo!("不支持的隐藏字段类型: {:?}", col),
