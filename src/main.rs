@@ -31,16 +31,16 @@ enum Commands {
     Info,
     /// List all page. page_type, page_number and more
     List {
-        /// list the index data
+        /// list index data
         #[arg(short, long, default_value_t = false)]
         index: bool,
-        /// list the segment data
+        /// list segment data
         #[arg(short, long, default_value_t = false)]
         segment: bool,
-        /// list the extent data
+        /// list extent data
         #[arg(short, long, default_value_t = false)]
         extent: bool,
-        /// list the pages data
+        /// list page data
         #[arg(short, long, default_value_t = false)]
         page: bool,
         /// list all: index, segment, extent, page, ...
