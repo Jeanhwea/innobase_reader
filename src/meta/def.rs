@@ -102,7 +102,7 @@ pub enum HiddenTypes {
     UNDEF,
 }
 
-/// row format, see sql/dd/types/table.h, enum enum_row_format {
+/// row format, see sql/dd/types/table.h, enum enum_row_format
 #[repr(i8)]
 #[derive(
     Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
