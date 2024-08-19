@@ -15,8 +15,8 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody,
-            SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
+            IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
         },
         record::Record,
     },
@@ -59,17 +59,20 @@ pub struct ResultSet {
 
 #[derive(Debug)]
 pub struct DatafileFactory {
-    /// Target datafile
+    /// target datafile
     pub target: PathBuf,
 
-    /// Data file handler
+    /// data file handler
     pub file_handler: File,
 
-    /// Data file size
+    /// data file size
     pub file_size: usize,
 
-    /// File Addr Cache
-    pub fil_addr_cache: HashMap<usize, HashMap<u16, XDesEntry>>,
+    /// segment descriptor cache, the inode cache, map[page_no, boffset] => INodeEntry
+    pub inode_cache: HashMap<usize, HashMap<u16, INodeEntry>>,
+
+    /// extent descriptor cache, map[page_no, boffset] => XDesEntry
+    pub extend_cache: HashMap<usize, HashMap<u16, XDesEntry>>,
 }
 
 impl DatafileFactory {
@@ -87,7 +90,7 @@ impl DatafileFactory {
             target,
             file_size: size,
             file_handler: file,
-            fil_addr_cache: HashMap::new(),
+            extend_cache: HashMap::new(),
         })
     }
 
@@ -135,7 +138,7 @@ impl DatafileFactory {
     }
 
     pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<XDesEntry> {
-        let xdes = match self.fil_addr_cache.get(&page_no) {
+        let xdes = match self.extend_cache.get(&page_no) {
             Some(xdes_map) => xdes_map
                 .get(&boffset)
                 .expect("未找到 XDesEntry 数据项")
@@ -152,7 +155,7 @@ impl DatafileFactory {
                     .get(&boffset)
                     .expect("未找到 XDesEntry 数据项")
                     .clone();
-                self.fil_addr_cache.insert(page_no, xdes_map);
+                self.extend_cache.insert(page_no, xdes_map);
                 xdes_entry
             }
         };
