@@ -410,7 +410,7 @@ impl App {
         let tabdef = fact.load_table_def()?;
         for col in &tabdef.col_defs {
             println!(
-                "COL{}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
+                "COL{}: name={}, type={}, nullable={}, data_len={}, utf8_def={}",
                 col.pos,
                 col.col_name.magenta(),
                 col.dd_type.to_string().blue(),
