@@ -87,16 +87,16 @@ PageTypes Statistics:
 
 #+RESULTS:
 #+begin_example
-COL1: name=dept_no, dd_type=STRING, nullable=false, data_len=16, utf8_def=char(4)
-COL2: name=dept_name, dd_type=VARCHAR, nullable=false, data_len=161, utf8_def=varchar(40)
-COL3: name=DB_TRX_ID, dd_type=INT24, nullable=false, data_len=6, utf8_def=
-COL4: name=DB_ROLL_PTR, dd_type=LONGLONG, nullable=false, data_len=7, utf8_def=
-IDX1: idx_name=PRIMARY, idx_type=IT_PRIMARY, algorithm=IA_BTREE
+COL1: name=dept_no, type=STRING, nullable=false, data_len=16, utf8_def=char(4)
+COL2: name=dept_name, type=VARCHAR, nullable=false, data_len=161, utf8_def=varchar(40)
+COL3: name=DB_TRX_ID, type=INT24, nullable=false, data_len=6, utf8_def=
+COL4: name=DB_ROLL_PTR, type=LONGLONG, nullable=false, data_len=7, utf8_def=
+IDX1: name=PRIMARY, type=IT_PRIMARY, id=155, root=4, algorithm=IA_BTREE
  (1-1): column_opx=0, col_name=dept_no, order=ORDER_ASC, ele_len=16, hidden=false, isnil=false, isvar=true
  (1-2): column_opx=2, col_name=DB_TRX_ID, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=false
  (1-3): column_opx=3, col_name=DB_ROLL_PTR, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=false
  (1-4): column_opx=1, col_name=dept_name, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=true
-IDX2: idx_name=dept_name, idx_type=IT_UNIQUE, algorithm=IA_BTREE
+IDX2: name=dept_name, type=IT_UNIQUE, id=156, root=5, algorithm=IA_BTREE
  (2-1): column_opx=1, col_name=dept_name, order=ORDER_ASC, ele_len=160, hidden=false, isnil=false, isvar=true
  (2-2): column_opx=0, col_name=dept_no, order=ORDER_ASC, ele_len=-1, hidden=true, isnil=false, isvar=true
 #+end_example
@@ -203,6 +203,7 @@ BasePage {
    DB_TRX_ID => TrxId(0x00000000053d)
  DB_ROLL_PTR => RollPtr(0x820000008d012a)
    dept_name => Str("Human Resources")
+ONLY dump 3 of 9 rows, use `--limit num' to dump more
 #+end_example
 
 * Build
