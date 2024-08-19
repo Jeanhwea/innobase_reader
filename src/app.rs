@@ -256,7 +256,15 @@ impl App {
     fn do_list_extents(&self, fact: &mut DatafileFactory) -> Result<()> {
         println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
 
-        let mut counter = (0, 0, 0, 0); // F, X, C, D
+        self.do_list_ext_free_map(fact)?;
+        self.do_list_ext_clean_map(fact)?;
+
+        Ok(())
+    }
+
+    fn do_list_ext_free_map(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!(" free bitmap: F => free, X => non-free");
+        let mut counter = (0, 0);
 
         let mut i = 0;
         loop {
@@ -268,7 +276,6 @@ impl App {
             let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
             let xdes_list = &xdes_page.page_body.xdes_ent_inited;
 
-            // Print Free Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
                 print!(" {:>04}: ", xdes_no);
@@ -292,6 +299,31 @@ impl App {
                 println!();
             }
 
+            i += 1;
+        }
+
+        println!(
+            "free bits count: free={}, non-free={}",
+            counter.0, counter.1
+        );
+
+        Ok(())
+    }
+
+    fn do_list_ext_clean_map(&self, fact: &mut DatafileFactory) -> Result<()> {
+        println!(" clean bitmap: C => clean, D => dirty");
+        let mut counter = (0, 0);
+
+        let mut i = 0;
+        loop {
+            let xdes_page_no = i * EXTENT_PAGE_NUM;
+            if xdes_page_no > fact.page_count() {
+                break;
+            }
+
+            let xdes_page: BasePage<XDesPageBody> = fact.read_page(xdes_page_no)?;
+            let xdes_list = &xdes_page.page_body.xdes_ent_inited;
+
             // Print Clean Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
@@ -303,10 +335,10 @@ impl App {
                         print!(
                             "{}",
                             if bits.2.clean() {
-                                counter.2 += 1;
+                                counter.0 += 1;
                                 "C".on_cyan()
                             } else {
-                                counter.3 += 1;
+                                counter.1 += 1;
                                 "D".on_red()
                             }
                         );
@@ -319,10 +351,7 @@ impl App {
             i += 1;
         }
 
-        println!(
-            "XDES bitmap count: free={}, non-free={}, clean={}, dirty={}",
-            counter.0, counter.1, counter.2, counter.3
-        );
+        println!("clean bits count: clean={}, dirty={}", counter.0, counter.1);
 
         Ok(())
     }
