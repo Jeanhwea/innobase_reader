@@ -227,7 +227,7 @@ impl App {
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!("{:>8}", extno(xdes_no));
+            print!("{:>7}", extno(xdes_no));
 
             if i % ELEMENT_PER_LINE == 0 {
                 println!();
@@ -249,7 +249,7 @@ impl App {
             if i % ELEMENT_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
             }
-            print!("{:>8}", pagno(*page_no as usize));
+            print!("{:>7}", pagno(*page_no as usize));
             if (i + 1) % ELEMENT_PER_LINE == 0 {
                 println!();
             }
