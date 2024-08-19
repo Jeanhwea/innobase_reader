@@ -40,6 +40,8 @@ pub const FRAG_ARR_ENTRY_SIZE: usize = 4;
 pub const PAGE_DIR_ENTRY_SIZE: usize = 2;
 
 // index & record
+pub const INDEX_HEADER_SIZE: usize = 36;
+pub const INDEX_FSEG_HEADER_SIZE: usize = 20;
 pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;

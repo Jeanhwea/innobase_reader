@@ -16,8 +16,8 @@ use crate::{
     ibd::{
         page::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
-            INodePageBody, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE,
-            PAGE_SIZE,
+            INodePageBody, IndexHeader, IndexPageBody, PageTypes, SdiPageBody, XDesEntry,
+            XDesPageBody, FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_SIZE,
         },
         record::Record,
     },
@@ -126,9 +126,27 @@ impl DatafileFactory {
         Ok(Arc::new(Bytes::from(buffer)))
     }
 
+    pub fn idx_hdr_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
+        if page_no >= self.page_count() {
+            return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
+        }
+
+        let offset = (page_no * PAGE_SIZE + FIL_HEADER_SIZE) as u64;
+        self.file_handler.seek(SeekFrom::Start(offset))?;
+
+        let mut buffer = vec![0; INDEX_HEADER_SIZE];
+        self.file_handler.read_exact(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
+    }
+
     pub fn read_fil_hdr(&mut self, page_no: usize) -> Result<FilePageHeader> {
         let buf = self.fil_hdr_buffer(page_no)?;
         Ok(FilePageHeader::new(0, buf.clone()))
+    }
+
+    pub fn read_idx_hdr(&mut self, page_no: usize) -> Result<IndexHeader> {
+        let buf = self.idx_hdr_buffer(page_no)?;
+        Ok(IndexHeader::new(0, buf.clone()))
     }
 
     pub fn read_page<P>(&mut self, page_no: usize) -> Result<BasePage<P>>

@@ -64,7 +64,10 @@ impl App {
                 limit,
                 garbage,
                 verbose,
-            } => self.do_dump(page_no, limit, garbage, verbose)?,
+            } => match page_no {
+                Some(page_no) => self.do_dump_index_records(page_no, limit, garbage, verbose)?,
+                None => self.do_dump_index_headers()?,
+            },
         }
 
         Ok(())
@@ -584,7 +587,23 @@ impl App {
         Ok(())
     }
 
-    fn do_dump(
+    fn do_dump_index_headers(&self) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        for page_no in 0..fact.page_count() {
+            let fil_hdr = fact.read_fil_hdr(page_no)?;
+            if fil_hdr.page_type != PageTypes::INDEX {
+                continue;
+            }
+            let idx_hdr = fact.read_idx_hdr(page_no)?;
+            println!(
+                "page_no={}, page_level={}, n_rec={}",
+                page_no, idx_hdr.page_level, idx_hdr.page_n_recs
+            );
+        }
+        Ok(())
+    }
+
+    fn do_dump_index_records(
         &mut self,
         page_no: usize,
         limit: usize,
