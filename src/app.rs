@@ -182,13 +182,14 @@ impl App {
         let inodes = &inode_page.page_body.inode_ent_list;
         for inode in inodes {
             println!(
-                " iseq={}: fseg_id={}, free={}, not-full={}, full={}, frag={}",
+                " iseq={}: fseg_id={}, free={}, not-full={}, full={}, frag={}, addr={}",
                 inode.inode_seq.to_string().blue(),
                 inode.fseg_id,
                 inode.fseg_free.len,
                 inode.fseg_not_full.len,
                 inode.fseg_full.len,
                 inode.fseg_frag_arr.len(),
+                inode.addr,
             );
             if inode.fseg_free.len > 0 {
                 println!("  {}", "fseg_free:".green());
