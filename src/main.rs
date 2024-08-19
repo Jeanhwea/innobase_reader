@@ -31,19 +31,19 @@ enum Commands {
     Info,
     /// List all page. page_type, page_number and more
     List {
-        // list the index segments
+        /// list the index data
         #[arg(short, long, default_value_t = false)]
         index: bool,
-        // list the segments
+        /// list the segment data
         #[arg(short, long, default_value_t = false)]
         segment: bool,
-        // list the extents
+        /// list the extent data
         #[arg(short, long, default_value_t = false)]
         extent: bool,
-        // list the pages
+        /// list the pages data
         #[arg(short, long, default_value_t = false)]
         page: bool,
-        // list all map
+        /// list all: index, segment, extent, page, ...
         #[arg(short, long, default_value_t = false)]
         all: bool,
     },
