@@ -448,7 +448,7 @@ impl RowInfo {
         let mut fldaddr = self.addr + RECORD_HEADER_SIZE;
         for (_, (col_pos, phy_exist, log_exist)) in phy_layout {
             let col = &cols[col_pos];
-            if col.hidden == HiddenTypes::HT_HIDDEN_SE {
+            if col.hidden == HiddenTypes::HT_HIDDEN_SE && col.col_name != "DB_ROW_ID" {
                 break;
             }
             let mut vlen = 0;
