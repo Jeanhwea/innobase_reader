@@ -591,12 +591,18 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         for page_no in 0..fact.page_count() {
             let fil_hdr = fact.read_fil_hdr(page_no)?;
+
+            if page_no % 8 == 0 {
+                print!("{:>5} ", pagno(page_no));
+            }
+
             if fil_hdr.page_type == PageTypes::INDEX {
                 let idx_hdr = fact.read_idx_hdr(page_no)?;
                 print!("[{:>1},{:>4}]", idx_hdr.page_level, idx_hdr.page_n_recs);
             } else {
                 print!("[------]");
             }
+
             if page_no % 8 == 7 {
                 println!();
             } else {
