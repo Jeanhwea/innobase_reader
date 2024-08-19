@@ -16,8 +16,8 @@ use crate::{
     ibd::{
         page::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
-            INodePageBody, IndexHeader, IndexPageBody, PageTypes, SdiPageBody, XDesEntry,
-            XDesPageBody, FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_SIZE,
+            INodePageBody, IndexHeader, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody,
+            FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_SIZE,
         },
         record::Record,
     },

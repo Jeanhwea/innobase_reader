@@ -591,14 +591,17 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         for page_no in 0..fact.page_count() {
             let fil_hdr = fact.read_fil_hdr(page_no)?;
-            if fil_hdr.page_type != PageTypes::INDEX {
-                continue;
+            if fil_hdr.page_type == PageTypes::INDEX {
+                let idx_hdr = fact.read_idx_hdr(page_no)?;
+                print!("[{:>1},{:>4}]", idx_hdr.page_level, idx_hdr.page_n_recs);
+            } else {
+                print!("[------]");
             }
-            let idx_hdr = fact.read_idx_hdr(page_no)?;
-            println!(
-                "page_no={}, page_level={}, n_rec={}",
-                page_no, idx_hdr.page_level, idx_hdr.page_n_recs
-            );
+            if page_no % 8 == 7 {
+                println!();
+            } else {
+                print!(" ");
+            }
         }
         Ok(())
     }
@@ -730,7 +733,7 @@ mod app_tests {
         util::init_unit_test();
         let mut app = App::new(PathBuf::from(IBD_01));
         let ans = app.run(Commands::Dump {
-            page_no: 4,
+            page_no: Some(4),
             limit: 3,
             garbage: false,
             verbose: false,
@@ -745,7 +748,7 @@ mod app_tests {
         assert!(app.run(Commands::Desc).is_ok());
         assert!(app
             .run(Commands::Dump {
-                page_no: 4,
+                page_no: Some(4),
                 limit: 3,
                 garbage: false,
                 verbose: false
