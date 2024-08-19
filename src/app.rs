@@ -593,7 +593,7 @@ impl App {
             let fil_hdr = fact.read_fil_hdr(page_no)?;
 
             if page_no % 8 == 0 {
-                print!("{:>5} ", pagno(page_no));
+                print!("{:>7} ", pagno(page_no));
             }
 
             if fil_hdr.page_type == PageTypes::INDEX {
