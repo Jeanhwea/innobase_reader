@@ -303,7 +303,7 @@ impl App {
         }
 
         println!(
-            "free bits count: free={}, non-free={}",
+            " free bits count: free={}, non-free={}",
             counter.0, counter.1
         );
 
@@ -351,8 +351,10 @@ impl App {
             i += 1;
         }
 
-        println!("clean bits count: clean={}, dirty={}", counter.0, counter.1);
-
+        println!(
+            " clean bits count: clean={}, dirty={}",
+            counter.0, counter.1
+        );
         Ok(())
     }
 
