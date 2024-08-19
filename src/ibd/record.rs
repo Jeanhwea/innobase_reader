@@ -11,6 +11,7 @@ use log::{debug, info};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use crate::{
@@ -24,7 +25,8 @@ pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 
 /// Record Status, rec.h:152
 #[repr(u8)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum RecordStatus {
     ORDINARY = 0,
     NODE_PTR = 1,
@@ -35,7 +37,7 @@ pub enum RecordStatus {
 }
 
 /// Record Info Flag
-#[derive(Debug, Display, EnumString, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Eq, PartialEq, Clone)]
 pub enum RecInfoFlag {
     /// Mark current column is minimum record
     MIN_REC,

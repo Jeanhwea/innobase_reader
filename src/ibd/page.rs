@@ -6,6 +6,7 @@ use colored::Colorize;
 use derivative::Derivative;
 use log::{debug, info};
 use num_enum::FromPrimitive;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
@@ -105,7 +106,8 @@ where
 
 /// MySQL Page Type, see fil0fil.h
 #[repr(u16)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum PageTypes {
     ALLOCATED = 0,                 // Freshly allocated page
     UNUSED = 1,                    // This page type is unused.
@@ -607,7 +609,8 @@ impl BasePageBody for XDesPageBody {
 
 /// Extent Descriptor State
 #[repr(u32)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum XDesStates {
     XDES_NOT_INITED = 0, // extent descriptor is not initialized
     XDES_FREE = 1,       // extent is in free list of space
@@ -1063,7 +1066,8 @@ impl IndexPageBody {
 
 /// Page Format, redundant or compact
 #[repr(u8)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum PageFormats {
     REDUNDANT = 0,
     COMPACT = 1,
@@ -1073,7 +1077,8 @@ pub enum PageFormats {
 
 /// Page Direction
 #[repr(u16)]
-#[derive(Debug, Display, EnumString, FromPrimitive, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum PageDirections {
     PAGE_LEFT = 1,
     PAGE_RIGHT = 2,

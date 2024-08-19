@@ -12,9 +12,8 @@ use crate::{
 
 /// column type, see sql/dd/types/column.h, enum class enum_column_types
 #[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnTypes {
     DECIMAL = 1,
     TINY = 2,
@@ -53,17 +52,8 @@ pub enum ColumnTypes {
 
 /// column keys, see sql/dd/types/column.h
 #[repr(u8)]
-#[derive(
-    Debug,
-    Default,
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Eq,
-    PartialEq,
-    Clone,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum ColumnKeys {
     CK_NONE = 1,
     CK_PRIMARY = 2,
@@ -75,17 +65,8 @@ pub enum ColumnKeys {
 
 /// column hidden type, see sql/dd/types/column.h, enum class enum_hidden_type
 #[repr(u8)]
-#[derive(
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Debug,
-    Display,
-    Default,
-    Clone,
-    PartialEq,
-)]
+#[derive(Debug, Display, Default, Clone, PartialEq)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum HiddenTypes {
     /// The column is visible (a normal column)
     HT_VISIBLE = 1,
@@ -104,9 +85,8 @@ pub enum HiddenTypes {
 
 /// row format, see sql/dd/types/table.h, enum enum_row_format
 #[repr(i8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum RowFormats {
     RF_FIXED = 1,
     RF_DYNAMIC = 2,
@@ -120,9 +100,8 @@ pub enum RowFormats {
 
 /// index type, see sql/dd/types/index.h, enum class enum_index_type
 #[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexTypes {
     IT_PRIMARY = 1,
     IT_UNIQUE = 2,
@@ -135,9 +114,8 @@ pub enum IndexTypes {
 
 /// index algorithm, see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
-#[derive(
-    Deserialize_repr, Serialize_repr, EnumString, FromPrimitive, Debug, Display, Default, Clone,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexAlgorithm {
     IA_SE_SPECIFIC = 1,
     IA_BTREE = 2,
@@ -150,17 +128,8 @@ pub enum IndexAlgorithm {
 
 /// index order, see sql/dd/types/index.h, enum class enum_index_algorithm
 #[repr(u8)]
-#[derive(
-    Deserialize_repr,
-    Serialize_repr,
-    EnumString,
-    FromPrimitive,
-    Debug,
-    Display,
-    Default,
-    Clone,
-    Copy,
-)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum IndexOrder {
     #[default]
     ORDER_UNDEF = 1,
