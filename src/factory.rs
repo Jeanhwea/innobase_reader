@@ -17,7 +17,7 @@ use crate::{
         page::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
             INodePageBody, IndexHeader, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody,
-            FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_SIZE,
+            FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
         },
         record::Record,
     },
@@ -26,7 +26,7 @@ use crate::{
         def::{ColumnDef, ColumnTypes, HiddenTypes, IndexDef, IndexElementDef, TableDef},
     },
     util::{
-        self, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
+        self, u32_val, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
         unpack_newdate_val, unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
     },
 };
@@ -39,6 +39,7 @@ pub enum DataValue {
     RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     RollPtr(RollbackPointer),
+    PageNo(u32),
     I32(i32),
     I64(i64),
     Str(String),
@@ -300,13 +301,13 @@ impl DatafileFactory {
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {
         let page: BasePage<IndexPageBody> = self.read_page(page_no)?;
-        let page_level = page.page_body.idx_hdr.page_level;
-        if page_level != 0 {
-            return Err(Error::msg(format!(
-                "不支持查看非叶子节点: page_level={:?}",
-                page_level
-            )));
-        }
+        // let page_level = page.page_body.idx_hdr.page_level;
+        // if page_level != 0 {
+        //     return Err(Error::msg(format!(
+        //         "不支持查看非叶子节点: page_level={:?}",
+        //         page_level
+        //     )));
+        // }
 
         let tabdef = self.load_table_def()?;
         let index_id = page.page_body.idx_hdr.page_index_id;
@@ -340,6 +341,12 @@ impl DatafileFactory {
                     .data_list
                     .iter()
                     .map(|d| {
+                        if d.opx == PAGE_NONE as usize {
+                            return (
+                                "NODE_PTR".to_string(),
+                                DataValue::PageNo(u32_val(&d.rbuf.clone().unwrap(), 0)),
+                            );
+                        }
                         let col = &tabdef.col_defs[d.opx];
                         let val = match &d.rbuf {
                             Some(b) => match col.hidden {
@@ -381,7 +388,6 @@ impl DatafileFactory {
                                 },
                                 _ => todo!("不支持的隐藏字段类型: {:?}", col),
                             },
-
                             None => DataValue::Null,
                         };
                         (col.col_name.clone(), val)
