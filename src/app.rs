@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// number of element per line
-const ELEMENT_PER_LINE: usize = 8;
+const N_ELE_PER_LINE: usize = 8;
 
 #[derive(Debug)]
 pub struct App {
@@ -279,14 +279,14 @@ impl App {
             let page_no = faddr.page_no as usize;
             let xdes = fact.read_xdes_entry(page_no, faddr.boffset)?;
 
-            if i % ELEMENT_PER_LINE == 1 {
+            if i % N_ELE_PER_LINE == 1 {
                 print!("   {:>3} => ", i);
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
             print!("{:>7}", extno(xdes_no));
 
-            if i % ELEMENT_PER_LINE == 0 {
+            if i % N_ELE_PER_LINE == 0 {
                 println!();
             }
 
@@ -294,7 +294,7 @@ impl App {
             i += 1;
         }
 
-        if i % ELEMENT_PER_LINE != 1 {
+        if i % N_ELE_PER_LINE != 1 {
             println!();
         }
 
@@ -303,15 +303,15 @@ impl App {
 
     fn do_walk_page_frag(&self, arr: &[u32]) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
-            if i % ELEMENT_PER_LINE == 0 {
+            if i % N_ELE_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
             }
             print!("{:>7}", pagno(*page_no as usize));
-            if (i + 1) % ELEMENT_PER_LINE == 0 {
+            if (i + 1) % N_ELE_PER_LINE == 0 {
                 println!();
             }
         }
-        if arr.len() % ELEMENT_PER_LINE != 0 {
+        if arr.len() % N_ELE_PER_LINE != 0 {
             println!();
         }
         Ok(())
