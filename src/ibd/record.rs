@@ -225,9 +225,12 @@ pub struct RowInfo {
     /// record status
     pub rec_status: RecordStatus,
 
+    /// table definition
     #[derivative(Debug = "ignore")]
     pub table_def: Arc<TableDef>,
-    pub index_pos: usize, // &tabdef.clone().idx_defs[index_pos]
+
+    /// which index, &tabdef.clone().idx_defs[index_pos]
+    pub index_pos: usize,
 }
 
 impl RowInfo {
@@ -579,11 +582,16 @@ pub struct Record {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// row information
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub row_info: Arc<RowInfo>, // row information
+    pub row_info: Arc<RowInfo>,
+
+    /// (5 bytes) record header
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub rec_hdr: RecordHeader, // record header
-    pub row_data: RowData, // row data
+    pub rec_hdr: RecordHeader,
+
+    /// row data
+    pub row_data: RowData,
 }
 
 impl Record {
