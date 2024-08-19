@@ -174,7 +174,7 @@ impl App {
     }
 
     fn do_list_inodes(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("INode Entry List:");
+        println!("INode:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
@@ -254,7 +254,7 @@ impl App {
     }
 
     fn do_list_extents(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("XDES bitmap: [F => free, X => non-free], [C => clean, D => dirty]");
+        println!("XDES: ");
 
         self.do_list_ext_free_map(fact)?;
         self.do_list_ext_clean_map(fact)?;
