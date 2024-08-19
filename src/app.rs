@@ -193,26 +193,47 @@ impl App {
             );
             if inode.fseg_free.len > 0 {
                 println!("  {}", "fseg_free:".green());
-                self.do_walk_flst(fact, &inode.fseg_free)?;
+                self.do_walk_xdes_flst(fact, &inode.fseg_free)?;
             }
             if inode.fseg_not_full.len > 0 {
                 println!("  {}", "fseg_not_full:".yellow());
-                self.do_walk_flst(fact, &inode.fseg_not_full)?;
+                self.do_walk_xdes_flst(fact, &inode.fseg_not_full)?;
             }
             if inode.fseg_full.len > 0 {
                 println!("  {}", "fseg_full:".red());
-                self.do_walk_flst(fact, &inode.fseg_full)?;
+                self.do_walk_xdes_flst(fact, &inode.fseg_full)?;
             }
             if !inode.fseg_frag_arr.is_empty() {
                 println!("  {}", "fseg_frag_arr:".cyan());
-                self.do_walk_page(&inode.fseg_frag_arr)?;
+                self.do_walk_page_frag(&inode.fseg_frag_arr)?;
             }
         }
+
+        self.do_walk_seg_inode(fact)?;
 
         Ok(())
     }
 
-    fn do_walk_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
+    fn do_walk_seg_inode(&self, fact: &mut DatafileFactory) -> Result<()> {
+        let tabdef = fact.load_table_def()?;
+        for idxdef in &tabdef.idx_defs {
+            info!("idxdef={:?}", idxdef);
+            if idxdef.idx_root <= 0 {
+                return Err(Error::msg(format!(
+                    "无法找到索引的 root 字段: {:?}",
+                    &idxdef
+                )));
+            }
+
+            let page_no = idxdef.idx_root as usize;
+            let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+            let fseg_hdr = &index_page.page_body.fseg_hdr;
+            let ient = fact.read_inode_entry(fseg_hdr.leaf_page_no, fseg_hdr.leaf_offset)?;
+        }
+        Ok(())
+    }
+
+    fn do_walk_xdes_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
         let mut faddr = base.first.clone();
         let mut i = 1;
         loop {
@@ -245,7 +266,7 @@ impl App {
         Ok(())
     }
 
-    fn do_walk_page(&self, arr: &[u32]) -> Result<()> {
+    fn do_walk_page_frag(&self, arr: &[u32]) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
             if i % ELEMENT_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
