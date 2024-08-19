@@ -423,10 +423,11 @@ impl App {
 
         for idx in &tabdef.idx_defs {
             println!(
-                "IDX{}: idx_name={}, idx_type={}, algorithm={}",
+                "IDX{}: idx_name={}, idx_type={}, root={}, algorithm={}",
                 idx.pos,
                 idx.idx_name.magenta(),
                 idx.idx_type.to_string().blue(),
+                idx.idx_root,
                 idx.algorithm.to_string().cyan(),
             );
             for e in &idx.elements {
