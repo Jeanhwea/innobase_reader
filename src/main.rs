@@ -31,6 +31,9 @@ enum Commands {
     Info,
     /// List all page. page_type, page_number and more
     List {
+        // list the index segments
+        #[arg(short, long, default_value_t = false)]
+        indexes: bool,
         // list the segments
         #[arg(short, long, default_value_t = false)]
         segments: bool,
