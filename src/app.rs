@@ -16,6 +16,7 @@ use crate::{
         SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
         XDES_PAGE_COUNT,
     },
+    util::{extno, pagno},
     Commands,
 };
 
@@ -202,18 +203,7 @@ impl App {
             }
             if !inode.fseg_frag_arr.is_empty() {
                 println!("  {}", "fseg_fray_arr:".cyan());
-                for (i, page_no) in inode.fseg_frag_arr.iter().enumerate() {
-                    if i % NUM_PER_LINE == 0 {
-                        print!("   {:>03}:", i);
-                    }
-                    print!(" {:>5}", page_no);
-                    if (i + 1) % NUM_PER_LINE == 0 {
-                        println!();
-                    }
-                }
-                if inode.fseg_frag_arr.len() % NUM_PER_LINE != 0 {
-                    println!();
-                }
+                self.do_walk_page(&inode.fseg_frag_arr)?;
             }
         }
 
@@ -236,7 +226,7 @@ impl App {
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!(" {:>5}", xdes_no);
+            print!(" {}", extno(xdes_no));
 
             if i % NUM_PER_LINE == 0 {
                 println!();
@@ -250,6 +240,22 @@ impl App {
             println!();
         }
 
+        Ok(())
+    }
+
+    fn do_walk_page(&self, arr: &Vec<u32>) -> Result<()> {
+        for (i, page_no) in arr.iter().enumerate() {
+            if i % NUM_PER_LINE == 0 {
+                print!("   {:>03}:", i);
+            }
+            print!(" {}", pagno(*page_no as usize));
+            if (i + 1) % NUM_PER_LINE == 0 {
+                println!();
+            }
+        }
+        if arr.len() % NUM_PER_LINE != 0 {
+            println!();
+        }
         Ok(())
     }
 
@@ -278,7 +284,7 @@ impl App {
 
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {}: ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -327,7 +333,7 @@ impl App {
             // Print Clean Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {}: ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -383,7 +389,7 @@ impl App {
             };
             if i % XDES_PAGE_COUNT == 0 {
                 let xdes_no = i / XDES_PAGE_COUNT;
-                print!(" {:>04}: ", xdes_no);
+                print!(" {}: ", extno(xdes_no));
             }
             print!("{}", page_type_rept);
             if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {

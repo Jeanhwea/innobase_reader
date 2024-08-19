@@ -152,6 +152,14 @@ pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
     }
 }
 
+pub fn pagno(page_no: usize) -> String {
+    format!("#{:>04}", page_no)
+}
+
+pub fn extno(xdes_no: usize) -> String {
+    format!("${:>04}", xdes_no)
+}
+
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
     let input_buffer = input.to_vec();
     let mut decoder = ZlibDecoder::new(&*input_buffer);
