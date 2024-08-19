@@ -244,7 +244,7 @@ impl App {
         Ok(())
     }
 
-    fn do_walk_page(&self, arr: &Vec<u32>) -> Result<()> {
+    fn do_walk_page(&self, arr: &[u32]) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
             if i % ELEMENT_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
