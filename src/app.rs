@@ -47,10 +47,10 @@ impl App {
         match command {
             Commands::Info => self.do_info()?,
             Commands::List {
-                indexes: ind,
-                segments: seg,
-                extents: ext,
-                pages: pag,
+                index: ind,
+                segment: seg,
+                extent: ext,
+                page: pag,
                 all,
             } => self.do_list(ind, seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
@@ -669,9 +669,10 @@ mod app_tests {
         let mut app = App::new(PathBuf::from(IBD_01));
         assert!(app
             .run(Commands::List {
-                segments: false,
-                extents: false,
-                pages: false,
+                index: false,
+                segment: false,
+                extent: false,
+                page: false,
                 all: true,
             })
             .is_ok());

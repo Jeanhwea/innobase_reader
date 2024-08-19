@@ -33,16 +33,16 @@ enum Commands {
     List {
         // list the index segments
         #[arg(short, long, default_value_t = false)]
-        indexes: bool,
+        index: bool,
         // list the segments
         #[arg(short, long, default_value_t = false)]
-        segments: bool,
+        segment: bool,
         // list the extents
         #[arg(short, long, default_value_t = false)]
-        extents: bool,
+        extent: bool,
         // list the pages
         #[arg(short, long, default_value_t = false)]
-        pages: bool,
+        page: bool,
         // list all map
         #[arg(short, long, default_value_t = false)]
         all: bool,
