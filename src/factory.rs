@@ -15,8 +15,9 @@ use log::{debug, info, warn};
 use crate::{
     ibd::{
         page::{
-            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, IndexPageBody,
-            SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE, PAGE_SIZE,
+            BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
+            INodePageBody, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody, FIL_HEADER_SIZE,
+            PAGE_SIZE,
         },
         record::Record,
     },
@@ -59,17 +60,20 @@ pub struct ResultSet {
 
 #[derive(Debug)]
 pub struct DatafileFactory {
-    /// Target datafile
+    /// target datafile
     pub target: PathBuf,
 
-    /// Data file handler
+    /// data file handler
     pub file_handler: File,
 
-    /// Data file size
+    /// data file size
     pub file_size: usize,
 
-    /// File Addr Cache
-    pub fil_addr_cache: HashMap<usize, HashMap<u16, XDesEntry>>,
+    /// segment descriptor cache, the inode cache, map[page_no, boffset] => INodeEntry
+    pub inode_cache: HashMap<usize, HashMap<u16, INodeEntry>>,
+
+    /// extent descriptor cache, map[page_no, boffset] => XDesEntry
+    pub extent_cache: HashMap<usize, HashMap<u16, XDesEntry>>,
 }
 
 impl DatafileFactory {
@@ -87,7 +91,8 @@ impl DatafileFactory {
             target,
             file_size: size,
             file_handler: file,
-            fil_addr_cache: HashMap::new(),
+            inode_cache: HashMap::new(),
+            extent_cache: HashMap::new(),
         })
     }
 
@@ -134,8 +139,34 @@ impl DatafileFactory {
         Ok(BasePage::new(0, buf.clone()))
     }
 
-    pub fn read_flst_node(&mut self, page_no: usize, boffset: u16) -> Result<XDesEntry> {
-        let xdes = match self.fil_addr_cache.get(&page_no) {
+    pub fn read_inode_entry(&mut self, page_no: usize, boffset: u16) -> Result<INodeEntry> {
+        let inode = match self.inode_cache.get(&page_no) {
+            Some(inode_map) => inode_map
+                .get(&boffset)
+                .expect("未找到 INodeEntry 数据项")
+                .clone(),
+            None => {
+                let inode_map = self
+                    .read_page::<INodePageBody>(page_no)?
+                    .page_body
+                    .inode_ent_list
+                    .iter()
+                    .map(|ent| (ent.addr as u16, ent.clone()))
+                    .collect::<HashMap<_, _>>();
+                let inode_entry = inode_map
+                    .get(&boffset)
+                    .expect("未找到 INodeEntry 数据项")
+                    .clone();
+                self.inode_cache.insert(page_no, inode_map);
+                inode_entry
+            }
+        };
+
+        Ok(inode)
+    }
+
+    pub fn read_xdes_entry(&mut self, page_no: usize, boffset: u16) -> Result<XDesEntry> {
+        let xdes = match self.extent_cache.get(&page_no) {
             Some(xdes_map) => xdes_map
                 .get(&boffset)
                 .expect("未找到 XDesEntry 数据项")
@@ -152,7 +183,7 @@ impl DatafileFactory {
                     .get(&boffset)
                     .expect("未找到 XDesEntry 数据项")
                     .clone();
-                self.fil_addr_cache.insert(page_no, xdes_map);
+                self.extent_cache.insert(page_no, xdes_map);
                 xdes_entry
             }
         };

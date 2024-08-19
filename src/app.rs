@@ -12,8 +12,8 @@ use log::{debug, error, info};
 use crate::{
     factory::DatafileFactory,
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodePageBody, IndexPageBody, PageTypes,
-        SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
+        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
+        PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
         XDES_PAGE_COUNT,
     },
     util::{extno, pagno},
@@ -47,11 +47,12 @@ impl App {
         match command {
             Commands::Info => self.do_info()?,
             Commands::List {
+                indexes: ind,
                 segments: seg,
                 extents: ext,
                 pages: pag,
                 all,
-            } => self.do_list(seg, ext, pag, all)?,
+            } => self.do_list(ind, seg, ext, pag, all)?,
             Commands::Desc => self.do_desc()?,
             Commands::Sdi {
                 table_define,
@@ -129,13 +130,19 @@ impl App {
         Ok(())
     }
 
-    fn do_list(&self, seg: bool, ext: bool, pag: bool, all: bool) -> Result<()> {
+    fn do_list(&self, ind: bool, seg: bool, ext: bool, pag: bool, all: bool) -> Result<()> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         if all {
             self.do_list_inodes(&mut fact)?;
             self.do_list_extents(&mut fact)?;
             self.do_list_pages(&mut fact)?;
+            self.do_list_indexes(&mut fact)?;
+            return Ok(());
+        }
+
+        if ind {
+            self.do_list_indexes(&mut fact)?;
             return Ok(());
         }
 
@@ -175,43 +182,90 @@ impl App {
         Ok(())
     }
 
+    fn do_list_indexes(&self, fact: &mut DatafileFactory) -> Result<()> {
+        let tabdef = fact.load_table_def()?;
+        for idxdef in &tabdef.idx_defs {
+            debug!("idxdef={:?}", idxdef);
+            if idxdef.idx_root <= 0 {
+                return Err(Error::msg(format!(
+                    "无法找到索引的 root 字段: {:?}",
+                    &idxdef
+                )));
+            }
+
+            let page_no = idxdef.idx_root as usize;
+            let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+            let fseg_hdr = &index_page.page_body.fseg_hdr;
+            println!(
+                "{}(non-leaf), space_id={}, page_no={}, boffset={}",
+                &idxdef.idx_name.to_string().yellow(),
+                fseg_hdr.nonleaf_space_id,
+                fseg_hdr.nonleaf_page_no,
+                fseg_hdr.nonleaf_offset,
+            );
+
+            let inode_nonleaf =
+                fact.read_inode_entry(fseg_hdr.nonleaf_page_no as usize, fseg_hdr.nonleaf_offset)?;
+            self.do_list_inode(fact, &inode_nonleaf)?;
+
+            println!(
+                "{}(leaf), space_id={}, page_no={}, boffset={}",
+                &idxdef.idx_name.to_string().yellow(),
+                fseg_hdr.leaf_space_id,
+                fseg_hdr.leaf_page_no,
+                fseg_hdr.leaf_offset,
+            );
+
+            let inode_leaf =
+                fact.read_inode_entry(fseg_hdr.leaf_page_no as usize, fseg_hdr.leaf_offset)?;
+            self.do_list_inode(fact, &inode_leaf)?;
+        }
+        Ok(())
+    }
+
     fn do_list_inodes(&self, fact: &mut DatafileFactory) -> Result<()> {
         println!("INode:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
         for inode in inodes {
-            println!(
-                " iseq={}: fseg_id={}, free={}, not-full={}, full={}, frag={}",
-                inode.inode_seq.to_string().blue(),
-                inode.fseg_id,
-                inode.fseg_free.len,
-                inode.fseg_not_full.len,
-                inode.fseg_full.len,
-                inode.fseg_frag_arr.len(),
-            );
-            if inode.fseg_free.len > 0 {
-                println!("  {}", "fseg_free:".green());
-                self.do_walk_flst(fact, &inode.fseg_free)?;
-            }
-            if inode.fseg_not_full.len > 0 {
-                println!("  {}", "fseg_not_full:".yellow());
-                self.do_walk_flst(fact, &inode.fseg_not_full)?;
-            }
-            if inode.fseg_full.len > 0 {
-                println!("  {}", "fseg_full:".red());
-                self.do_walk_flst(fact, &inode.fseg_full)?;
-            }
-            if !inode.fseg_frag_arr.is_empty() {
-                println!("  {}", "fseg_frag_arr:".cyan());
-                self.do_walk_page(&inode.fseg_frag_arr)?;
-            }
+            self.do_list_inode(fact, inode)?;
         }
 
         Ok(())
     }
 
-    fn do_walk_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
+    fn do_list_inode(&self, fact: &mut DatafileFactory, inode: &INodeEntry) -> Result<()> {
+        println!(
+            " iseq={}: fseg_id={}, free={}, not-full={}, full={}, frag={}, addr={}",
+            inode.inode_seq.to_string().blue(),
+            inode.fseg_id,
+            inode.fseg_free.len,
+            inode.fseg_not_full.len,
+            inode.fseg_full.len,
+            inode.fseg_frag_arr.len(),
+            inode.addr,
+        );
+        if inode.fseg_free.len > 0 {
+            println!("  {}", "fseg_free:".green());
+            self.do_walk_xdes_flst(fact, &inode.fseg_free)?;
+        }
+        if inode.fseg_not_full.len > 0 {
+            println!("  {}", "fseg_not_full:".yellow());
+            self.do_walk_xdes_flst(fact, &inode.fseg_not_full)?;
+        }
+        if inode.fseg_full.len > 0 {
+            println!("  {}", "fseg_full:".red());
+            self.do_walk_xdes_flst(fact, &inode.fseg_full)?;
+        }
+        if !inode.fseg_frag_arr.is_empty() {
+            println!("  {}", "fseg_frag_arr:".cyan());
+            self.do_walk_page_frag(&inode.fseg_frag_arr)?;
+        }
+        Ok(())
+    }
+
+    fn do_walk_xdes_flst(&self, fact: &mut DatafileFactory, base: &FlstBaseNode) -> Result<()> {
         let mut faddr = base.first.clone();
         let mut i = 1;
         loop {
@@ -220,7 +274,7 @@ impl App {
             }
 
             let page_no = faddr.page_no as usize;
-            let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
+            let xdes = fact.read_xdes_entry(page_no, faddr.boffset)?;
 
             if i % ELEMENT_PER_LINE == 1 {
                 print!("   {:>3} => ", i);
@@ -244,7 +298,7 @@ impl App {
         Ok(())
     }
 
-    fn do_walk_page(&self, arr: &[u32]) -> Result<()> {
+    fn do_walk_page_frag(&self, arr: &[u32]) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
             if i % ELEMENT_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
