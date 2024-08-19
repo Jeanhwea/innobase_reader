@@ -20,7 +20,8 @@ use crate::{
     Commands,
 };
 
-const NUM_PER_LINE: usize = 8;
+/// number of element per line
+const ELEMENT_PER_LINE: usize = 8;
 
 #[derive(Debug)]
 pub struct App {
@@ -221,14 +222,14 @@ impl App {
             let page_no = faddr.page_no as usize;
             let xdes = fact.read_flst_node(page_no, faddr.boffset)?;
 
-            if i % NUM_PER_LINE == 1 {
-                print!("   {:>3}:", i - 1);
+            if i % ELEMENT_PER_LINE == 1 {
+                print!("   {:>3} => ", i);
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!(" {:>5}", extno(xdes_no));
+            print!("{:>7}", extno(xdes_no));
 
-            if i % NUM_PER_LINE == 0 {
+            if i % ELEMENT_PER_LINE == 0 {
                 println!();
             }
 
@@ -236,24 +237,24 @@ impl App {
             i += 1;
         }
 
-        if i % NUM_PER_LINE != 1 {
+        if i % ELEMENT_PER_LINE != 1 {
             println!();
         }
 
         Ok(())
     }
 
-    fn do_walk_page(&self, arr: &Vec<u32>) -> Result<()> {
+    fn do_walk_page(&self, arr: &[u32]) -> Result<()> {
         for (i, page_no) in arr.iter().enumerate() {
-            if i % NUM_PER_LINE == 0 {
-                print!("   {:>3}:", i);
+            if i % ELEMENT_PER_LINE == 0 {
+                print!("   {:>3} => ", i);
             }
-            print!(" {:>5}", pagno(*page_no as usize));
-            if (i + 1) % NUM_PER_LINE == 0 {
+            print!("{:>7}", pagno(*page_no as usize));
+            if (i + 1) % ELEMENT_PER_LINE == 0 {
                 println!();
             }
         }
-        if arr.len() % NUM_PER_LINE != 0 {
+        if arr.len() % ELEMENT_PER_LINE != 0 {
             println!();
         }
         Ok(())
@@ -365,8 +366,8 @@ impl App {
     }
 
     fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Pages: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated");
-        println!("       Y:SYS, T:TRX_SYS, U:UNDO_LOG, B:IBUF_BITMAP, ?:Unknown");
+        println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated");
+        println!("      Y:SYS, T:TRX_SYS, U:UNDO_LOG, B:IBUF_BITMAP, ?:Unknown");
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -409,7 +410,7 @@ impl App {
         let tabdef = fact.load_table_def()?;
         for col in &tabdef.col_defs {
             println!(
-                "COL{}: name={}, dd_type={}, nullable={}, data_len={}, utf8_def={}",
+                "COL{}: name={}, type={}, nullable={}, data_len={}, utf8_def={}",
                 col.pos,
                 col.col_name.magenta(),
                 col.dd_type.to_string().blue(),
@@ -422,10 +423,12 @@ impl App {
 
         for idx in &tabdef.idx_defs {
             println!(
-                "IDX{}: idx_name={}, idx_type={}, algorithm={}",
+                "IDX{}: name={}, type={}, id={}, root={}, algorithm={}",
                 idx.pos,
                 idx.idx_name.magenta(),
                 idx.idx_type.to_string().blue(),
+                idx.idx_id,
+                idx.idx_root,
                 idx.algorithm.to_string().cyan(),
             );
             for e in &idx.elements {

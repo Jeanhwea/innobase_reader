@@ -232,7 +232,7 @@ impl DatafileFactory {
             .idx_defs
             .iter()
             .enumerate()
-            .find(|idx| idx.1.idx_id == index_id)
+            .find(|idx| idx.1.idx_id == index_id as i32)
         {
             Some(val) => val,
             None => {

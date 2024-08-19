@@ -9,7 +9,7 @@ use std::{
 use anyhow::Result;
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use flate2::read::ZlibDecoder;
 use log::{debug, trace};
 
@@ -152,12 +152,12 @@ pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
     }
 }
 
-pub fn pagno(page_no: usize) -> String {
-    format!("#{}", page_no)
+pub fn pagno(page_no: usize) -> ColoredString {
+    format!("#{}", page_no).cyan()
 }
 
-pub fn extno(xdes_no: usize) -> String {
-    format!("${}", xdes_no)
+pub fn extno(xdes_no: usize) -> ColoredString {
+    format!("${}", xdes_no).yellow()
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
@@ -269,6 +269,7 @@ pub fn unpack_i64_val(buf: &[u8]) -> i64 {
     }
 }
 
+/// enumeration value
 pub fn unpack_enum_val(buf: &[u8]) -> u16 {
     match buf.len() {
         1 => u16::from_be_bytes([0, buf[0]]),
@@ -277,7 +278,7 @@ pub fn unpack_enum_val(buf: &[u8]) -> u16 {
     }
 }
 
-// signed(1), year(14), month(4), day(5)
+/// signed(1), year(14), month(4), day(5)
 pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     let arr = [0, b[0], b[1], b[2]];
     let val = u32::from_be_bytes(arr);
@@ -289,14 +290,14 @@ pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(year as i32, month, day)
 }
 
-// u32 => unix timestamp
+/// u32 => unix timestamp
 pub fn unpack_timestamp2_val(b: &Bytes) -> DateTime<Local> {
     let arr = [b[0], b[1], b[2], b[3]];
     let val = u32::from_be_bytes(arr);
     DateTime::from_timestamp(val.into(), 0).unwrap().into()
 }
 
-// signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
+/// signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
 pub fn unpack_datetime2_val(b: &Bytes) -> Option<NaiveDateTime> {
     let arr = [0, 0, 0, b[0], b[1], b[2], b[3], b[4]];
     let val = u64::from_be_bytes(arr);
