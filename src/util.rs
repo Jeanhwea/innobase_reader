@@ -9,7 +9,7 @@ use std::{
 use anyhow::Result;
 use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use flate2::read::ZlibDecoder;
 use log::{debug, trace};
 
@@ -152,12 +152,12 @@ pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
     }
 }
 
-pub fn pagno(page_no: usize) -> String {
-    format!("#{}", page_no)
+pub fn pagno(page_no: usize) -> ColoredString {
+    format!("#{}", page_no).cyan()
 }
 
-pub fn extno(xdes_no: usize) -> String {
-    format!("${}", xdes_no)
+pub fn extno(xdes_no: usize) -> ColoredString {
+    format!("${}", xdes_no).yellow()
 }
 
 pub fn zlib_uncomp(input: Bytes) -> Result<String> {
