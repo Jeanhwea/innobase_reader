@@ -269,6 +269,7 @@ pub fn unpack_i64_val(buf: &[u8]) -> i64 {
     }
 }
 
+/// enumeration value
 pub fn unpack_enum_val(buf: &[u8]) -> u16 {
     match buf.len() {
         1 => u16::from_be_bytes([0, buf[0]]),
@@ -277,7 +278,7 @@ pub fn unpack_enum_val(buf: &[u8]) -> u16 {
     }
 }
 
-// signed(1), year(14), month(4), day(5)
+/// signed(1), year(14), month(4), day(5)
 pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     let arr = [0, b[0], b[1], b[2]];
     let val = u32::from_be_bytes(arr);
@@ -289,14 +290,14 @@ pub fn unpack_newdate_val(b: &Bytes) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(year as i32, month, day)
 }
 
-// u32 => unix timestamp
+/// u32 => unix timestamp
 pub fn unpack_timestamp2_val(b: &Bytes) -> DateTime<Local> {
     let arr = [b[0], b[1], b[2], b[3]];
     let val = u32::from_be_bytes(arr);
     DateTime::from_timestamp(val.into(), 0).unwrap().into()
 }
 
-// signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
+/// signed(1), year_month(17), day(5), hour(5), minute(6), second(6)
 pub fn unpack_datetime2_val(b: &Bytes) -> Option<NaiveDateTime> {
     let arr = [0, 0, 0, b[0], b[1], b[2], b[3], b[4]];
     let val = u64::from_be_bytes(arr);
