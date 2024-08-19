@@ -600,7 +600,7 @@ impl App {
                 let idx_hdr = fact.read_idx_hdr(page_no)?;
                 print!("[{:>1},{:>4}]", idx_hdr.page_level, idx_hdr.page_n_recs);
             } else {
-                print!("[{:<6.6}]", fil_hdr.page_type);
+                print!("[{:>6.6}]", fil_hdr.page_type);
             }
 
             if page_no % 8 == 7 {
