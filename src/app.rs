@@ -226,7 +226,7 @@ impl App {
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!(" {}", extno(xdes_no));
+            print!(" {:>5}", extno(xdes_no));
 
             if i % NUM_PER_LINE == 0 {
                 println!();
@@ -248,7 +248,7 @@ impl App {
             if i % NUM_PER_LINE == 0 {
                 print!("   {:>3}:", i);
             }
-            print!(" {}", pagno(*page_no as usize));
+            print!(" {:>5}", pagno(*page_no as usize));
             if (i + 1) % NUM_PER_LINE == 0 {
                 println!();
             }
@@ -284,7 +284,7 @@ impl App {
 
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {}: ", extno(xdes_no));
+                print!(" {:>5} ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -333,7 +333,7 @@ impl App {
             // Print Clean Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {}: ", extno(xdes_no));
+                print!(" {:>5} ", extno(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -389,7 +389,7 @@ impl App {
             };
             if i % XDES_PAGE_COUNT == 0 {
                 let xdes_no = i / XDES_PAGE_COUNT;
-                print!(" {}: ", extno(xdes_no));
+                print!(" {:>5} ", extno(xdes_no));
             }
             print!("{}", page_type_rept);
             if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
