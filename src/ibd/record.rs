@@ -405,6 +405,7 @@ impl RowInfo {
                 if col.isvar {
                     if !null {
                         let (nbyte, len) = self.varfld_len(varptr, col.data_len);
+                        info!("col={}, varptr={}, nbyte={}", &col.col_name, varptr, nbyte);
                         varptr -= nbyte;
                         vlen = len;
                     }
