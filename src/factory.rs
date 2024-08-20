@@ -320,7 +320,7 @@ impl DatafileFactory {
             Some(val) => val,
             None => {
                 return Err(Error::msg(format!(
-                    "未找到索引的元信息: index_id={:?}",
+                    "未找到索引的元信息: index_id={}",
                     index_id
                 )));
             }
