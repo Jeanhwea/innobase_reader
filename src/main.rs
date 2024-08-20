@@ -76,7 +76,7 @@ enum Commands {
         /// print more information
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
-        /// dump the b-tree root, default is the primary index
+        /// dump the b-tree root
         #[arg(short, long)]
         btree_root: Option<usize>,
     },
