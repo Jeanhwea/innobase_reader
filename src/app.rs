@@ -64,9 +64,15 @@ impl App {
                 limit,
                 garbage,
                 verbose,
+                btree_root: root,
             } => match page_no {
                 Some(page_no) => self.do_dump_index_record(page_no, limit, garbage, verbose)?,
-                None => self.do_dump_index_header()?,
+                None => match root {
+                    Some(root_page_no) => {
+                        info!("root_page_no={:?}", root_page_no);
+                    }
+                    None => self.do_dump_index_header()?,
+                },
             },
         }
 
@@ -743,6 +749,7 @@ mod app_tests {
             limit: 3,
             garbage: false,
             verbose: false,
+            btree_root: None,
         });
         assert!(ans.is_ok());
     }
@@ -757,7 +764,8 @@ mod app_tests {
                 page_no: Some(4),
                 limit: 3,
                 garbage: false,
-                verbose: false
+                verbose: false,
+                btree_root: None,
             })
             .is_ok());
     }
