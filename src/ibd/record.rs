@@ -499,15 +499,16 @@ impl RowInfo {
     }
 
     fn varfld_len(&self, varptr: usize, data_len: u32) -> (usize, usize) {
-        let nbyte = Self::field_byte(data_len);
+        let nbyte_guess = Self::field_byte(data_len);
 
-        let vlen = match nbyte {
+        let mut nbyte = 1;
+        let vlen = match nbyte_guess {
             1 => self.buf[varptr - 1] as usize,
             2 => {
                 let b0 = self.buf[varptr - 1] as usize;
                 if b0 > REC_N_FIELDS_ONE_BYTE_MAX.into() {
+                    nbyte = 2;
                     let b1 = self.buf[varptr - 2] as usize;
-                    // debug!("b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
                     b1 + ((b0 & (REC_N_FIELDS_ONE_BYTE_MAX as usize)) << 8)
                 } else {
                     b0
