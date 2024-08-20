@@ -10,7 +10,7 @@ use colored::Colorize;
 use log::{debug, error, info};
 
 use crate::{
-    factory::DatafileFactory,
+    factory::{DataValue, DatafileFactory},
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
         PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
@@ -64,9 +64,19 @@ impl App {
                 limit,
                 garbage,
                 verbose,
+                btree_root: root,
             } => match page_no {
                 Some(page_no) => self.do_dump_index_record(page_no, limit, garbage, verbose)?,
-                None => self.do_dump_index_header()?,
+                None => match root {
+                    Some(root_page_no) => {
+                        debug!("root_page_no={:?}", root_page_no);
+                        self.do_dump_btree(root_page_no)?;
+                    }
+                    None => {
+                        debug!("dump all index header");
+                        self.do_dump_index_header()?
+                    }
+                },
             },
         }
 
@@ -587,6 +597,66 @@ impl App {
         Ok(())
     }
 
+    fn do_dump_btree(&self, root_page_no: usize) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let fil_hdr = fact.read_fil_hdr(root_page_no)?;
+        let page_type = fil_hdr.page_type;
+        if page_type != PageTypes::INDEX {
+            return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
+        }
+
+        self.do_traverse_index(&mut fact, root_page_no, 0)?;
+
+        Ok(())
+    }
+
+    fn do_traverse_index(
+        &self,
+        fact: &mut DatafileFactory,
+        page_no: usize,
+        indent: usize,
+    ) -> Result<()> {
+        let curr: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+        let idx_hdr = &curr.page_body.idx_hdr;
+        for _ in 0..indent {
+            print!("  ");
+        }
+        let result_set = fact.unpack_index_page(page_no, false)?;
+
+        let first = &result_set.tuples[0];
+        let sep_idx = first
+            .iter()
+            .position(|(_, val)| {
+                matches!(
+                    val,
+                    DataValue::PageNo(_) | DataValue::TrxId(_) | DataValue::RollPtr(_)
+                )
+            })
+            .unwrap_or(first.len());
+        let key = &first[0..sep_idx];
+        println!(
+            "{}: level={}, min_key={:?}, n_rec={}",
+            pagno(page_no),
+            idx_hdr.page_level,
+            &key,
+            idx_hdr.page_n_recs,
+        );
+
+        if idx_hdr.page_level > 0 {
+            for tuple in &result_set.tuples {
+                let node_ptr = tuple.last().unwrap();
+                match node_ptr.1 {
+                    DataValue::PageNo(child_page_no) => {
+                        self.do_traverse_index(fact, child_page_no as usize, indent + 1)?;
+                    }
+                    _ => panic!("错误的节点: {:?}", tuple),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn do_dump_index_header(&self) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         for page_no in 0..fact.page_count() {
@@ -743,6 +813,7 @@ mod app_tests {
             limit: 3,
             garbage: false,
             verbose: false,
+            btree_root: None,
         });
         assert!(ans.is_ok());
     }
@@ -757,7 +828,8 @@ mod app_tests {
                 page_no: Some(4),
                 limit: 3,
                 garbage: false,
-                verbose: false
+                verbose: false,
+                btree_root: None,
             })
             .is_ok());
     }

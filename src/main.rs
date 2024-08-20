@@ -18,7 +18,7 @@ mod util;
 #[derive(Debug, Parser)]
 #[command(author, version, about = "The innobase datafile(*.ibd) reader", long_about = None)]
 pub struct Args {
-    /// Input innodb data file. for example departments.ibd
+    /// input innodb datafile. for example departments.ibd
     input: PathBuf,
 
     #[command(subcommand)]
@@ -27,9 +27,9 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Print basic information.
+    /// print basic information.
     Info,
-    /// List all page. page_type, page_number and more
+    /// list all page. page_type, page_number and more
     List {
         /// list index data
         #[arg(short, long, default_value_t = false)]
@@ -47,9 +47,9 @@ enum Commands {
         #[arg(short, long, default_value_t = false)]
         all: bool,
     },
-    /// Describe Datafile Information by SDI page
+    /// describe datafile information by sdi page
     Desc,
-    /// Print SDI Json
+    /// print sdi json
     Sdi {
         /// print parsed table definition
         #[arg(short, long, default_value_t = false)]
@@ -58,24 +58,27 @@ enum Commands {
         #[arg(short, long, default_value_t = false)]
         root_segments: bool,
     },
-    /// View page data with given page_no.
+    /// view page data with given page_no.
     View {
-        /// Page number, starts from 0.
+        /// page number, starts from 0.
         page_no: usize,
     },
-    /// Dump Index Page User Records
+    /// dump index page user records
     Dump {
-        /// Page number, starts from 0.
+        /// page number, starts from 0.
         page_no: Option<usize>,
-        /// Limit the total row in the dump
+        /// limit the total row in the dump
         #[arg(short, long, default_value_t = 10)]
         limit: usize,
-        /// Dump the garbage list
+        /// dump the garbage list
         #[arg(short, long, default_value_t = false)]
         garbage: bool,
-        /// Print more information
+        /// print more information
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
+        /// dump the b-tree root
+        #[arg(short, long)]
+        btree_root: Option<usize>,
     },
 }
 
