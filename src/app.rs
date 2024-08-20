@@ -622,12 +622,24 @@ impl App {
             print!("  ");
         }
         let result_set = fact.unpack_index_page(page_no, false)?;
+
+        let first = &result_set.tuples[0];
+        let sep_idx = first
+            .iter()
+            .position(|(_, val)| {
+                matches!(
+                    val,
+                    DataValue::PageNo(_) | DataValue::TrxId(_) | DataValue::RollPtr(_)
+                )
+            })
+            .unwrap_or(first.len());
+        let key = &first[0..sep_idx];
         println!(
-            "{}: level={}, n_rec={}, min_rec={:?}",
+            "{}: level={}, n_rec={}, key={:?}",
             pagno(page_no),
             idx_hdr.page_level,
             idx_hdr.page_n_recs,
-            &result_set.tuples[0]
+            &key,
         );
 
         if idx_hdr.page_level > 0 {
