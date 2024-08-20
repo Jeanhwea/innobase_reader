@@ -275,6 +275,7 @@ impl RowInfo {
         }
     }
 
+    /// patch byte for VERSION and INSTANT flags is on
     fn get_patch_byte(&self) -> usize {
         if self.row_version > 0 || self.instant_flag {
             1
