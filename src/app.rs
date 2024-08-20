@@ -10,7 +10,7 @@ use colored::Colorize;
 use log::{debug, error, info};
 
 use crate::{
-    factory::DatafileFactory,
+    factory::{DataValue, DatafileFactory},
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
         PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
@@ -69,9 +69,13 @@ impl App {
                 Some(page_no) => self.do_dump_index_record(page_no, limit, garbage, verbose)?,
                 None => match root {
                     Some(root_page_no) => {
-                        info!("root_page_no={:?}", root_page_no);
+                        debug!("root_page_no={:?}", root_page_no);
+                        self.do_dump_btree(root_page_no)?;
                     }
-                    None => self.do_dump_index_header()?,
+                    None => {
+                        debug!("dump all index header");
+                        self.do_dump_index_header()?
+                    }
                 },
             },
         }
@@ -590,6 +594,54 @@ impl App {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
             }
         }
+        Ok(())
+    }
+
+    fn do_dump_btree(&self, root_page_no: usize) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let fil_hdr = fact.read_fil_hdr(root_page_no)?;
+        let page_type = fil_hdr.page_type;
+        if page_type != PageTypes::INDEX {
+            return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
+        }
+
+        self.do_traverse_index(&mut fact, root_page_no, 0)?;
+
+        Ok(())
+    }
+
+    fn do_traverse_index(
+        &self,
+        fact: &mut DatafileFactory,
+        page_no: usize,
+        indent: usize,
+    ) -> Result<()> {
+        let curr: BasePage<IndexPageBody> = fact.read_page(page_no)?;
+        let idx_hdr = &curr.page_body.idx_hdr;
+        for _ in 0..indent {
+            print!("  ");
+        }
+        let result_set = fact.unpack_index_page(page_no, false)?;
+        println!(
+            "{}: level={}, n_rec={}, min_rec={:?}",
+            pagno(page_no),
+            idx_hdr.page_level,
+            idx_hdr.page_n_recs,
+            &result_set.tuples[0]
+        );
+
+        if idx_hdr.page_level > 0 {
+            for tuple in &result_set.tuples {
+                let node_ptr = tuple.last().unwrap();
+                match node_ptr.1 {
+                    DataValue::PageNo(child_page_no) => {
+                        self.do_traverse_index(fact, child_page_no as usize, indent + 1)?;
+                    }
+                    _ => panic!("错误的节点: {:?}", tuple),
+                }
+            }
+        }
+
         Ok(())
     }
 
