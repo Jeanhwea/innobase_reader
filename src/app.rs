@@ -635,11 +635,11 @@ impl App {
             .unwrap_or(first.len());
         let key = &first[0..sep_idx];
         println!(
-            "{}: level={}, n_rec={}, key={:?}",
+            "{}: level={}, min_key={:?}, n_rec={}",
             pagno(page_no),
             idx_hdr.page_level,
-            idx_hdr.page_n_recs,
             &key,
+            idx_hdr.page_n_recs,
         );
 
         if idx_hdr.page_level > 0 {
