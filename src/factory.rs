@@ -60,10 +60,10 @@ pub struct RollbackPointer {
     pub roll_ptr: u64,
 
     /// (1 bit) insert flag
-    pub insert_flag: bool,
+    pub insert: bool,
 
     /// (7 bits) rollback segment id
-    pub rb_seg_id: u8,
+    pub seg_id: u8,
 
     /// (4 bytes) page number
     pub page_no: usize,
@@ -76,8 +76,8 @@ impl RollbackPointer {
     pub fn from(roll_ptr: u64) -> Self {
         Self {
             roll_ptr,
-            insert_flag: ((roll_ptr >> 55) & 0x1) > 0,
-            rb_seg_id: ((roll_ptr >> 48) & 0x7f) as u8,
+            insert: ((roll_ptr >> 55) & 0x1) > 0,
+            seg_id: ((roll_ptr >> 48) & 0x7f) as u8,
             page_no: ((roll_ptr >> 16) & 0xffffffff) as usize,
             boffset: (roll_ptr & 0xffff) as u16,
         }
