@@ -38,7 +38,7 @@ pub const SDI_META_INFO_MIN_VER: u32 = 80000;
 pub enum DataValue {
     RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
     TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
-    RollPtr(RollbackPointer),
+    RbPtr(RollPtr),
     PageNo(u32),
     I32(i32),
     I64(i64),
@@ -54,7 +54,7 @@ pub enum DataValue {
 /// Parsed rollback porinter
 #[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
-pub struct RollbackPointer {
+pub struct RollPtr {
     #[derivative(Debug(format_with = "util::fmt_hex56"))]
     /// (7 bytes) origin bytes value
     pub roll_ptr: u64,
@@ -72,7 +72,7 @@ pub struct RollbackPointer {
     pub boffset: u16,
 }
 
-impl RollbackPointer {
+impl RollPtr {
     pub fn from(roll_ptr: u64) -> Self {
         Self {
             roll_ptr,
@@ -382,7 +382,7 @@ impl DatafileFactory {
                                     "DB_ROW_ID" => DataValue::RowId(unpack_u48_val(b)),
                                     "DB_TRX_ID" => DataValue::TrxId(unpack_u48_val(b)),
                                     "DB_ROLL_PTR" => {
-                                        DataValue::RollPtr(RollbackPointer::from(unpack_u56_val(b)))
+                                        DataValue::RbPtr(RollPtr::from(unpack_u56_val(b)))
                                     }
                                     _ => todo!("不支持的隐藏字段名称: {:?}", col),
                                 },
@@ -519,13 +519,13 @@ mod factory_tests {
         // first row
         assert_eq!(tuples[0][0].1, DataValue::Str("d001".into()));
         assert!(matches!(tuples[0][1].1, DataValue::TrxId(_)));
-        assert!(matches!(tuples[0][2].1, DataValue::RollPtr(_)));
+        assert!(matches!(tuples[0][2].1, DataValue::RbPtr(_)));
         assert_eq!(tuples[0][3].1, DataValue::Str("Marketing".into()));
 
         // last row
         assert_eq!(tuples[8][0].1, DataValue::Str("d009".into()));
         assert!(matches!(tuples[8][1].1, DataValue::TrxId(_)));
-        assert!(matches!(tuples[8][2].1, DataValue::RollPtr(_)));
+        assert!(matches!(tuples[8][2].1, DataValue::RbPtr(_)));
         assert_eq!(tuples[8][3].1, DataValue::Str("Customer Service".into()));
 
         Ok(())
@@ -558,7 +558,7 @@ mod factory_tests {
         assert_eq!(tuples[0][0].1, DataValue::I32(110022));
         assert_eq!(tuples[0][1].1, DataValue::Str("d001".into()));
         assert!(matches!(tuples[0][2].1, DataValue::TrxId(_)));
-        assert!(matches!(tuples[0][3].1, DataValue::RollPtr(_)));
+        assert!(matches!(tuples[0][3].1, DataValue::RbPtr(_)));
         assert_eq!(tuples[0][4].1, DataValue::Date(util::dateval("1985-01-01")));
         assert_eq!(tuples[0][5].1, DataValue::Date(util::dateval("1991-10-01")));
 
