@@ -56,7 +56,7 @@ pub enum DataValue {
 #[derivative(Debug)]
 pub struct RollPtr {
     #[derivative(Debug(format_with = "util::fmt_hex56"))]
-    /// (7 bytes) origin bytes value
+    /// (7 bytes) original rollback pointer bytes value
     pub rptr: u64,
 
     /// (1 bit) insert flag
