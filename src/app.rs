@@ -629,7 +629,7 @@ impl App {
             .position(|(_, val)| {
                 matches!(
                     val,
-                    DataValue::PageNo(_) | DataValue::TrxId(_) | DataValue::RollPtr(_)
+                    DataValue::PageNo(_) | DataValue::TrxId(_) | DataValue::RbPtr(_)
                 )
             })
             .unwrap_or(first.len());

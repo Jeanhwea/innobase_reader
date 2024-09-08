@@ -8,7 +8,7 @@
 
 * Install
 1. Download latest package from github release page | [[https://github.com/Jeanhwea/innobase_reader/releases/latest][here]]
-   - Windows use choose innobase_reader_xxx_x86_64-pc-windows-gnu.zip
+   - Windows user choose innobase_reader_xxx_x86_64-pc-windows-gnu.zip
    - Linux user choose innobase_reader_xxx_x86_64-unknown-linux-musl.tar.gz
 2. Uncompress package to get executable binary file (*ibr* or *ibr.exe*), THAT IT
    - The executable binary has no dependencies
