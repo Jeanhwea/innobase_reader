@@ -57,7 +57,7 @@ pub enum DataValue {
 pub struct RollPtr {
     #[derivative(Debug(format_with = "util::fmt_hex56"))]
     /// (7 bytes) original rollback pointer bytes value
-    pub rptr: u64,
+    pub rb_ptr: u64,
 
     /// (1 bit) insert flag
     pub insert: bool,
@@ -75,7 +75,7 @@ pub struct RollPtr {
 impl RollPtr {
     pub fn from(roll_ptr: u64) -> Self {
         Self {
-            rptr: roll_ptr,
+            rb_ptr: roll_ptr,
             insert: ((roll_ptr >> 55) & 0x1) > 0,
             seg_id: ((roll_ptr >> 48) & 0x7f) as u8,
             page_no: ((roll_ptr >> 16) & 0xffffffff) as usize,
