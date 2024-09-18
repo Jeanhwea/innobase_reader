@@ -1462,6 +1462,29 @@ impl DoubleWriteBufferInfo {
     }
 }
 
+
+/// Rollback Segment Array Page, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RSegArrayPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+}
+
+impl BasePageBody for RSegArrayPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// UNDO Log Page, see
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]

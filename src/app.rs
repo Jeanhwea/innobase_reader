@@ -12,9 +12,7 @@ use log::{debug, error, info};
 use crate::{
     factory::{DataValue, DatafileFactory},
     ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageTypes, SdiPageBody, TrxSysPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
-        XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT
     },
     util::{extno, pagno},
     Commands,
@@ -595,6 +593,14 @@ impl App {
             PageTypes::TRX_SYS => {
                 let trx_sys_page: BasePage<TrxSysPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", trx_sys_page);
+            }
+            PageTypes::RSEG_ARRAY => {
+                let rseg_array_page: BasePage<RSegArrayPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", rseg_array_page);
+            }
+            PageTypes::UNDO_LOG => {
+                let undo_log_page: BasePage<UndoLogPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", undo_log_page);
             }
             _ => {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
