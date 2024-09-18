@@ -52,6 +52,9 @@ pub const TRX_SYS_N_RSEGS: usize = 256;
 pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
 pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
 pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
+// magic number
+pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
+pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
@@ -1309,7 +1312,7 @@ impl RSegInfo {
     }
 }
 
-/// Transaction System Page, see trx0sys.h
+/// MySQL Log Info, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogInfo {
@@ -1346,6 +1349,71 @@ impl LogInfo {
     }
 }
 
+/// MySQL Double Write Buffer Info, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct DoubleWriteBufferInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (10 bytes) fseg header
+    pub fseg_hdr: FSegHeader,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub a_magic_number: u32,
+    /// (4 bytes) Block 1 start page number
+    pub a_block_1_start_page_no: u32,
+    /// (4 bytes) Block 2 start page number
+    pub a_block_2_start_page_no: u32,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub b_magic_number: u32,
+    /// (4 bytes) Block 1 start page number
+    pub b_block_1_start_page_no: u32,
+    /// (4 bytes) Block 2 start page number
+    pub b_block_2_start_page_no: u32,
+
+    /// (4 bytes) magic number
+    pub space_id_stored_magic_number: u32,
+}
+
+impl DoubleWriteBufferInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let info = Self {
+            fseg_hdr: FSegHeader::new(addr, buf.clone()),
+            a_magic_number: util::u32_val(&buf, addr + 10),
+            a_block_1_start_page_no: util::u32_val(&buf, addr + 14),
+            a_block_2_start_page_no: util::u32_val(&buf, addr + 18),
+            b_magic_number: util::u32_val(&buf, addr + 22),
+            b_block_1_start_page_no: util::u32_val(&buf, addr + 26),
+            b_block_2_start_page_no: util::u32_val(&buf, addr + 30),
+            space_id_stored_magic_number: util::u32_val(&buf, addr + 34),
+            buf: buf.clone(),
+            addr,
+        };
+
+        assert_eq!(
+            info.a_magic_number, TRX_SYS_DOUBLEWRITE_MAGIC_N,
+            "TRX_SYS_DOUBLEWRITE_MAGIC_N 数值错误"
+        );
+        assert_eq!(
+            info.b_magic_number, TRX_SYS_DOUBLEWRITE_MAGIC_N,
+            "TRX_SYS_DOUBLEWRITE_MAGIC_N 数值错误"
+        );
+        assert_eq!(
+            info.space_id_stored_magic_number, TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N,
+            "TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N 数值错误"
+        );
+
+        info
+    }
+}
+
 /// Transaction System Page, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1372,7 +1440,7 @@ pub struct TrxSysPageBody {
     /// (112 bytes) binlog log info
     pub log_info_1: LogInfo,
     /// (112 bytes) double write log info
-    pub log_info_9: LogInfo,
+    pub dbw_info: DoubleWriteBufferInfo,
 }
 
 impl BasePageBody for TrxSysPageBody {
@@ -1387,7 +1455,7 @@ impl BasePageBody for TrxSysPageBody {
             rseg_slots: slots,
             log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
             log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
-            log_info_9: LogInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
+            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
             buf: buf.clone(),
             addr,
         }
