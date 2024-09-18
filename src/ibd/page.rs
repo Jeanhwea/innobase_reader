@@ -47,6 +47,9 @@ pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
+// trx sys
+pub const TRX_SYS_N_RSEGS: usize = 256;
+
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
 
@@ -1272,6 +1275,37 @@ impl SdiPageBody {
     }
 }
 
+/// Rollback segment information, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RSegInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) space ID
+    pub space_id: u32,
+
+    /// (4 bytes) page number
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub page_no: u32,
+}
+
+impl RSegInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            space_id: util::u32_val(&buf, addr),
+            page_no: util::u32_val(&buf, addr + 4),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// Transaction System Page, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1289,13 +1323,21 @@ pub struct TrxSysPageBody {
 
     /// (10 bytes) segment header
     pub fseg_hdr: FSegHeader,
+
+    /// (10 bytes) the array of rollback segment specification slots
+    pub rseg_slots: Vec<RSegInfo>,
 }
 
 impl BasePageBody for TrxSysPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_SYS_N_RSEGS)
+            .map(|nth| RSegInfo::new(addr + 8 + 10 + 8 * nth, buf.clone()))
+            .filter(|rseg| rseg.page_no != PAGE_NONE)
+            .collect();
         Self {
             trx_id: util::u64_val(&buf, addr),
             fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
+            rseg_slots: slots,
             buf: buf.clone(),
             addr,
         }
