@@ -47,7 +47,7 @@ pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
-// trx sys
+// TRX_SYS transaction system page
 pub const TRX_SYS_N_RSEGS: usize = 256;
 pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
 pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
@@ -55,6 +55,10 @@ pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
 // magic number
 pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
 pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
+
+// RSEG_ARRAY rollback segment array
+pub const TRX_RSEG_SLOT_SIZE: usize = 4;
+pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
@@ -1488,7 +1492,7 @@ impl BasePageBody for RSegArrayPageBody {
     }
 }
 
-/// Rollback Segment Header, see
+/// Rollback Segment Header, see trx0rseg.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RollbackSegmentHeader {
@@ -1500,30 +1504,33 @@ pub struct RollbackSegmentHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (4 bytes)
+    /// (4 bytes) Maximum allowed size for rollback segment in pages, TRX_RSEG_MAX_SIZE
     pub max_size: u32,
-    /// (4 bytes)
-    pub hist_size: u32,
-    /// (16 bytes)
-    pub hist_flst_base: FlstBaseNode,
-    /// (10 bytes)
-    pub rseg_fseg: FSegHeader,
+
+    /// (4 bytes) Number of file pages occupied by the logs in the history list, TRX_RSEG_HISTORY_SIZE
+    pub history_size: u32,
+
+    /// (16 bytes) The update undo logs for committed transactions, TRX_RSEG_HISTORY
+    pub history_flst: FlstBaseNode,
+
+    /// (10 bytes) Header for the file segment where this page is placed, TRX_RSEG_FSEG_HEADER
+    pub fseg_hdr: FSegHeader,
 }
 
 impl RollbackSegmentHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             max_size: util::u32_val(&buf, addr),
-            hist_size: util::u32_val(&buf, addr+4),
-            hist_flst_base: FlstBaseNode::new(addr+8, buf.clone()),
-            rseg_fseg: FSegHeader::new(addr+24, buf.clone()),
+            history_size: util::u32_val(&buf, addr + 4),
+            history_flst: FlstBaseNode::new(addr + 8, buf.clone()),
+            fseg_hdr: FSegHeader::new(addr + 24, buf.clone()),
             buf: buf.clone(),
             addr,
         }
     }
 }
 
-/// UNDO Log Page, see
+/// UNDO Log Page, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoLogPageBody {
