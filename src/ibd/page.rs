@@ -1349,7 +1349,7 @@ impl LogInfo {
     }
 }
 
-/// MySQL Double Write Buffer Info, see trx0sys.h
+/// MySQL Double Write Buffer Info, see trx0sys.h, TRX_SYS_DOUBLEWRITE
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct DoubleWriteBufferInfo {
@@ -1367,16 +1367,16 @@ pub struct DoubleWriteBufferInfo {
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub a_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    pub a_block_1_start_page_no: u32,
+    pub a_blk1_page_no: u32,
     /// (4 bytes) Block 2 start page number
-    pub a_block_2_start_page_no: u32,
+    pub a_blk2_page_no: u32,
 
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub b_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    pub b_block_1_start_page_no: u32,
+    pub b_blk1_page_no: u32,
     /// (4 bytes) Block 2 start page number
-    pub b_block_2_start_page_no: u32,
+    pub b_blk2_page_no: u32,
 
     /// (4 bytes) magic number
     pub space_id_stored_magic_number: u32,
@@ -1387,11 +1387,11 @@ impl DoubleWriteBufferInfo {
         let info = Self {
             fseg_hdr: FSegHeader::new(addr, buf.clone()),
             a_magic_number: util::u32_val(&buf, addr + 10),
-            a_block_1_start_page_no: util::u32_val(&buf, addr + 14),
-            a_block_2_start_page_no: util::u32_val(&buf, addr + 18),
+            a_blk1_page_no: util::u32_val(&buf, addr + 14),
+            a_blk2_page_no: util::u32_val(&buf, addr + 18),
             b_magic_number: util::u32_val(&buf, addr + 22),
-            b_block_1_start_page_no: util::u32_val(&buf, addr + 26),
-            b_block_2_start_page_no: util::u32_val(&buf, addr + 30),
+            b_blk1_page_no: util::u32_val(&buf, addr + 26),
+            b_blk2_page_no: util::u32_val(&buf, addr + 30),
             space_id_stored_magic_number: util::u32_val(&buf, addr + 34),
             buf: buf.clone(),
             addr,
