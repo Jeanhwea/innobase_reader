@@ -1281,6 +1281,54 @@ impl SdiPageBody {
     }
 }
 
+/// Transaction System Page, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct TrxSysPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (8 bytes) Transaction ID
+    pub trx_id: u64,
+
+    /// (10 bytes) segment header
+    pub fseg_hdr: FSegHeader,
+
+    /// (10 bytes) the array of rollback segment specification slots
+    pub rseg_slots: Vec<RSegInfo>,
+
+    /// (112 bytes) Master log info
+    pub log_info_0: LogInfo,
+    /// (112 bytes) binlog log info
+    pub log_info_1: LogInfo,
+    /// (112 bytes) double write log info
+    pub dbw_info: DoubleWriteBufferInfo,
+}
+
+impl BasePageBody for TrxSysPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_SYS_N_RSEGS)
+            .map(|nth| RSegInfo::new(addr + 8 + 10 + 8 * nth, buf.clone()))
+            .filter(|rseg| rseg.page_no != PAGE_NONE)
+            .collect();
+        Self {
+            trx_id: util::u64_val(&buf, addr),
+            fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
+            rseg_slots: slots,
+            log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
+            log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
+            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// Rollback segment information, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1414,10 +1462,10 @@ impl DoubleWriteBufferInfo {
     }
 }
 
-/// Transaction System Page, see trx0sys.h
+/// UNDO Log Page, see
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct TrxSysPageBody {
+pub struct UndoLogPageBody {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1425,37 +1473,11 @@ pub struct TrxSysPageBody {
     /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
-
-    /// (8 bytes) Transaction ID
-    pub trx_id: u64,
-
-    /// (10 bytes) segment header
-    pub fseg_hdr: FSegHeader,
-
-    /// (10 bytes) the array of rollback segment specification slots
-    pub rseg_slots: Vec<RSegInfo>,
-
-    /// (112 bytes) Master log info
-    pub log_info_0: LogInfo,
-    /// (112 bytes) binlog log info
-    pub log_info_1: LogInfo,
-    /// (112 bytes) double write log info
-    pub dbw_info: DoubleWriteBufferInfo,
 }
 
-impl BasePageBody for TrxSysPageBody {
+impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let slots = (0..TRX_SYS_N_RSEGS)
-            .map(|nth| RSegInfo::new(addr + 8 + 10 + 8 * nth, buf.clone()))
-            .filter(|rseg| rseg.page_no != PAGE_NONE)
-            .collect();
         Self {
-            trx_id: util::u64_val(&buf, addr),
-            fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
-            rseg_slots: slots,
-            log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
-            log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
-            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
             buf: buf.clone(),
             addr,
         }
