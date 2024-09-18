@@ -13,8 +13,8 @@ use crate::{
     factory::{DataValue, DatafileFactory},
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageTypes, SdiPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
-        XDES_PAGE_COUNT,
+        PageTypes, SdiPageBody, TrxSysPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
+        XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
     },
     util::{extno, pagno},
     Commands,
@@ -589,6 +589,10 @@ impl App {
             PageTypes::SDI => {
                 let sdi_page: BasePage<SdiPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", sdi_page);
+            }
+            PageTypes::TRX_SYS => {
+                let trx_sys_page: BasePage<TrxSysPageBody> = fact.read_page(page_no)?;
+                println!("{:#?}", trx_sys_page);
             }
             _ => {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);

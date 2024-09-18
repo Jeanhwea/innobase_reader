@@ -1278,3 +1278,29 @@ impl SdiPageBody {
         SdiRecord::new(rec_addr, self.buf.clone(), rec_hdr, hdr)
     }
 }
+
+/// Transaction System Page
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct TrxSysPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (8 bytes) Transaction ID
+    pub trx_id: u64,
+}
+
+impl BasePageBody for TrxSysPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            trx_id: util::u64_val(&buf, addr),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
