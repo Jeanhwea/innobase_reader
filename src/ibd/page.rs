@@ -49,6 +49,9 @@ pub const RECORD_HEADER_SIZE: usize = 5;
 
 // trx sys
 pub const TRX_SYS_N_RSEGS: usize = 256;
+pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
+pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
+pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
 
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
@@ -1309,6 +1312,43 @@ impl RSegInfo {
 /// Transaction System Page, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
+pub struct MySQLLogInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub magic_number: u32,
+
+    /// (8 bytes) log offset TRX_SYS_MYSQL_LOG_OFFSET_HIGH/TRX_SYS_MYSQL_LOG_OFFSET_LOG
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
+    pub log_offset: u64,
+
+    /// (100 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
+    pub log_name: String,
+}
+
+impl MySQLLogInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slice = buf.clone().slice(12..112);
+        info!("slice={:?}", slice);
+        Self {
+            magic_number: util::u32_val(&buf, addr),
+            log_offset: util::u64_val(&buf, addr + 4),
+            log_name: String::from_utf8(slice.to_vec()).unwrap_or("???".to_string()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Transaction System Page, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct TrxSysPageBody {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
@@ -1326,6 +1366,13 @@ pub struct TrxSysPageBody {
 
     /// (10 bytes) the array of rollback segment specification slots
     pub rseg_slots: Vec<RSegInfo>,
+
+    /// (112 bytes) Master log info
+    pub master_log_info: MySQLLogInfo,
+    /// (112 bytes) binlog log info
+    pub binlog_log_info: MySQLLogInfo,
+    /// (112 bytes) double write log info
+    pub doublewrite_log_info: MySQLLogInfo,
 }
 
 impl BasePageBody for TrxSysPageBody {
@@ -1338,6 +1385,9 @@ impl BasePageBody for TrxSysPageBody {
             trx_id: util::u64_val(&buf, addr),
             fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
             rseg_slots: slots,
+            master_log_info: MySQLLogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
+            binlog_log_info: MySQLLogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
+            doublewrite_log_info: MySQLLogInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
             buf: buf.clone(),
             addr,
         }
