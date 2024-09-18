@@ -1312,7 +1312,7 @@ impl RSegInfo {
 /// Transaction System Page, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct MySQLLogInfo {
+pub struct LogInfo {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1332,7 +1332,7 @@ pub struct MySQLLogInfo {
     pub log_name: String,
 }
 
-impl MySQLLogInfo {
+impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let slice = buf.clone().slice(12..112);
         info!("slice={:?}", slice);
@@ -1368,11 +1368,11 @@ pub struct TrxSysPageBody {
     pub rseg_slots: Vec<RSegInfo>,
 
     /// (112 bytes) Master log info
-    pub master_log_info: MySQLLogInfo,
+    pub log_info_0: LogInfo,
     /// (112 bytes) binlog log info
-    pub binlog_log_info: MySQLLogInfo,
+    pub log_info_1: LogInfo,
     /// (112 bytes) double write log info
-    pub doublewrite_log_info: MySQLLogInfo,
+    pub log_info_9: LogInfo,
 }
 
 impl BasePageBody for TrxSysPageBody {
@@ -1385,9 +1385,9 @@ impl BasePageBody for TrxSysPageBody {
             trx_id: util::u64_val(&buf, addr),
             fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
             rseg_slots: slots,
-            master_log_info: MySQLLogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
-            binlog_log_info: MySQLLogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
-            doublewrite_log_info: MySQLLogInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
+            log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
+            log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
+            log_info_9: LogInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
             buf: buf.clone(),
             addr,
         }
