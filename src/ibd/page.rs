@@ -1342,7 +1342,7 @@ impl LogInfo {
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
-            log_name: String::from_utf8(slice.to_vec()).unwrap_or("???".to_string()),
+            log_name: String::from_utf8(slice.to_vec()).unwrap_or("".to_string()),
             buf: buf.clone(),
             addr,
         }
