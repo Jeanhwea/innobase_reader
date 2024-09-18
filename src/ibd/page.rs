@@ -47,6 +47,15 @@ pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
+// trx sys
+pub const TRX_SYS_N_RSEGS: usize = 256;
+pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
+pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
+pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
+// magic number
+pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
+pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
+
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
 
@@ -869,8 +878,10 @@ pub struct IndexPageBody {
     /// (36 bytes) index header
     pub idx_hdr: IndexHeader,
 
-    /// (20 bytes) FSEG header
-    pub fseg_hdr: FSegHeader,
+    /// (10 bytes) leaf segment header, FSEG header
+    pub fseg_hdr_0: FSegHeader,
+    /// (10 bytes) non-leaf segment header, FSEG header
+    pub fseg_hdr_1: FSegHeader,
 
     /// (13*2 bytes) system record
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
@@ -962,7 +973,8 @@ impl BasePageBody for IndexPageBody {
 
         Self {
             idx_hdr,
-            fseg_hdr: FSegHeader::new(addr + 36, buf.clone()),
+            fseg_hdr_0: FSegHeader::new(addr + 36, buf.clone()),
+            fseg_hdr_1: FSegHeader::new(addr + 46, buf.clone()),
             infimum: inf,
             supremum: RecordHeader::new(
                 addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
@@ -1186,30 +1198,20 @@ pub struct FSegHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (4 bytes) leaf page, space id
-    pub leaf_space_id: u32,
-    /// (4 bytes) leaf page, page number
-    pub leaf_page_no: u32,
-    /// (2 bytes) leaf page, byte offset
-    pub leaf_offset: u16,
-
-    /// (4 bytes) non-leaf page, space id
-    pub nonleaf_space_id: u32,
-    /// (4 bytes) non-leaf page, page number
-    pub nonleaf_page_no: u32,
-    /// (2 bytes) non-leaf page, byte offset
-    pub nonleaf_offset: u16,
+    /// (4 bytes) space id
+    pub space_id: u32,
+    /// (4 bytes) page number
+    pub page_no: u32,
+    /// (2 bytes) byte offset
+    pub offset: u16,
 }
 
 impl FSegHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            leaf_space_id: util::u32_val(&buf, addr),
-            leaf_page_no: util::u32_val(&buf, addr + 4),
-            leaf_offset: util::u16_val(&buf, addr + 8),
-            nonleaf_space_id: util::u32_val(&buf, addr + 10),
-            nonleaf_page_no: util::u32_val(&buf, addr + 14),
-            nonleaf_offset: util::u16_val(&buf, addr + 18),
+            space_id: util::u32_val(&buf, addr),
+            page_no: util::u32_val(&buf, addr + 4),
+            offset: util::u16_val(&buf, addr + 8),
             buf: buf.clone(),
             addr,
         }
@@ -1276,5 +1278,269 @@ impl SdiPageBody {
         debug!("sdi_hdr={:?}", &hdr);
 
         SdiRecord::new(rec_addr, self.buf.clone(), rec_hdr, hdr)
+    }
+}
+
+/// Transaction System Page, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct TrxSysPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (8 bytes) Transaction ID
+    pub trx_id: u64,
+
+    /// (10 bytes) segment header
+    pub fseg_hdr: FSegHeader,
+
+    /// (10 bytes) the array of rollback segment specification slots
+    pub rseg_slots: Vec<RSegInfo>,
+
+    /// (112 bytes) Master log info
+    pub log_info_0: LogInfo,
+    /// (112 bytes) binlog log info
+    pub log_info_1: LogInfo,
+    /// (112 bytes) double write log info
+    pub dbw_info: DoubleWriteBufferInfo,
+}
+
+impl BasePageBody for TrxSysPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_SYS_N_RSEGS)
+            .map(|nth| RSegInfo::new(addr + 8 + 10 + 8 * nth, buf.clone()))
+            .filter(|rseg| rseg.page_no != PAGE_NONE)
+            .collect();
+        Self {
+            trx_id: util::u64_val(&buf, addr),
+            fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
+            rseg_slots: slots,
+            log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
+            log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
+            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Rollback segment information, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RSegInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) space ID
+    pub space_id: u32,
+
+    /// (4 bytes) page number
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub page_no: u32,
+}
+
+impl RSegInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            space_id: util::u32_val(&buf, addr),
+            page_no: util::u32_val(&buf, addr + 4),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// MySQL Log Info, see trx0sys.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct LogInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub magic_number: u32,
+
+    /// (8 bytes) log offset TRX_SYS_MYSQL_LOG_OFFSET_HIGH/TRX_SYS_MYSQL_LOG_OFFSET_LOG
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
+    pub log_offset: u64,
+
+    /// (100 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
+    pub log_name: String,
+}
+
+impl LogInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let name = buf.clone().slice(12..112);
+        // info!("name={:?}", name);
+        Self {
+            magic_number: util::u32_val(&buf, addr),
+            log_offset: util::u64_val(&buf, addr + 4),
+            log_name: String::from_utf8(name.to_vec()).unwrap_or("".to_string()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// MySQL Double Write Buffer Info, see trx0sys.h, TRX_SYS_DOUBLEWRITE
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct DoubleWriteBufferInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (10 bytes) fseg header
+    pub fseg_hdr: FSegHeader,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub a_magic_number: u32,
+    /// (4 bytes) Block 1 start page number
+    pub a_blk1_page_no: u32,
+    /// (4 bytes) Block 2 start page number
+    pub a_blk2_page_no: u32,
+
+    /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
+    pub b_magic_number: u32,
+    /// (4 bytes) Block 1 start page number
+    pub b_blk1_page_no: u32,
+    /// (4 bytes) Block 2 start page number
+    pub b_blk2_page_no: u32,
+
+    /// (4 bytes) magic number
+    pub space_id_stored_magic_number: u32,
+}
+
+impl DoubleWriteBufferInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let info = Self {
+            fseg_hdr: FSegHeader::new(addr, buf.clone()),
+            a_magic_number: util::u32_val(&buf, addr + 10),
+            a_blk1_page_no: util::u32_val(&buf, addr + 14),
+            a_blk2_page_no: util::u32_val(&buf, addr + 18),
+            b_magic_number: util::u32_val(&buf, addr + 22),
+            b_blk1_page_no: util::u32_val(&buf, addr + 26),
+            b_blk2_page_no: util::u32_val(&buf, addr + 30),
+            space_id_stored_magic_number: util::u32_val(&buf, addr + 34),
+            buf: buf.clone(),
+            addr,
+        };
+
+        assert_eq!(
+            info.a_magic_number, TRX_SYS_DOUBLEWRITE_MAGIC_N,
+            "TRX_SYS_DOUBLEWRITE_MAGIC_N 数值错误"
+        );
+        assert_eq!(
+            info.b_magic_number, TRX_SYS_DOUBLEWRITE_MAGIC_N,
+            "TRX_SYS_DOUBLEWRITE_MAGIC_N 数值错误"
+        );
+        assert_eq!(
+            info.space_id_stored_magic_number, TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N,
+            "TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N 数值错误"
+        );
+
+        info
+    }
+}
+
+/// Rollback Segment Array Page, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RSegArrayPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (34 bytes) rollback segment header
+    pub rseg_hdr: RollbackSegmentHeader,
+}
+
+impl BasePageBody for RSegArrayPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Rollback Segment Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RollbackSegmentHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes)
+    pub max_size: u32,
+    /// (4 bytes)
+    pub hist_size: u32,
+    /// (16 bytes)
+    pub hist_flst_base: FlstBaseNode,
+    /// (10 bytes)
+    pub rseg_fseg: FSegHeader,
+}
+
+impl RollbackSegmentHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            max_size: util::u32_val(&buf, addr),
+            hist_size: util::u32_val(&buf, addr+4),
+            hist_flst_base: FlstBaseNode::new(addr+8, buf.clone()),
+            rseg_fseg: FSegHeader::new(addr+24, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// UNDO Log Page, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoLogPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+}
+
+impl BasePageBody for UndoLogPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            buf: buf.clone(),
+            addr,
+        }
     }
 }

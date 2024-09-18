@@ -875,8 +875,8 @@ mod factory_tests_run {
                 continue;
             }
             let idx: BasePage<IndexPageBody> = fact.read_page(page_no)?;
-            let fs = idx.page_body.fseg_hdr;
-            if fs.leaf_page_no > 0 || fs.nonleaf_page_no > 0 {
+            let fs = idx.page_body.fseg_hdr_0;
+            if fs.page_no > 0 {
                 println!("page_no={}, {:#?}", page_no, fs);
             }
         }
