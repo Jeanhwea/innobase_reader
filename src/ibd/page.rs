@@ -869,10 +869,9 @@ pub struct IndexPageBody {
     /// (36 bytes) index header
     pub idx_hdr: IndexHeader,
 
-    /// (20 bytes) FSEG header, 0 => leaf, 1 => non-leaf
-    /// leaf segment header
+    /// (10 bytes) leaf segment header, FSEG header
     pub fseg_hdr_0: FSegHeader,
-    /// non-leaf segment header
+    /// (10 bytes) non-leaf segment header, FSEG header
     pub fseg_hdr_1: FSegHeader,
 
     /// (13*2 bytes) system record
