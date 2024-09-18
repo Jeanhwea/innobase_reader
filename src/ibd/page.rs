@@ -1462,7 +1462,6 @@ impl DoubleWriteBufferInfo {
     }
 }
 
-
 /// Rollback Segment Array Page, see
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1474,11 +1473,50 @@ pub struct RSegArrayPageBody {
     /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// (34 bytes) rollback segment header
+    pub rseg_hdr: RollbackSegmentHeader,
 }
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
+            rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Rollback Segment Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RollbackSegmentHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes)
+    pub max_size: u32,
+    /// (4 bytes)
+    pub hist_size: u32,
+    /// (16 bytes)
+    pub hist_flst_base: FlstBaseNode,
+    /// (10 bytes)
+    pub rseg_fseg: FSegHeader,
+}
+
+impl RollbackSegmentHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            max_size: util::u32_val(&buf, addr),
+            hist_size: util::u32_val(&buf, addr+4),
+            hist_flst_base: FlstBaseNode::new(addr+8, buf.clone()),
+            rseg_fseg: FSegHeader::new(addr+24, buf.clone()),
             buf: buf.clone(),
             addr,
         }
