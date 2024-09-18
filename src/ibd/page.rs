@@ -1480,12 +1480,16 @@ pub struct RSegArrayPageBody {
 
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
+
+    /// TODO (4*1024) undo segment slots
+    pub rseg_slots: Vec<u32>,
 }
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
+            rseg_slots: Vec::new(),
             buf: buf.clone(),
             addr,
         }
@@ -1541,11 +1545,101 @@ pub struct UndoLogPageBody {
     /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// (18 bytes) undo page header
+    pub undo_page_hdr: UndoPageHeader,
+
+    /// (26 bytes) undo segment header
+    pub undo_seg_hdr: UndoSegmentHeader,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
+            undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
+            undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Page Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoPageHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) undo page type, TRX_UNDO_INSERT or TRX_UNDO_UPDATE
+    pub page_type: u16,
+
+    /// (2 bytes) TRX_UNDO_PAGE_START
+    /// Byte offset where the undo log records for the LATEST transaction
+    /// start on this page (remember that in an update undo log,
+    /// the first page can contain several undo logs)
+    pub page_start: u16,
+
+    /// (2 bytes) TRX_UNDO_PAGE_FREE
+    /// On each page of the undo log this field contains the byte offset of
+    /// the first free byte on the page
+    pub page_free: u16,
+
+    /// (12 bytes) TRX_UNDO_PAGE_NODE, The file list node in the chain of undo log pages
+    pub page_node: FlstNode,
+}
+
+impl UndoPageHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            page_type: util::u16_val(&buf, addr),
+            page_start: util::u16_val(&buf, addr + 2),
+            page_free: util::u16_val(&buf, addr + 4),
+            page_node: FlstNode::new(addr + 6, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Segment Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoSegmentHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) undo state
+    pub undo_state: u16,
+
+    /// (2 bytes) Offset of the last undo log header on the segment header page, 0 if none
+    pub undo_last_log: u16,
+
+    /// (10 bytes) Header for the file segment which the undo log segment occupies
+    pub undo_fseg_hdr: FSegHeader,
+
+    /// (16 bytes) Base node for the list of pages in the undo log segment;
+    /// defined only on the undo log segment's first page
+    pub undo_page_list: FlstBaseNode,
+}
+
+impl UndoSegmentHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            undo_state: util::u16_val(&buf, addr),
+            undo_last_log: util::u16_val(&buf, addr + 2),
+            undo_fseg_hdr: FSegHeader::new(addr + 4, buf.clone()),
+            undo_page_list: FlstBaseNode::new(addr + 14, buf.clone()),
             buf: buf.clone(),
             addr,
         }
