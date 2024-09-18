@@ -208,29 +208,30 @@ impl App {
 
             let page_no = idxdef.idx_root as usize;
             let index_page: BasePage<IndexPageBody> = fact.read_page(page_no)?;
-            let fseg_hdr = &index_page.page_body.fseg_hdr;
+            let nonleaf_fseg_hdr = &index_page.page_body.fseg_hdr_1;
             println!(
                 "{}(non-leaf), space_id={}, page_no={}, boffset={}",
                 &idxdef.idx_name.to_string().yellow(),
-                fseg_hdr.nonleaf_space_id,
-                fseg_hdr.nonleaf_page_no,
-                fseg_hdr.nonleaf_offset,
+                nonleaf_fseg_hdr.space_id,
+                nonleaf_fseg_hdr.page_no,
+                nonleaf_fseg_hdr.offset,
             );
 
             let inode_nonleaf =
-                fact.read_inode_entry(fseg_hdr.nonleaf_page_no as usize, fseg_hdr.nonleaf_offset)?;
+                fact.read_inode_entry(nonleaf_fseg_hdr.page_no as usize, nonleaf_fseg_hdr.offset)?;
             self.do_list_inode(fact, &inode_nonleaf)?;
 
+            let leaf_fseg_hdr = &index_page.page_body.fseg_hdr_0;
             println!(
                 "{}(leaf), space_id={}, page_no={}, boffset={}",
                 &idxdef.idx_name.to_string().yellow(),
-                fseg_hdr.leaf_space_id,
-                fseg_hdr.leaf_page_no,
-                fseg_hdr.leaf_offset,
+                leaf_fseg_hdr.space_id,
+                leaf_fseg_hdr.page_no,
+                leaf_fseg_hdr.offset,
             );
 
             let inode_leaf =
-                fact.read_inode_entry(fseg_hdr.leaf_page_no as usize, fseg_hdr.leaf_offset)?;
+                fact.read_inode_entry(leaf_fseg_hdr.page_no as usize, leaf_fseg_hdr.offset)?;
             self.do_list_inode(fact, &inode_leaf)?;
         }
         Ok(())
@@ -538,10 +539,11 @@ impl App {
                 }
                 let index_page: BasePage<IndexPageBody> = fact.read_page(root as usize)?;
                 println!(
-                    "index={}, root={}, fseg={:#?}",
+                    "index={}, root={}, fseg(leaf)={:?}, fseg(non-leaf)={:?}",
                     idxdef.idx_name.to_string().magenta(),
                     root.to_string().blue(),
-                    index_page.page_body.fseg_hdr
+                    index_page.page_body.fseg_hdr_0,
+                    index_page.page_body.fseg_hdr_1
                 );
             }
             return Ok(());

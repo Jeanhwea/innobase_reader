@@ -869,8 +869,11 @@ pub struct IndexPageBody {
     /// (36 bytes) index header
     pub idx_hdr: IndexHeader,
 
-    /// (20 bytes) FSEG header
-    pub fseg_hdr: FSegHeader,
+    /// (20 bytes) FSEG header, 0 => leaf, 1 => non-leaf
+    /// leaf segment header
+    pub fseg_hdr_0: FSegHeader,
+    /// non-leaf segment header
+    pub fseg_hdr_1: FSegHeader,
 
     /// (13*2 bytes) system record
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
@@ -962,7 +965,8 @@ impl BasePageBody for IndexPageBody {
 
         Self {
             idx_hdr,
-            fseg_hdr: FSegHeader::new(addr + 36, buf.clone()),
+            fseg_hdr_0: FSegHeader::new(addr + 36, buf.clone()),
+            fseg_hdr_1: FSegHeader::new(addr + 46, buf.clone()),
             infimum: inf,
             supremum: RecordHeader::new(
                 addr + SUP_PAGE_BYTE_OFF - FIL_HEADER_SIZE - RECORD_HEADER_SIZE,
@@ -1186,30 +1190,20 @@ pub struct FSegHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (4 bytes) leaf page, space id
-    pub leaf_space_id: u32,
-    /// (4 bytes) leaf page, page number
-    pub leaf_page_no: u32,
-    /// (2 bytes) leaf page, byte offset
-    pub leaf_offset: u16,
-
-    /// (4 bytes) non-leaf page, space id
-    pub nonleaf_space_id: u32,
-    /// (4 bytes) non-leaf page, page number
-    pub nonleaf_page_no: u32,
-    /// (2 bytes) non-leaf page, byte offset
-    pub nonleaf_offset: u16,
+    /// (4 bytes) space id
+    pub space_id: u32,
+    /// (4 bytes) page number
+    pub page_no: u32,
+    /// (2 bytes) byte offset
+    pub offset: u16,
 }
 
 impl FSegHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            leaf_space_id: util::u32_val(&buf, addr),
-            leaf_page_no: util::u32_val(&buf, addr + 4),
-            leaf_offset: util::u16_val(&buf, addr + 8),
-            nonleaf_space_id: util::u32_val(&buf, addr + 10),
-            nonleaf_page_no: util::u32_val(&buf, addr + 14),
-            nonleaf_offset: util::u16_val(&buf, addr + 18),
+            space_id: util::u32_val(&buf, addr),
+            page_no: util::u32_val(&buf, addr + 4),
+            offset: util::u16_val(&buf, addr + 8),
             buf: buf.clone(),
             addr,
         }
@@ -1279,7 +1273,7 @@ impl SdiPageBody {
     }
 }
 
-/// Transaction System Page
+/// Transaction System Page, see trx0sys.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct TrxSysPageBody {
@@ -1293,12 +1287,16 @@ pub struct TrxSysPageBody {
 
     /// (8 bytes) Transaction ID
     pub trx_id: u64,
+
+    /// (10 bytes) segment header
+    pub fseg_hdr: FSegHeader,
 }
 
 impl BasePageBody for TrxSysPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             trx_id: util::u64_val(&buf, addr),
+            fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
             buf: buf.clone(),
             addr,
         }
