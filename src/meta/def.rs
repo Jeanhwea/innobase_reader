@@ -5,8 +5,8 @@ use strum::{Display, EnumString};
 
 use super::cst::Collation;
 use crate::{
-    ibd::sdi::{DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject},
     meta::cst::coll_find,
+    sdi::record::{DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject},
     util::{self, conv_strdata_to_bytes},
 };
 

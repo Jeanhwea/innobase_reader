@@ -13,9 +13,10 @@ use super::sdi::SdiRecord;
 use crate::{
     ibd::{
         record::{Record, RecordHeader, RowData, RowInfo},
-        sdi::{SdiDataHeader, SdiObject},
+        sdi::SdiDataHeader,
     },
     meta::def::TableDef,
+    sdi::record::SdiObject,
     util,
 };
 // page
