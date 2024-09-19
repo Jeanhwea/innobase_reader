@@ -61,6 +61,7 @@ pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // file list const
+pub const SPACE_NONE: u32 = 0xffffffff;
 pub const PAGE_NONE: u32 = 0xffffffff;
 
 // sdi
@@ -1636,6 +1637,22 @@ impl BasePageBody for UndoLogPageBody {
     }
 }
 
+/// Types of an undo log segment
+#[repr(u16)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum UndoPageTypes {
+    /// contains undo entries for inserts
+    TRX_UNDO_INSERT = 1,
+
+    /// contains undo entries for updates and delete markings: in short, modifys
+    /// (the name 'UPDATE' is a historical relic)
+    TRX_UNDO_UPDATE = 2,
+
+    #[default]
+    UNDEF,
+}
+
 /// Undo Page Header, see
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1649,7 +1666,8 @@ pub struct UndoPageHeader {
     pub buf: Arc<Bytes>,
 
     /// (2 bytes) TRX_UNDO_PAGE_TYPE, TRX_UNDO_INSERT or TRX_UNDO_UPDATE
-    pub page_type: u16,
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
+    pub page_type: UndoPageTypes,
 
     /// (2 bytes) TRX_UNDO_PAGE_START, Byte offset where the undo log records
     /// for the LATEST transaction start on this page (remember that in an
@@ -1668,7 +1686,7 @@ pub struct UndoPageHeader {
 impl UndoPageHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            page_type: util::u16_val(&buf, addr),
+            page_type: util::u16_val(&buf, addr).into(),
             page_start: util::u16_val(&buf, addr + 2),
             page_free: util::u16_val(&buf, addr + 4),
             page_node: FlstNode::new(addr + 6, buf.clone()),
@@ -1676,6 +1694,39 @@ impl UndoPageHeader {
             addr,
         }
     }
+}
+
+/// States of an undo log segment
+#[repr(u16)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum UndoPageStates {
+    /// contains an undo log of an active transaction
+    TRX_UNDO_ACTIVE = 1,
+
+    /// cached for quick reuse
+    TRX_UNDO_CACHED = 2,
+
+    /// insert undo segment can be freed
+    TRX_UNDO_TO_FREE = 3,
+
+    /// update undo segment will not be reused: it can be freed in purge when
+    /// all undo data in it is removed
+    TRX_UNDO_TO_PURGE = 4,
+
+    /// contains an undo log of an prepared transaction for a server version
+    /// older than 8.0.29
+    TRX_UNDO_PREPARED_80028 = 5,
+
+    /// contains an undo log of an prepared transaction
+    TRX_UNDO_PREPARED = 6,
+
+    /// contains an undo log of a prepared transaction that has been processed
+    /// by the transaction coordinator
+    TRX_UNDO_PREPARED_IN_TC = 7,
+
+    #[default]
+    UNDEF,
 }
 
 /// Undo Segment Header, see
@@ -1691,7 +1742,8 @@ pub struct UndoSegmentHeader {
     pub buf: Arc<Bytes>,
 
     /// (2 bytes) undo state
-    pub undo_state: u16,
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
+    pub undo_state: UndoPageStates,
 
     /// (2 bytes) Offset of the last undo log header on the segment header page,
     /// 0 if none
@@ -1709,7 +1761,7 @@ pub struct UndoSegmentHeader {
 impl UndoSegmentHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            undo_state: util::u16_val(&buf, addr),
+            undo_state: util::u16_val(&buf, addr).into(),
             undo_last_log: util::u16_val(&buf, addr + 2),
             undo_fseg_hdr: FSegHeader::new(addr + 4, buf.clone()),
             undo_page_list: FlstBaseNode::new(addr + 14, buf.clone()),
