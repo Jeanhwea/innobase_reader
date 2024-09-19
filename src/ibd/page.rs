@@ -9,13 +9,15 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
+use super::sdi::SdiRecord;
 use crate::{
-    ibd::record::{RecordHeader, RowData, RowInfo},
+    ibd::{
+        record::{Record, RecordHeader, RowData, RowInfo},
+        sdi::{SdiDataHeader, SdiObject},
+    },
     meta::def::TableDef,
     util,
 };
-
 // page
 pub const PAGE_SIZE: usize = 16 * 1024;
 
@@ -64,9 +66,6 @@ pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 pub const SPACE_NONE: u32 = 0xffffffff;
 pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
 pub const PAGE_NONE: u32 = 0xffffffff;
-
-// sdi
-pub const SDI_DATA_HEADER_SIZE: usize = 33;
 
 /// Base Page Structure
 #[derive(Clone, Derivative)]
