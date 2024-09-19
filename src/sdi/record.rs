@@ -89,3 +89,17 @@ pub struct DataDictIndexElement {
     pub hidden: bool,
     pub column_opx: u32,
 }
+
+#[cfg(test)]
+mod sdi_tests_run {
+    use log::info;
+
+    use super::*;
+
+    #[test]
+    fn parse_sdi_info_00() -> Result<()> {
+        util::init_unit_test();
+        info!("start");
+        Ok(())
+    }
+}
