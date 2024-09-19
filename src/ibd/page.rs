@@ -47,7 +47,7 @@ pub const INF_PAGE_BYTE_OFF: usize = 99;
 pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
-// trx sys
+// TRX_SYS transaction system page
 pub const TRX_SYS_N_RSEGS: usize = 256;
 pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
 pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
@@ -55,6 +55,10 @@ pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
 // magic number
 pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
 pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
+
+// RSEG_ARRAY rollback segment array
+pub const TRX_RSEG_SLOT_SIZE: usize = 4;
+pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // file list const
 pub const PAGE_NONE: u32 = 0xffffffff;
@@ -118,39 +122,106 @@ where
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum PageTypes {
-    ALLOCATED = 0,                 // Freshly allocated page
-    UNUSED = 1,                    // This page type is unused.
-    UNDO_LOG = 2,                  // Undo log page
-    INODE = 3,                     // Index node
-    IBUF_FREE_LIST = 4,            // Insert buffer free list
-    IBUF_BITMAP = 5,               // Insert buffer bitmap
-    SYS = 6,                       // System page
-    TRX_SYS = 7,                   // Transaction system data
-    FSP_HDR = 8,                   // File space header
-    XDES = 9,                      // Extent descriptor page
-    BLOB = 10,                     // Uncompressed BLOB page
-    ZBLOB = 11,                    // First compressed BLOB page
-    ZBLOB2 = 12,                   // Subsequent compressed BLOB page
-    UNKNOWN = 13,                  // this value when flushing pages.
-    COMPRESSED = 14,               // Compressed page
-    ENCRYPTED = 15,                // Encrypted page
-    COMPRESSED_AND_ENCRYPTED = 16, // Compressed and Encrypted page
-    ENCRYPTED_RTREE = 17,          // Encrypted R-tree page
-    SDI_BLOB = 18,                 // Uncompressed SDI BLOB page
-    SDI_ZBLOB = 19,                // Compressed SDI BLOB page
-    LEGACY_DBLWR = 20,             // Legacy doublewrite buffer page.
-    RSEG_ARRAY = 21,               // Rollback Segment Array page
-    LOB_INDEX = 22,                // Index pages of uncompressed LOB
-    LOB_DATA = 23,                 // Data pages of uncompressed LOB
-    LOB_FIRST = 24,                // The first page of an uncompressed LOB
-    ZLOB_FIRST = 25,               // The first page of a compressed LOB
-    ZLOB_DATA = 26,                // Data pages of compressed LOB
-    ZLOB_INDEX = 27,               // Index pages of compressed LOB.
-    ZLOB_FRAG = 28,                // Fragment pages of compressed LOB.
-    ZLOB_FRAG_ENTRY = 29,          // Index pages of fragment pages (compressed LOB).
-    SDI = 17853,                   // Tablespace SDI Index page
-    RTREE = 17854,                 // R-tree node
-    INDEX = 17855,                 // B-tree node
+    /// Freshly allocated page
+    ALLOCATED = 0,
+
+    /// This page type is unused.
+    UNUSED = 1,
+
+    /// Undo log page
+    UNDO_LOG = 2,
+
+    /// Index node
+    INODE = 3,
+
+    /// Insert buffer free list
+    IBUF_FREE_LIST = 4,
+
+    /// Insert buffer bitmap
+    IBUF_BITMAP = 5,
+
+    /// System page
+    SYS = 6,
+
+    /// Transaction system data
+    TRX_SYS = 7,
+
+    /// File space header
+    FSP_HDR = 8,
+
+    /// Extent descriptor page
+    XDES = 9,
+
+    /// Uncompressed BLOB page
+    BLOB = 10,
+
+    /// First compressed BLOB page
+    ZBLOB = 11,
+
+    /// Subsequent compressed BLOB page
+    ZBLOB2 = 12,
+
+    /// this value when flushing pages.
+    UNKNOWN = 13,
+
+    /// Compressed page
+    COMPRESSED = 14,
+
+    /// Encrypted page
+    ENCRYPTED = 15,
+
+    /// Compressed and Encrypted page
+    COMPRESSED_AND_ENCRYPTED = 16,
+
+    /// Encrypted R-tree page
+    ENCRYPTED_RTREE = 17,
+
+    /// Uncompressed SDI BLOB page
+    SDI_BLOB = 18,
+
+    /// Compressed SDI BLOB page
+    SDI_ZBLOB = 19,
+
+    /// Legacy doublewrite buffer page.
+    LEGACY_DBLWR = 20,
+
+    /// Rollback Segment Array page
+    RSEG_ARRAY = 21,
+
+    /// Index pages of uncompressed LOB
+    LOB_INDEX = 22,
+
+    /// Data pages of uncompressed LOB
+    LOB_DATA = 23,
+
+    /// The first page of an uncompressed LOB
+    LOB_FIRST = 24,
+
+    /// The first page of a compressed LOB
+    ZLOB_FIRST = 25,
+
+    /// Data pages of compressed LOB
+    ZLOB_DATA = 26,
+
+    /// Index pages of compressed LOB.
+    ZLOB_INDEX = 27,
+
+    /// Fragment pages of compressed LOB.
+    ZLOB_FRAG = 28,
+
+    /// Index pages of fragment pages (compressed LOB).
+    ZLOB_FRAG_ENTRY = 29,
+
+    /// Tablespace SDI Index page
+    SDI = 17853,
+
+    /// R-tree node
+    RTREE = 17854,
+
+    /// B-tree node
+    INDEX = 17855,
+
+    /// undefined page type
     #[default]
     UNDEF,
 }
@@ -1375,7 +1446,8 @@ pub struct LogInfo {
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub magic_number: u32,
 
-    /// (8 bytes) log offset TRX_SYS_MYSQL_LOG_OFFSET_HIGH/TRX_SYS_MYSQL_LOG_OFFSET_LOG
+    /// (8 bytes) log offset
+    /// TRX_SYS_MYSQL_LOG_OFFSET_HIGH/TRX_SYS_MYSQL_LOG_OFFSET_LOG
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub log_offset: u64,
 
@@ -1476,19 +1548,23 @@ pub struct RSegArrayPageBody {
 
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
+
+    /// TODO (4*1024) undo segment slots
+    pub rseg_slots: Vec<u32>,
 }
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
+            rseg_slots: Vec::new(),
             buf: buf.clone(),
             addr,
         }
     }
 }
 
-/// Rollback Segment Header, see
+/// Rollback Segment Header, see trx0rseg.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RollbackSegmentHeader {
@@ -1500,30 +1576,37 @@ pub struct RollbackSegmentHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (4 bytes)
+    /// (4 bytes) TRX_RSEG_MAX_SIZE, Maximum allowed size for rollback segment
+    /// in pages
     pub max_size: u32,
-    /// (4 bytes)
-    pub hist_size: u32,
-    /// (16 bytes)
-    pub hist_flst_base: FlstBaseNode,
-    /// (10 bytes)
-    pub rseg_fseg: FSegHeader,
+
+    /// (4 bytes) TRX_RSEG_HISTORY_SIZE, Number of file pages occupied by the
+    /// logs in the history list
+    pub history_size: u32,
+
+    /// (16 bytes) TRX_RSEG_HISTORY, The update undo logs for committed
+    /// transactions
+    pub history_flst: FlstBaseNode,
+
+    /// (10 bytes) TRX_RSEG_FSEG_HEADER, Header for the file segment where this
+    /// page is placed
+    pub fseg_hdr: FSegHeader,
 }
 
 impl RollbackSegmentHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             max_size: util::u32_val(&buf, addr),
-            hist_size: util::u32_val(&buf, addr+4),
-            hist_flst_base: FlstBaseNode::new(addr+8, buf.clone()),
-            rseg_fseg: FSegHeader::new(addr+24, buf.clone()),
+            history_size: util::u32_val(&buf, addr + 4),
+            history_flst: FlstBaseNode::new(addr + 8, buf.clone()),
+            fseg_hdr: FSegHeader::new(addr + 24, buf.clone()),
             buf: buf.clone(),
             addr,
         }
     }
 }
 
-/// UNDO Log Page, see
+/// UNDO Log Page, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoLogPageBody {
@@ -1534,11 +1617,102 @@ pub struct UndoLogPageBody {
     /// page data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// (18 bytes) undo page header
+    pub undo_page_hdr: UndoPageHeader,
+
+    /// (26 bytes) undo segment header
+    pub undo_seg_hdr: UndoSegmentHeader,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
+            undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
+            undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Page Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoPageHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) TRX_UNDO_PAGE_TYPE, TRX_UNDO_INSERT or TRX_UNDO_UPDATE
+    pub page_type: u16,
+
+    /// (2 bytes) TRX_UNDO_PAGE_START, Byte offset where the undo log records
+    /// for the LATEST transaction start on this page (remember that in an
+    /// update undo log, the first page can contain several undo logs)
+    pub page_start: u16,
+
+    /// (2 bytes) TRX_UNDO_PAGE_FREE, On each page of the undo log this field
+    /// contains the byte offset of the first free byte on the page
+    pub page_free: u16,
+
+    /// (12 bytes) TRX_UNDO_PAGE_NODE, The file list node in the chain of undo
+    /// log pages
+    pub page_node: FlstNode,
+}
+
+impl UndoPageHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            page_type: util::u16_val(&buf, addr),
+            page_start: util::u16_val(&buf, addr + 2),
+            page_free: util::u16_val(&buf, addr + 4),
+            page_node: FlstNode::new(addr + 6, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Segment Header, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoSegmentHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) undo state
+    pub undo_state: u16,
+
+    /// (2 bytes) Offset of the last undo log header on the segment header page,
+    /// 0 if none
+    pub undo_last_log: u16,
+
+    /// (10 bytes) Header for the file segment which the undo log segment
+    /// occupies
+    pub undo_fseg_hdr: FSegHeader,
+
+    /// (16 bytes) Base node for the list of pages in the undo log segment;
+    /// defined only on the undo log segment's first page
+    pub undo_page_list: FlstBaseNode,
+}
+
+impl UndoSegmentHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            undo_state: util::u16_val(&buf, addr),
+            undo_last_log: util::u16_val(&buf, addr + 2),
+            undo_fseg_hdr: FSegHeader::new(addr + 4, buf.clone()),
+            undo_page_list: FlstBaseNode::new(addr + 14, buf.clone()),
             buf: buf.clone(),
             addr,
         }
