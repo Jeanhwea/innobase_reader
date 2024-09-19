@@ -92,9 +92,10 @@ pub struct DataDictIndexElement {
 
 #[cfg(test)]
 mod sdi_tests_run {
+    use anyhow::Result;
     use log::info;
 
-    use super::*;
+    use crate::util;
 
     #[test]
     fn parse_sdi_info_00() -> Result<()> {
