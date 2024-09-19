@@ -1464,7 +1464,6 @@ pub struct LogInfo {
 impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let name = buf.clone().slice(addr + 12..addr + 112);
-        // info!("name={:?}", name);
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
@@ -1836,10 +1835,14 @@ pub struct UndoLogHeader {
     /// (12 bytes) TRX_UNDO_HISTORY_NODE, If the log is put to the history list,
     /// the file list node is here
     pub history_node: FlstNode,
+
+    /// (140 bytes) XA
+    pub xa_trx_info: Option<XaTrxInfo>,
 }
 
 impl UndoLogHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let xa = XaTrxInfo::new(addr + 46, buf.clone());
         Self {
             trx_id: util::u64_val(&buf, addr),
             trx_no: util::u64_val(&buf, addr + 8),
@@ -1851,6 +1854,45 @@ impl UndoLogHeader {
             next_log: util::u16_val(&buf, addr + 30),
             prev_log: util::u16_val(&buf, addr + 32),
             history_node: FlstNode::new(addr + 34, buf.clone()),
+            xa_trx_info: Some(xa),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// X/Open XA Transaction Identification, see trx0undo.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct XaTrxInfo {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) TRX_UNDO_XA_FORMAT, xid_t::formatID
+    pub xa_format: u32,
+
+    /// (4 bytes) TRX_UNDO_XA_TRID_LEN xid_t::gtrid_length
+    pub xa_trid_len: u32,
+
+    /// (4 bytes) TRX_UNDO_XA_BQUAL_LEN xid_t::bqual_length
+    pub xa_bqual_len: u32,
+
+    /// (128 bytes) XA Data
+    pub xa_data: Bytes,
+}
+
+impl XaTrxInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            xa_format: util::u32_val(&buf, addr),
+            xa_trid_len: util::u32_val(&buf, addr + 4),
+            xa_bqual_len: util::u32_val(&buf, addr + 8),
+            xa_data: buf.slice(addr + 12..addr + 12 + 128),
             buf: buf.clone(),
             addr,
         }
