@@ -839,7 +839,7 @@ pub struct INodePageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (12 bytes) The list node for linking segment inode pages, see
+    /// (12 bytes) The list node for linking segment inode pages,
     /// FSEG_INODE_PAGE_NODE
     pub inode_page_node: FlstNode,
 
@@ -1535,7 +1535,7 @@ impl DoubleWriteBufferInfo {
     }
 }
 
-/// Rollback Segment Array Page, see
+/// Rollback Segment Array Page, see trx0rseg.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RSegArrayPageBody {
@@ -1622,8 +1622,11 @@ pub struct UndoLogPageBody {
     /// (18 bytes) undo page header
     pub undo_page_hdr: UndoPageHeader,
 
-    /// (26 bytes) undo segment header
+    /// (30 bytes) undo segment header
     pub undo_seg_hdr: UndoSegmentHeader,
+
+    /// (186 bytes) undo log header
+    pub undo_log_hdr: UndoLogHeader,
 }
 
 impl BasePageBody for UndoLogPageBody {
@@ -1631,6 +1634,7 @@ impl BasePageBody for UndoLogPageBody {
         Self {
             undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
             undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
+            undo_log_hdr: UndoLogHeader::new(addr + 18 + 30, buf.clone()),
             buf: buf.clone(),
             addr,
         }
@@ -1653,7 +1657,7 @@ pub enum UndoPageTypes {
     UNDEF,
 }
 
-/// Undo Page Header, see
+/// Undo Page Header, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoPageHeader {
@@ -1729,7 +1733,7 @@ pub enum UndoPageStates {
     UNDEF,
 }
 
-/// Undo Segment Header, see
+/// Undo Segment Header, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoSegmentHeader {
@@ -1765,6 +1769,32 @@ impl UndoSegmentHeader {
             undo_last_log: util::u16_val(&buf, addr + 2),
             undo_fseg_hdr: FSegHeader::new(addr + 4, buf.clone()),
             undo_page_list: FlstBaseNode::new(addr + 14, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Log Header, see trx0undo.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoLogHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// transaction id
+    pub trx_id: u64,
+}
+
+impl UndoLogHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            trx_id: util::u64_val(&buf, addr),
             buf: buf.clone(),
             addr,
         }
