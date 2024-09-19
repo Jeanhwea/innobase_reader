@@ -5,8 +5,8 @@ use strum::{Display, EnumString};
 
 use super::cst::Collation;
 use crate::{
-    ibd::record::{DataDictColumn, DataDictIndex, DataDictIndexElement, DataDictObject},
     meta::cst::coll_find,
+    sdi::record::{DataDictColumn, DataDictIndex, DataDictIndexElement, TableDataDictObject},
     util::{self, conv_strdata_to_bytes},
 };
 
@@ -170,7 +170,7 @@ pub struct TableDef {
 
 impl TableDef {
     pub fn from(
-        ddo: &DataDictObject,
+        ddo: &TableDataDictObject,
         coll: &Collation,
         coldefs: Vec<ColumnDef>,
         idxdefs: Vec<IndexDef>,

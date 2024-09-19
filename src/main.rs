@@ -13,6 +13,7 @@ mod app;
 mod factory;
 mod ibd;
 mod meta;
+mod sdi;
 mod util;
 
 #[derive(Debug, Parser)]

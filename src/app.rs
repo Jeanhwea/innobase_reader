@@ -109,7 +109,11 @@ impl App {
         println!(
             "{:>12} => {}",
             "space_id".green(),
-            &hdr0.space_id.to_string().blue()
+            match &hdr0.space_id {
+                Some(value) => value.to_string(),
+                None => "-".to_string(),
+            }
+            .blue()
         );
         println!(
             "{:>12} => {}",
@@ -186,7 +190,11 @@ impl App {
                 "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
                 &page_no.to_string().magenta(),
                 &page_type.to_string().yellow(),
-                &fil_hdr.space_id.to_string().blue(),
+                match &fil_hdr.space_id {
+                    Some(value) => value.to_string(),
+                    None => "-".to_string(),
+                }
+                .blue(),
                 &fil_hdr.lsn.to_string().green(),
                 offset,
                 offset.to_string().blue(),
@@ -619,17 +627,12 @@ impl App {
             return Err(Error::msg(format!("不支持的页类型: {:?}", page_type)));
         }
 
-        self.do_traverse_index(&mut fact, root_page_no, 0)?;
+        Self::do_traverse_index(&mut fact, root_page_no, 0)?;
 
         Ok(())
     }
 
-    fn do_traverse_index(
-        &self,
-        fact: &mut DatafileFactory,
-        page_no: usize,
-        indent: usize,
-    ) -> Result<()> {
+    fn do_traverse_index(fact: &mut DatafileFactory, page_no: usize, indent: usize) -> Result<()> {
         let curr: BasePage<IndexPageBody> = fact.read_page(page_no)?;
         let idx_hdr = &curr.page_body.idx_hdr;
         for _ in 0..indent {
@@ -661,7 +664,7 @@ impl App {
                 let node_ptr = tuple.last().unwrap();
                 match node_ptr.1 {
                     DataValue::PageNo(child_page_no) => {
-                        self.do_traverse_index(fact, child_page_no as usize, indent + 1)?;
+                        Self::do_traverse_index(fact, child_page_no as usize, indent + 1)?;
                     }
                     _ => panic!("错误的节点: {:?}", tuple),
                 }

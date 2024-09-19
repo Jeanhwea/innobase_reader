@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     sync::Arc,
 };
 
@@ -9,14 +9,12 @@ use colored::Colorize;
 use derivative::Derivative;
 use log::{debug, info};
 use num_enum::FromPrimitive;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use crate::{
     ibd::{
-        page::{PAGE_NONE, RECORD_HEADER_SIZE, SDI_DATA_HEADER_SIZE},
+        page::{PAGE_NONE, RECORD_HEADER_SIZE},
         record::RecordStatus::NODE_PTR,
     },
     meta::def::{HiddenTypes, TableDef},
@@ -77,6 +75,7 @@ pub struct RecordHeader {
     info_byte: u8,
 
     /// (4 bits) info_bits, MIN_REC/DELETED/VERSION/INSTANT flags, see rec.h, 4 bits
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub info_bits: Vec<RecInfoFlag>,
 
     /// (4 bits) Number of owned records
@@ -94,20 +93,6 @@ pub struct RecordHeader {
 }
 
 impl RecordHeader {
-    // Info bit denoting the predefined minimum record: this bit is set if and
-    // only if the record is the first user record on a non-leaf B-tree page
-    // that is the leftmost page on its level (PAGE_LEVEL is nonzero and
-    // FIL_PAGE_PREV is FIL_NULL).
-    const REC_INFO_MIN_REC_FLAG: u8 = 0x10;
-    // The deleted flag in info bits; when bit is set to 1, it means the record
-    // has been delete marked
-    const REC_INFO_DELETED_FLAG: u8 = 0x20;
-    // Use this bit to indicate record has version
-    const REC_INFO_VERSION_FLAG: u8 = 0x40;
-    // The instant ADD COLUMN flag. When it is set to 1, it means this record
-    // was inserted/updated after an instant ADD COLUMN.
-    const REC_INFO_INSTANT_FLAG: u8 = 0x80;
-
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let b0 = buf[addr];
         let b1 = util::u16_val(&buf, addr + 1);
@@ -144,6 +129,23 @@ impl RecordHeader {
     pub fn next_addr(&self) -> usize {
         ((self.addr as i16) + self.next_rec_offset) as usize + RECORD_HEADER_SIZE
     }
+
+    /// Info bit denoting the predefined minimum record: this bit is set if and
+    /// only if the record is the first user record on a non-leaf B-tree page
+    /// that is the leftmost page on its level (PAGE_LEVEL is nonzero and
+    /// FIL_PAGE_PREV is FIL_NULL).
+    const REC_INFO_MIN_REC_FLAG: u8 = 0x10;
+
+    /// The deleted flag in info bits; when bit is set to 1, it means the record
+    /// has been delete marked
+    const REC_INFO_DELETED_FLAG: u8 = 0x20;
+
+    /// Use this bit to indicate record has version
+    const REC_INFO_VERSION_FLAG: u8 = 0x40;
+
+    /// The instant ADD COLUMN flag. When it is set to 1, it means this record
+    /// was inserted/updated after an instant ADD COLUMN.
+    const REC_INFO_INSTANT_FLAG: u8 = 0x80;
 
     pub fn is_min_rec(&self) -> bool {
         (self.info_byte & Self::REC_INFO_MIN_REC_FLAG) > 0
@@ -687,164 +689,4 @@ pub struct RecordLayout {
     pub rec_hdr_size: usize,
     pub phy_data_size: usize,
     pub total_size: usize,
-}
-
-/// SDI Record
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct SdiRecord {
-    /// page address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// page data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub rec_hdr: RecordHeader, // record header
-    pub sdi_hdr: SdiDataHeader, // SDI Data Header
-    pub sdi_str: String,        // SDI Data String, uncompressed string
-}
-
-impl SdiRecord {
-    pub fn new(addr: usize, buf: Arc<Bytes>, rec_hdr: RecordHeader, hdr: SdiDataHeader) -> Self {
-        let beg = addr + SDI_DATA_HEADER_SIZE;
-        let comped_data = buf.slice(beg..beg + (hdr.comp_len as usize));
-        let uncomped_data = util::zlib_uncomp(comped_data).unwrap();
-        assert_eq!(uncomped_data.len(), hdr.uncomp_len as usize);
-        Self {
-            rec_hdr,
-            sdi_hdr: hdr,
-            sdi_str: uncomped_data,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// SDI Data Header
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct SdiDataHeader {
-    /// page address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// page data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// (4 bytes) Length of TYPE field in record of SDI Index.
-    pub data_type: u32,
-    /// (8 bytes) Data ID
-    pub data_id: u64,
-    /// (6 bytes) Transaction ID
-    pub trx_id: u64,
-    /// (7 bytes) Rollback pointer
-    pub roll_ptr: u64,
-    /// (4 bytes) Length of UNCOMPRESSED_LEN field in record of SDI Index
-    pub uncomp_len: u32,
-    /// (4 bytes) Length of COMPRESSED_LEN field in record of SDI Index
-    pub comp_len: u32,
-}
-
-impl SdiDataHeader {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        Self {
-            data_type: util::u32_val(&buf, addr),
-            data_id: util::u64_val(&buf, addr + 4),
-            trx_id: util::u48_val(&buf, addr + 12),
-            roll_ptr: util::u56_val(&buf, addr + 18),
-            uncomp_len: util::u32_val(&buf, addr + 25),
-            comp_len: util::u32_val(&buf, addr + 29),
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// SDI Object
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SdiObject {
-    pub dd_object: DataDictObject,
-    #[serde(flatten)]
-    extra: HashMap<String, Value>,
-}
-
-/// Data Dictionary Object
-#[derive(Debug, Deserialize, Serialize)]
-pub struct DataDictObject {
-    pub name: String,
-    pub schema_ref: String,
-    pub created: u64,
-    pub last_altered: u64,
-    pub hidden: u8,
-    pub collation_id: u32,
-    pub row_format: i8,
-    pub columns: Vec<DataDictColumn>,
-    pub indexes: Vec<DataDictIndex>,
-    pub se_private_data: String,
-    #[serde(flatten)]
-    extra: HashMap<String, Value>,
-}
-
-/// see sql/dd/impl/types/column_impl.h, class Column_impl : public Entity_object_impl, public Column {
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct DataDictColumn {
-    pub ordinal_position: u32,
-    #[serde(rename = "name")]
-    pub col_name: String,
-    #[serde(rename = "type")]
-    pub dd_type: u8,
-    pub is_nullable: bool,
-    pub is_zerofill: bool,
-    pub is_unsigned: bool,
-    pub is_auto_increment: bool,
-    pub is_virtual: bool,
-    pub hidden: HiddenTypes,
-    pub char_length: u32,
-    pub comment: String,
-    pub collation_id: u32,
-    pub column_key: u8,
-    pub column_type_utf8: String,
-    pub se_private_data: String,
-    pub elements: Vec<DataDictColumnElement>,
-    #[serde(flatten)]
-    extra: HashMap<String, Value>,
-}
-
-/// Data Dictionary Column Elements
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct DataDictColumnElement {
-    pub index: u32,
-    pub name: String,
-}
-
-/// see sql/dd/impl/types/index_impl.h, class Index_impl : public Entity_object_impl, public Index {
-#[derive(Debug, Deserialize, Serialize)]
-pub struct DataDictIndex {
-    pub ordinal_position: u32,
-    pub name: String,
-    pub hidden: bool,
-    pub comment: String,
-    #[serde(rename = "type")]
-    pub idx_type: u8,
-    pub algorithm: u8,
-    pub is_visible: bool,
-    pub engine: String,
-    pub se_private_data: String,
-    pub elements: Vec<DataDictIndexElement>,
-    #[serde(flatten)]
-    extra: HashMap<String, Value>,
-}
-
-/// Data Dictionary Index Elements
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct DataDictIndexElement {
-    pub ordinal_position: u32,
-    pub length: u32,
-    pub order: u8,
-    pub hidden: bool,
-    pub column_opx: u32,
 }

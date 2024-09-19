@@ -9,10 +9,14 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::record::{Record, SdiDataHeader, SdiObject, SdiRecord};
+use super::{sdi::SdiRecord, undo::UndoLogHeader};
 use crate::{
-    ibd::record::{RecordHeader, RowData, RowInfo},
+    ibd::{
+        record::{Record, RecordHeader, RowData, RowInfo},
+        sdi::SdiDataHeader,
+    },
     meta::def::TableDef,
+    sdi::record::EntryTypes,
     util,
 };
 
@@ -60,12 +64,10 @@ pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
-// file list const
+// space/page constants
 pub const SPACE_NONE: u32 = 0xffffffff;
+pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
 pub const PAGE_NONE: u32 = 0xffffffff;
-
-// sdi
-pub const SDI_DATA_HEADER_SIZE: usize = 33;
 
 /// Base Page Structure
 #[derive(Clone, Derivative)]
@@ -266,7 +268,8 @@ pub struct FilePageHeader {
     pub flush_lsn: u64,
 
     /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
-    pub space_id: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: Option<u32>,
 }
 
 impl FilePageHeader {
@@ -279,7 +282,10 @@ impl FilePageHeader {
             lsn: util::u64_val(&buf, addr + 16),
             page_type: util::u16_val(&buf, addr + 24).into(),
             flush_lsn: util::u64_val(&buf, addr + 26),
-            space_id: util::u32_val(&buf, addr + 34),
+            space_id: match util::u32_val(&buf, addr + 34) {
+                SPACE_NONE => None,
+                val => Some(val),
+            },
             buf: buf.clone(),
             addr,
         }
@@ -839,7 +845,7 @@ pub struct INodePageBody {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (12 bytes) The list node for linking segment inode pages, see
+    /// (12 bytes) The list node for linking segment inode pages,
     /// FSEG_INODE_PAGE_NODE
     pub inode_page_node: FlstNode,
 
@@ -1316,14 +1322,14 @@ impl BasePageBody for SdiPageBody {
 }
 
 impl SdiPageBody {
-    pub fn get_tabdef_sdiobj(&self) -> Result<SdiObject, Error> {
+    pub fn get_tabdef_str(&self) -> Result<String> {
         let sdi_objects = self.read_sdi_objects()?;
         let sdi_str = sdi_objects
             .iter()
-            .find(|obj| obj.sdi_hdr.data_type == 1) // 1 => Table
-            .map(|obj| &obj.sdi_str)
+            .find(|obj| obj.sdi_hdr.data_type == EntryTypes::Table)
+            .map(|obj| obj.sdi_str.clone())
             .unwrap();
-        Ok(serde_json::from_str(sdi_str).expect("ERR_SDI_FORMAT"))
+        Ok(sdi_str)
     }
 
     pub fn read_sdi_objects(&self) -> Result<Vec<SdiRecord>, Error> {
@@ -1458,8 +1464,7 @@ pub struct LogInfo {
 
 impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let name = buf.clone().slice(12..112);
-        // info!("name={:?}", name);
+        let name = buf.clone().slice(addr + 12..addr + 112);
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
@@ -1535,7 +1540,7 @@ impl DoubleWriteBufferInfo {
     }
 }
 
-/// Rollback Segment Array Page, see
+/// Rollback Segment Array Page, see trx0rseg.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RSegArrayPageBody {
@@ -1622,8 +1627,11 @@ pub struct UndoLogPageBody {
     /// (18 bytes) undo page header
     pub undo_page_hdr: UndoPageHeader,
 
-    /// (26 bytes) undo segment header
+    /// (30 bytes) undo segment header
     pub undo_seg_hdr: UndoSegmentHeader,
+
+    /// (186 bytes) undo log header
+    pub undo_log_hdr: UndoLogHeader,
 }
 
 impl BasePageBody for UndoLogPageBody {
@@ -1631,6 +1639,7 @@ impl BasePageBody for UndoLogPageBody {
         Self {
             undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
             undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
+            undo_log_hdr: UndoLogHeader::new(addr + 18 + 30, buf.clone()),
             buf: buf.clone(),
             addr,
         }
@@ -1653,7 +1662,7 @@ pub enum UndoPageTypes {
     UNDEF,
 }
 
-/// Undo Page Header, see
+/// Undo Page Header, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoPageHeader {
@@ -1729,7 +1738,7 @@ pub enum UndoPageStates {
     UNDEF,
 }
 
-/// Undo Segment Header, see
+/// Undo Segment Header, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoSegmentHeader {
