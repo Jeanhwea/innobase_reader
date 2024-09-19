@@ -188,6 +188,10 @@ pub fn i32_val(buf: &[u8], addr: usize) -> i32 {
     i32::from_be_bytes(buf[addr..addr + 4].try_into().expect("ERR_READ_VALUE_i32"))
 }
 
+pub fn u8_val(buf: &[u8], addr: usize) -> u8 {
+    u8::from_be_bytes(buf[addr..addr + 1].try_into().expect("ERR_READ_VALUE_u8"))
+}
+
 pub fn u16_val(buf: &[u8], addr: usize) -> u16 {
     u16::from_be_bytes(buf[addr..addr + 2].try_into().expect("ERR_READ_VALUE_u16"))
 }
