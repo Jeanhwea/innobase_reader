@@ -60,8 +60,9 @@ pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
-// file list const
+// space/page constants
 pub const SPACE_NONE: u32 = 0xffffffff;
+pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
 pub const PAGE_NONE: u32 = 0xffffffff;
 
 // sdi
@@ -266,7 +267,8 @@ pub struct FilePageHeader {
     pub flush_lsn: u64,
 
     /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
-    pub space_id: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: Option<u32>,
 }
 
 impl FilePageHeader {
@@ -279,7 +281,10 @@ impl FilePageHeader {
             lsn: util::u64_val(&buf, addr + 16),
             page_type: util::u16_val(&buf, addr + 24).into(),
             flush_lsn: util::u64_val(&buf, addr + 26),
-            space_id: util::u32_val(&buf, addr + 34),
+            space_id: match util::u32_val(&buf, addr + 34) {
+                SPACE_NONE => None,
+                val => Some(val),
+            },
             buf: buf.clone(),
             addr,
         }

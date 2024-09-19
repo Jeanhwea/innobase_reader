@@ -109,7 +109,11 @@ impl App {
         println!(
             "{:>12} => {}",
             "space_id".green(),
-            &hdr0.space_id.to_string().blue()
+            match &hdr0.space_id {
+                Some(value) => value.to_string(),
+                None => "-".to_string(),
+            }
+            .blue()
         );
         println!(
             "{:>12} => {}",
@@ -186,7 +190,11 @@ impl App {
                 "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
                 &page_no.to_string().magenta(),
                 &page_type.to_string().yellow(),
-                &fil_hdr.space_id.to_string().blue(),
+                match &fil_hdr.space_id {
+                    Some(value) => value.to_string(),
+                    None => "-".to_string(),
+                }
+                .blue(),
                 &fil_hdr.lsn.to_string().green(),
                 offset,
                 offset.to_string().blue(),
