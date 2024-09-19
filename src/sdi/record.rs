@@ -1,22 +1,36 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
-use anyhow::Result;
+use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::{Display, EnumString};
 
 use crate::meta::def::HiddenTypes;
+
+#[repr(u32)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum EntryTypes {
+    #[default]
+    Unknown,
+
+    Table = 1,
+
+    Tablespace = 2,
+}
 
 /// SDI Entry
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SdiEntry {
     #[serde(rename = "type")]
-    pub entry_type: u8,
+    pub entry_type: EntryTypes,
 
     #[serde(rename = "id")]
     pub entry_id: u64,
 
     #[serde(rename = "object")]
-    pub entry_object: EntryObjectEnums,
+    pub entry_object: DataDictObjectTypes,
 }
 
 impl SdiEntry {
@@ -28,9 +42,9 @@ impl SdiEntry {
 /// Entry Object Enums
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "dd_object_type")]
-pub enum EntryObjectEnums {
-    Tablespace(SdiTablespaceObject),
+pub enum DataDictObjectTypes {
     Table(SdiTableObject),
+    Tablespace(SdiTablespaceObject),
 }
 
 /// SDI Tablespace Object

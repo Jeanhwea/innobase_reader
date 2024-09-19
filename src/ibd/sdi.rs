@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use derivative::Derivative;
 
-use crate::{ibd::record::RecordHeader, util};
+use crate::{ibd::record::RecordHeader, sdi::record::EntryTypes, util};
 
 // sdi
 pub const SDI_DATA_HEADER_SIZE: usize = 33;
@@ -60,7 +60,7 @@ pub struct SdiDataHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) Length of TYPE field in record of SDI Index
-    pub data_type: u32,
+    pub data_type: EntryTypes,
     /// (8 bytes) Data ID
     pub data_id: u64,
     /// (6 bytes) Transaction ID
@@ -76,7 +76,7 @@ pub struct SdiDataHeader {
 impl SdiDataHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            data_type: util::u32_val(&buf, addr),
+            data_type: util::u32_val(&buf, addr).into(),
             data_id: util::u64_val(&buf, addr + 4),
             trx_id: util::u48_val(&buf, addr + 12),
             roll_ptr: util::u56_val(&buf, addr + 18),
