@@ -25,6 +25,7 @@ use crate::{
         cst::coll_find,
         def::{ColumnDef, ColumnTypes, HiddenTypes, IndexDef, IndexElementDef, TableDef},
     },
+    sdi::record::SdiTableObject,
     util::{
         self, u32_val, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
         unpack_newdate_val, unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
@@ -267,18 +268,19 @@ impl DatafileFactory {
     pub fn load_table_def(&mut self) -> Result<Arc<TableDef>> {
         let sdi_page = self.read_sdi_page()?;
 
-        let ddobj = sdi_page.page_body.get_tabdef_sdiobj()?.dd_object;
-        debug!("ddobj={:#?}", &ddobj);
+        let sdi_str = sdi_page.page_body.get_tabdef_str()?;
+        let dd_object = SdiTableObject::from_str(&sdi_str)?.dd_object;
+        debug!("dd_object={:#?}", &dd_object);
 
-        let coll = coll_find(ddobj.collation_id);
+        let coll = coll_find(dd_object.collation_id);
         info!("当前文件字符集: {:?}", &coll);
 
-        let coldefs = ddobj
+        let coldefs = dd_object
             .columns
             .iter()
             .map(ColumnDef::from)
             .collect::<Vec<_>>();
-        let idxdefs = ddobj
+        let idxdefs = dd_object
             .indexes
             .iter()
             .map(|idx| {
@@ -296,7 +298,7 @@ impl DatafileFactory {
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
 
-        Ok(Arc::from(TableDef::from(&ddobj, coll, coldefs, idxdefs)))
+        Ok(Arc::from(TableDef::from(&dd_object, coll, coldefs, idxdefs)))
     }
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {

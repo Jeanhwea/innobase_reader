@@ -16,7 +16,7 @@ use crate::{
         sdi::SdiDataHeader,
     },
     meta::def::TableDef,
-    sdi::record::{EntryTypes, SdiTableObject},
+    sdi::record::EntryTypes,
     util,
 };
 
@@ -1322,14 +1322,14 @@ impl BasePageBody for SdiPageBody {
 }
 
 impl SdiPageBody {
-    pub fn get_tabdef_sdiobj(&self) -> Result<SdiTableObject, Error> {
+    pub fn get_tabdef_str(&self) -> Result<String> {
         let sdi_objects = self.read_sdi_objects()?;
         let sdi_str = sdi_objects
             .iter()
             .find(|obj| obj.sdi_hdr.data_type == EntryTypes::Table)
-            .map(|obj| &obj.sdi_str)
+            .map(|obj| obj.sdi_str.clone())
             .unwrap();
-        Ok(serde_json::from_str(sdi_str).expect("ERR_SDI_FORMAT"))
+        Ok(sdi_str)
     }
 
     pub fn read_sdi_objects(&self) -> Result<Vec<SdiRecord>, Error> {

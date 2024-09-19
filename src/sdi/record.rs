@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
+use anyhow::Result;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -80,6 +81,12 @@ pub struct SdiTableObject {
     pub dd_object: TableDataDictObject,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
+}
+
+impl SdiTableObject {
+    pub fn from_str(s: &str) -> Result<Self> {
+        Ok(serde_json::from_str(s).expect("ERR_SDI_TABLE_OBJECT_FORMAT"))
+    }
 }
 
 /// Data Dictionary Object
