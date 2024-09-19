@@ -1787,7 +1787,7 @@ pub struct UndoLogHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// transaction id
+    /// (8 bytes) transaction id
     pub trx_id: u64,
 }
 
