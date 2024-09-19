@@ -1,21 +1,76 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::meta::def::HiddenTypes;
 
-/// SDI Object
+/// SDI Entry
 #[derive(Debug, Deserialize, Serialize)]
-pub struct SdiObject {
-    pub dd_object: DataDictObject,
+pub struct SdiEntry {
+    #[serde(rename = "type")]
+    pub entry_type: u8,
+
+    #[serde(rename = "id")]
+    pub entry_id: u64,
+
+    #[serde(rename = "object")]
+    pub entry_object: EntryObjectEnums,
+}
+
+impl SdiEntry {
+    pub fn form_str(s: &str) -> Vec<Self> {
+        serde_json::from_str::<Vec<SdiEntry>>(s).expect("ERR_SDI_ENTRY_LIST")
+    }
+}
+
+/// Entry Object Enums
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "dd_object_type")]
+pub enum EntryObjectEnums {
+    Tablespace(SdiTablespaceObject),
+    Table(SdiTableObject),
+}
+
+/// SDI Tablespace Object
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SdiTablespaceObject {
+    pub mysqld_version_id: u32,
+    pub dd_version: u32,
+    pub sdi_version: u32,
+    pub dd_object: TablespaceDataDictObject,
     #[serde(flatten)]
     extra: HashMap<String, Value>,
 }
 
 /// Data Dictionary Object
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DataDictObject {
+pub struct TablespaceDataDictObject {
+    pub name: String,
+    pub comment: String,
+    pub options: String,
+    pub se_private_data: String,
+    pub engine: String,
+    pub engine_attribute: String,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
+}
+
+/// SDI Table Object
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SdiTableObject {
+    pub mysqld_version_id: u32,
+    pub dd_version: u32,
+    pub sdi_version: u32,
+    pub dd_object: TableDataDictObject,
+    #[serde(flatten)]
+    extra: HashMap<String, Value>,
+}
+
+/// Data Dictionary Object
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TableDataDictObject {
     pub name: String,
     pub schema_ref: String,
     pub created: u64,
@@ -92,15 +147,20 @@ pub struct DataDictIndexElement {
 
 #[cfg(test)]
 mod sdi_tests_run {
-    use anyhow::Result;
-    use log::info;
+    use std::{fs, path::PathBuf};
 
-    use crate::util;
+    use anyhow::Result;
+
+    use crate::{sdi::record::SdiEntry, util};
+
+    const SDI_01: &str = "data/employees_sdi.json";
 
     #[test]
     fn parse_sdi_info_00() -> Result<()> {
         util::init_unit_test();
-        info!("start");
+        let text = fs::read_to_string(PathBuf::from(SDI_01))?;
+        let objs = SdiEntry::form_str(&text);
+        dbg!(&objs);
         Ok(())
     }
 }

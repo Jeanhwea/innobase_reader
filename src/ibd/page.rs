@@ -16,7 +16,7 @@ use crate::{
         sdi::SdiDataHeader,
     },
     meta::def::TableDef,
-    sdi::record::SdiObject,
+    sdi::record::SdiTableObject,
     util,
 };
 
@@ -1322,7 +1322,7 @@ impl BasePageBody for SdiPageBody {
 }
 
 impl SdiPageBody {
-    pub fn get_tabdef_sdiobj(&self) -> Result<SdiObject, Error> {
+    pub fn get_tabdef_sdiobj(&self) -> Result<SdiTableObject, Error> {
         let sdi_objects = self.read_sdi_objects()?;
         let sdi_str = sdi_objects
             .iter()

@@ -20,10 +20,15 @@ pub struct SdiRecord {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// record header
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub rec_hdr: RecordHeader, // record header
-    pub sdi_hdr: SdiDataHeader, // SDI Data Header
-    pub sdi_str: String,        // SDI Data String, uncompressed string
+    pub rec_hdr: RecordHeader,
+
+    /// SDI Data Header
+    pub sdi_hdr: SdiDataHeader,
+
+    /// SDI Data String, uncompressed string
+    pub sdi_str: String,
 }
 
 impl SdiRecord {
@@ -54,7 +59,7 @@ pub struct SdiDataHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (4 bytes) Length of TYPE field in record of SDI Index.
+    /// (4 bytes) Length of TYPE field in record of SDI Index
     pub data_type: u32,
     /// (8 bytes) Data ID
     pub data_id: u64,
