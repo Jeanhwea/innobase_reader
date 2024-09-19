@@ -1463,7 +1463,7 @@ pub struct LogInfo {
 
 impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let name = buf.clone().slice(12..112);
+        let name = buf.clone().slice(addr + 12..addr + 112);
         // info!("name={:?}", name);
         Self {
             magic_number: util::u32_val(&buf, addr),
