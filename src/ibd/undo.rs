@@ -2,9 +2,30 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use num_enum::FromPrimitive;
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::{Display, EnumString};
 
 use super::page::FlstNode;
 use crate::util;
+
+/// States of an undo log segment
+#[repr(u8)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum UndoFlags {
+    ///  undo log header includes X/Open XA transaction identification XID
+    XID,
+
+    /// undo log header includes GTID information from replication
+    GTID,
+
+    ///  undo log header includes GTID information for XA PREPARE
+    XA_PREPARE_GTID,
+
+    #[default]
+    UNDEF,
+}
 
 /// Undo Log Header, see trx0undo.h
 #[derive(Clone, Derivative)]
@@ -36,10 +57,15 @@ pub struct UndoLogHeader {
     /// header end offset
     pub log_start: u16,
 
+    /// see undo_flags_bits
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub undo_flags: Vec<UndoFlags>,
+
     /// (1 byte) TRX_UNDO_FLAGS, Transaction UNDO flags in one byte. This is
     /// backward compatible as earlier we were storing either 1 or 0 for
     /// TRX_UNDO_XID_EXISTS
-    pub undo_flags: u8,
+    #[derivative(Debug = "ignore")]
+    pub undo_flags_bits: u8,
 
     /// (1 byte), TRX_UNDO_DICT_TRANS, true if the transaction is a table
     /// create, index create, or drop transaction: in recovery the transaction
@@ -69,22 +95,63 @@ pub struct UndoLogHeader {
 
 impl UndoLogHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let xa = XaTrxInfo::new(addr + 46, buf.clone());
+        let b0 = util::u8_val(&buf, addr + 20);
+
+        let mut flags = Vec::new();
+        if (b0 & Self::TRX_UNDO_FLAG_XID) > 0 {
+            flags.push(UndoFlags::XID);
+        }
+        if (b0 & Self::TRX_UNDO_FLAG_GTID) > 0 {
+            flags.push(UndoFlags::GTID);
+        }
+        if (b0 & Self::TRX_UNDO_FLAG_XA_PREPARE_GTID) > 0 {
+            flags.push(UndoFlags::XA_PREPARE_GTID);
+        }
+
+        let xid_flag = (b0 & Self::TRX_UNDO_FLAG_XID) > 0;
+        let xa = if xid_flag {
+            Some(XaTrxInfo::new(addr + 46, buf.clone()))
+        } else {
+            None
+        };
+
         Self {
             trx_id: util::u64_val(&buf, addr),
             trx_no: util::u64_val(&buf, addr + 8),
             del_marks: util::u16_val(&buf, addr + 16),
             log_start: util::u16_val(&buf, addr + 18),
-            undo_flags: util::u8_val(&buf, addr + 20),
+            undo_flags: flags,
+            undo_flags_bits: b0,
             dict_trans: util::u8_val(&buf, addr + 21),
             table_id: util::u64_val(&buf, addr + 22),
             next_log: util::u16_val(&buf, addr + 30),
             prev_log: util::u16_val(&buf, addr + 32),
             history_node: FlstNode::new(addr + 34, buf.clone()),
-            xa_trx_info: Some(xa),
+            xa_trx_info: xa,
             buf: buf.clone(),
             addr,
         }
+    }
+
+    /// true if undo log header includes X/Open XA transaction identification XID
+    const TRX_UNDO_FLAG_XID: u8 = 0x01;
+
+    /// true if undo log header includes GTID information from replication
+    const TRX_UNDO_FLAG_GTID: u8 = 0x02;
+
+    /// true if undo log header includes GTID information for XA PREPARE
+    const TRX_UNDO_FLAG_XA_PREPARE_GTID: u8 = 0x04;
+
+    pub fn is_xid(&self) -> bool {
+        (self.undo_flags_bits & Self::TRX_UNDO_FLAG_XID) > 0
+    }
+
+    pub fn is_gtid(&self) -> bool {
+        (self.undo_flags_bits & Self::TRX_UNDO_FLAG_GTID) > 0
+    }
+
+    pub fn is_xa_prepare_gtid(&self) -> bool {
+        (self.undo_flags_bits & Self::TRX_UNDO_FLAG_XA_PREPARE_GTID) > 0
     }
 }
 

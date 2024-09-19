@@ -75,6 +75,7 @@ pub struct RecordHeader {
     info_byte: u8,
 
     /// (4 bits) info_bits, MIN_REC/DELETED/VERSION/INSTANT flags, see rec.h, 4 bits
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub info_bits: Vec<RecInfoFlag>,
 
     /// (4 bits) Number of owned records
@@ -92,20 +93,6 @@ pub struct RecordHeader {
 }
 
 impl RecordHeader {
-    // Info bit denoting the predefined minimum record: this bit is set if and
-    // only if the record is the first user record on a non-leaf B-tree page
-    // that is the leftmost page on its level (PAGE_LEVEL is nonzero and
-    // FIL_PAGE_PREV is FIL_NULL).
-    const REC_INFO_MIN_REC_FLAG: u8 = 0x10;
-    // The deleted flag in info bits; when bit is set to 1, it means the record
-    // has been delete marked
-    const REC_INFO_DELETED_FLAG: u8 = 0x20;
-    // Use this bit to indicate record has version
-    const REC_INFO_VERSION_FLAG: u8 = 0x40;
-    // The instant ADD COLUMN flag. When it is set to 1, it means this record
-    // was inserted/updated after an instant ADD COLUMN.
-    const REC_INFO_INSTANT_FLAG: u8 = 0x80;
-
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let b0 = buf[addr];
         let b1 = util::u16_val(&buf, addr + 1);
@@ -142,6 +129,23 @@ impl RecordHeader {
     pub fn next_addr(&self) -> usize {
         ((self.addr as i16) + self.next_rec_offset) as usize + RECORD_HEADER_SIZE
     }
+
+    /// Info bit denoting the predefined minimum record: this bit is set if and
+    /// only if the record is the first user record on a non-leaf B-tree page
+    /// that is the leftmost page on its level (PAGE_LEVEL is nonzero and
+    /// FIL_PAGE_PREV is FIL_NULL).
+    const REC_INFO_MIN_REC_FLAG: u8 = 0x10;
+
+    /// The deleted flag in info bits; when bit is set to 1, it means the record
+    /// has been delete marked
+    const REC_INFO_DELETED_FLAG: u8 = 0x20;
+
+    /// Use this bit to indicate record has version
+    const REC_INFO_VERSION_FLAG: u8 = 0x40;
+
+    /// The instant ADD COLUMN flag. When it is set to 1, it means this record
+    /// was inserted/updated after an instant ADD COLUMN.
+    const REC_INFO_INSTANT_FLAG: u8 = 0x80;
 
     pub fn is_min_rec(&self) -> bool {
         (self.info_byte & Self::REC_INFO_MIN_REC_FLAG) > 0
