@@ -13,8 +13,8 @@ use crate::{
     factory::{DataValue, DatafileFactory},
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody, XDesPageBody,
-        EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        PageNumber, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody,
+        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
     },
     util::{extno, pagno},
     Commands,
@@ -109,11 +109,7 @@ impl App {
         println!(
             "{:>12} => {}",
             "space_id".green(),
-            match &hdr0.space_id {
-                Some(value) => value.to_string(),
-                None => "-".to_string(),
-            }
-            .blue()
+            &hdr0.space_id.to_string().blue()
         );
         println!(
             "{:>12} => {}",
@@ -190,11 +186,7 @@ impl App {
                 "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
                 &page_no.to_string().magenta(),
                 &page_type.to_string().yellow(),
-                match &fil_hdr.space_id {
-                    Some(value) => value.to_string(),
-                    None => "-".to_string(),
-                }
-                .blue(),
+                &fil_hdr.space_id.to_string().blue(),
                 &fil_hdr.lsn.to_string().green(),
                 offset,
                 offset.to_string().blue(),
@@ -226,7 +218,7 @@ impl App {
             );
 
             let inode_nonleaf =
-                fact.read_inode_entry(nonleaf_fseg_hdr.page_no as usize, nonleaf_fseg_hdr.offset)?;
+                fact.read_inode_entry(nonleaf_fseg_hdr.page_no.into(), nonleaf_fseg_hdr.offset)?;
             self.do_list_inode(fact, &inode_nonleaf)?;
 
             let leaf_fseg_hdr = &index_page.page_body.fseg_hdr_0;
@@ -239,7 +231,7 @@ impl App {
             );
 
             let inode_leaf =
-                fact.read_inode_entry(leaf_fseg_hdr.page_no as usize, leaf_fseg_hdr.offset)?;
+                fact.read_inode_entry(leaf_fseg_hdr.page_no.into(), leaf_fseg_hdr.offset)?;
             self.do_list_inode(fact, &inode_leaf)?;
         }
         Ok(())
@@ -291,11 +283,11 @@ impl App {
         let mut faddr = base.first.clone();
         let mut i = 1;
         loop {
-            if faddr.page.is_none() {
+            if matches!(faddr.page_no, PageNumber::None) {
                 break;
             }
 
-            let page_no = faddr.page_no as usize;
+            let page_no: usize = faddr.page_no.into();
             let xdes = fact.read_xdes_entry(page_no, faddr.boffset)?;
 
             if i % N_ELE_PER_LINE == 1 {
@@ -568,12 +560,11 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
-        if fil_hdr.page_type != PageTypes::ALLOCATED {
-            assert_eq!(
-                page_no, fil_hdr.page_no as usize,
-                "输入的页码和文件头的页码不一致, page_no={}, fil_hdr.page_no={}",
-                page_no, fil_hdr.page_no
-            );
+        if !matches!(fil_hdr.page_type, PageTypes::ALLOCATED) {
+            let curr_page_no: usize = fil_hdr.page_no.into();
+            if curr_page_no != page_no {
+                panic!("输入的页码和文件头的页码不一致");
+            }
         }
 
         match fil_hdr.page_type {

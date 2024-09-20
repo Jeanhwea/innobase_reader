@@ -250,7 +250,7 @@ impl DatafileFactory {
             return Err(Error::msg("数据文件版本过低，没有表元信息"));
         }
         let sdi_meta = fsp_page.page_body.sdi_meta();
-        let sdi_page_no = sdi_meta.sdi_page_no as usize;
+        let sdi_page_no: usize = sdi_meta.sdi_page_no.into();
         self.read_page(sdi_page_no)
     }
 
@@ -298,7 +298,9 @@ impl DatafileFactory {
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
 
-        Ok(Arc::from(TableDef::from(&dd_object, coll, coldefs, idxdefs)))
+        Ok(Arc::from(TableDef::from(
+            &dd_object, coll, coldefs, idxdefs,
+        )))
     }
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {
@@ -858,7 +860,7 @@ mod factory_tests_run {
 
     use crate::{
         factory::DatafileFactory,
-        ibd::page::{BasePage, IndexPageBody, PageTypes},
+        ibd::page::{BasePage, IndexPageBody, PageNumber, PageTypes},
         util,
     };
 
@@ -878,7 +880,7 @@ mod factory_tests_run {
             }
             let idx: BasePage<IndexPageBody> = fact.read_page(page_no)?;
             let fs = idx.page_body.fseg_hdr_0;
-            if fs.page_no > 0 {
+            if !matches!(fs.page_no, PageNumber::None) {
                 println!("page_no={}, {:#?}", page_no, fs);
             }
         }

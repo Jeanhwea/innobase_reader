@@ -1,4 +1,8 @@
-use std::{fmt::Debug, sync::Arc};
+use core::fmt;
+use std::{
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -65,9 +69,81 @@ pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // space/page constants
-pub const SPACE_NONE: u32 = 0xffffffff;
+pub const SPACE_ID_MAX: u32 = 0xffffffff;
 pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
+
+/// Tablespace ID
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum SpaceId {
+    SpaceMax,
+    UndoSpaceMax,
+    Space(u32),
+}
+
+impl From<u32> for SpaceId {
+    fn from(value: u32) -> SpaceId {
+        match value {
+            SPACE_ID_MAX => SpaceId::SpaceMax,
+            SPACE_UNDO_MAX => SpaceId::UndoSpaceMax,
+            val => SpaceId::Space(val),
+        }
+    }
+}
+
+impl Display for SpaceId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SpaceId::Space(val) => {
+                write!(f, "{:?}", val)
+            }
+            _ => {
+                write!(f, "{:?}", self)
+            }
+        }
+    }
+}
+
 pub const PAGE_NONE: u32 = 0xffffffff;
+
+/// Page Number
+#[derive(Clone, Copy, PartialEq, Eq, Derivative)]
+#[derivative(Debug)]
+pub enum PageNumber {
+    None,
+    Page(u32),
+}
+
+impl From<u32> for PageNumber {
+    fn from(value: u32) -> PageNumber {
+        match value {
+            PAGE_NONE => PageNumber::None,
+            val => PageNumber::Page(val),
+        }
+    }
+}
+
+impl From<PageNumber> for usize {
+    fn from(value: PageNumber) -> usize {
+        match value {
+            PageNumber::None => PAGE_NONE as usize,
+            PageNumber::Page(val) => val as usize,
+        }
+    }
+}
+
+impl Display for PageNumber {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            PageNumber::Page(val) => {
+                write!(f, "{:?}", val)
+            }
+            _ => {
+                write!(f, "{:?}", self)
+            }
+        }
+    }
+}
 
 /// Base Page Structure
 #[derive(Clone, Derivative)]
@@ -246,7 +322,8 @@ pub struct FilePageHeader {
     pub check_sum: u32,
 
     /// (4 bytes) page number/offset, FIL_PAGE_OFFSET
-    pub page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub page_no: PageNumber,
 
     /// (4 bytes) previous page, FIL_PAGE_PREV
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
@@ -269,35 +346,30 @@ pub struct FilePageHeader {
 
     /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub space_id: Option<u32>,
+    pub space_id: SpaceId,
 }
 
 impl FilePageHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             check_sum: util::u32_val(&buf, addr),
-            page_no: util::u32_val(&buf, addr + 4),
+            page_no: util::u32_val(&buf, addr + 4).into(),
             prev_page: util::u32_val(&buf, addr + 8),
             next_page: util::u32_val(&buf, addr + 12),
             lsn: util::u64_val(&buf, addr + 16),
             page_type: util::u16_val(&buf, addr + 24).into(),
             flush_lsn: util::u64_val(&buf, addr + 26),
-            space_id: match util::u32_val(&buf, addr + 34) {
-                SPACE_NONE => None,
-                val => Some(val),
-            },
+            space_id: util::u32_val(&buf, addr + 34).into(),
             buf: buf.clone(),
             addr,
         }
     }
 
     pub fn server_version(&self) -> u32 {
-        assert_eq!(self.page_no, 0);
         self.prev_page
     }
 
     pub fn space_version(&self) -> u32 {
-        assert_eq!(self.page_no, 0);
         self.next_page
     }
 }
@@ -414,12 +486,9 @@ pub struct FilAddr {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// page number representation
-    pub page: Option<u32>,
-
     /// (4 bytes) Page number within a space
-    #[derivative(Debug = "ignore")]
-    pub page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub page_no: PageNumber,
 
     /// (2 bytes) Byte offset within the page
     pub boffset: u16,
@@ -427,14 +496,8 @@ pub struct FilAddr {
 
 impl FilAddr {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let page_no = util::u32_val(&buf, addr);
         Self {
-            page: if page_no != PAGE_NONE {
-                Some(page_no)
-            } else {
-                None
-            },
-            page_no,
+            page_no: util::u32_val(&buf, addr).into(),
             boffset: util::u16_val(&buf, addr + 4),
             buf: buf.clone(),
             addr,
@@ -514,7 +577,8 @@ pub struct FileSpaceHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) tablespace ID
-    pub space_id: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: SpaceId,
 
     /// (4 bytes) not used now
     pub notused: u32,
@@ -558,7 +622,7 @@ impl FileSpaceHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let flags = util::u32_val(&buf, addr + 16);
         Self {
-            space_id: util::u32_val(&buf, addr),
+            space_id: util::u32_val(&buf, addr).into(),
             notused: util::u32_val(&buf, addr + 4),
             fsp_size: util::u32_val(&buf, addr + 8),
             free_limit: util::u32_val(&buf, addr + 12),
@@ -819,14 +883,15 @@ pub struct SdiMetaData {
     pub buf: Arc<Bytes>,
 
     pub sdi_version: u32, // SDI Version
-    pub sdi_page_no: u32, // SDI Page Number
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub sdi_page_no: PageNumber, // SDI Page Number
 }
 
 impl SdiMetaData {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             sdi_version: util::u32_val(&buf, addr),
-            sdi_page_no: util::u32_val(&buf, addr + 4),
+            sdi_page_no: util::u32_val(&buf, addr + 4).into(),
             buf: buf.clone(),
             addr,
         }
@@ -1277,9 +1342,13 @@ pub struct FSegHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space id
-    pub space_id: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: SpaceId,
+
     /// (4 bytes) page number
-    pub page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub page_no: PageNumber,
+
     /// (2 bytes) byte offset
     pub offset: u16,
 }
@@ -1287,8 +1356,8 @@ pub struct FSegHeader {
 impl FSegHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            space_id: util::u32_val(&buf, addr),
-            page_no: util::u32_val(&buf, addr + 4),
+            space_id: util::u32_val(&buf, addr).into(),
+            page_no: util::u32_val(&buf, addr + 4).into(),
             offset: util::u16_val(&buf, addr + 8),
             buf: buf.clone(),
             addr,
@@ -1392,7 +1461,7 @@ impl BasePageBody for TrxSysPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let slots = (0..TRX_SYS_N_RSEGS)
             .map(|nth| RSegInfo::new(addr + 8 + 10 + 8 * nth, buf.clone()))
-            .filter(|rseg| rseg.page_no != PAGE_NONE)
+            .filter(|rseg| !matches!(rseg.page_no, PageNumber::None))
             .collect();
         Self {
             trx_id: util::u64_val(&buf, addr),
@@ -1420,18 +1489,19 @@ pub struct RSegInfo {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space ID
-    pub space_id: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: SpaceId,
 
     /// (4 bytes) page number
-    #[derivative(Debug(format_with = "util::fmt_hex32"))]
-    pub page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub page_no: PageNumber,
 }
 
 impl RSegInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            space_id: util::u32_val(&buf, addr),
-            page_no: util::u32_val(&buf, addr + 4),
+            space_id: util::u32_val(&buf, addr).into(),
+            page_no: util::u32_val(&buf, addr + 4).into(),
             buf: buf.clone(),
             addr,
         }
@@ -1493,16 +1563,20 @@ pub struct DoubleWriteBufferInfo {
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub a_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    pub a_blk1_page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub a_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    pub a_blk2_page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub a_blk2_page_no: PageNumber,
 
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub b_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    pub b_blk1_page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub b_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    pub b_blk2_page_no: u32,
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub b_blk2_page_no: PageNumber,
 
     /// (4 bytes) magic number
     pub space_id_stored_magic_number: u32,
@@ -1513,11 +1587,11 @@ impl DoubleWriteBufferInfo {
         let info = Self {
             fseg_hdr: FSegHeader::new(addr, buf.clone()),
             a_magic_number: util::u32_val(&buf, addr + 10),
-            a_blk1_page_no: util::u32_val(&buf, addr + 14),
-            a_blk2_page_no: util::u32_val(&buf, addr + 18),
+            a_blk1_page_no: util::u32_val(&buf, addr + 14).into(),
+            a_blk2_page_no: util::u32_val(&buf, addr + 18).into(),
             b_magic_number: util::u32_val(&buf, addr + 22),
-            b_blk1_page_no: util::u32_val(&buf, addr + 26),
-            b_blk2_page_no: util::u32_val(&buf, addr + 30),
+            b_blk1_page_no: util::u32_val(&buf, addr + 26).into(),
+            b_blk2_page_no: util::u32_val(&buf, addr + 30).into(),
             space_id_stored_magic_number: util::u32_val(&buf, addr + 34),
             buf: buf.clone(),
             addr,
@@ -1777,5 +1851,19 @@ impl UndoSegmentHeader {
             buf: buf.clone(),
             addr,
         }
+    }
+}
+
+#[cfg(test)]
+mod page_tests {
+
+    use super::*;
+    use crate::util;
+
+    #[test]
+    fn info_datafile() {
+        util::init_unit_test();
+        let page = PageNumber::Page(10);
+        info!("page={:?}", page);
     }
 }
