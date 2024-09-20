@@ -45,6 +45,13 @@ pub fn init_unit_test() {
     });
 }
 
+pub fn fmt_bin8<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display + Binary + LowerHex,
+{
+    write!(f, "0b{:08b}(0x{:02x})", d, d)
+}
+
 pub fn fmt_bin32<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display + Binary + LowerHex,
