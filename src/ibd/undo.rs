@@ -192,3 +192,34 @@ impl XaTrxInfo {
         }
     }
 }
+
+/// Undo Record Header
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecordHeader {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) previous record offset
+    pub prev_rec_offset: u16,
+
+    /// (2 bytes) next record offset
+    pub next_rec_offset: u16,
+}
+
+impl UndoRecordHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let b1 = util::u8_val(&buf, addr + 2);
+        Self {
+            prev_rec_offset: util::u16_val(&buf, addr - 2),
+            next_rec_offset: util::u16_val(&buf, addr),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
