@@ -298,7 +298,9 @@ impl DatafileFactory {
             .collect();
         debug!("idxdefs={:?}", &idxdefs);
 
-        Ok(Arc::from(TableDef::from(&dd_object, coll, coldefs, idxdefs)))
+        Ok(Arc::from(TableDef::from(
+            &dd_object, coll, coldefs, idxdefs,
+        )))
     }
 
     pub fn unpack_index_page(&mut self, page_no: usize, garbage: bool) -> Result<ResultSet, Error> {

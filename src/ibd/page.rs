@@ -1,4 +1,8 @@
-use std::{fmt::Debug, sync::Arc};
+use core::fmt;
+use std::{
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+};
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
@@ -68,6 +72,37 @@ pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 pub const SPACE_NONE: u32 = 0xffffffff;
 pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
 pub const PAGE_NONE: u32 = 0xffffffff;
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum SpaceId {
+    SpaceMax,
+    UndoSpaceMax,
+    Space(u32),
+}
+
+impl From<u32> for SpaceId {
+    fn from(value: u32) -> SpaceId {
+        match value {
+            SPACE_NONE => SpaceId::SpaceMax,
+            SPACE_UNDO_MAX => SpaceId::UndoSpaceMax,
+            val => SpaceId::Space(val),
+        }
+    }
+}
+
+impl Display for SpaceId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SpaceId::Space(val) => {
+                write!(f, "{:?}", val)
+            }
+            _ => {
+                write!(f, "{:?}", self)
+            }
+        }
+    }
+}
 
 /// Base Page Structure
 #[derive(Clone, Derivative)]
@@ -269,7 +304,7 @@ pub struct FilePageHeader {
 
     /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub space_id: Option<u32>,
+    pub space_id: SpaceId,
 }
 
 impl FilePageHeader {
@@ -282,10 +317,7 @@ impl FilePageHeader {
             lsn: util::u64_val(&buf, addr + 16),
             page_type: util::u16_val(&buf, addr + 24).into(),
             flush_lsn: util::u64_val(&buf, addr + 26),
-            space_id: match util::u32_val(&buf, addr + 34) {
-                SPACE_NONE => None,
-                val => Some(val),
-            },
+            space_id: util::u32_val(&buf, addr + 34).into(),
             buf: buf.clone(),
             addr,
         }
@@ -514,7 +546,7 @@ pub struct FileSpaceHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) tablespace ID
-    pub space_id: u32,
+    pub space_id: SpaceId,
 
     /// (4 bytes) not used now
     pub notused: u32,
@@ -558,7 +590,7 @@ impl FileSpaceHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let flags = util::u32_val(&buf, addr + 16);
         Self {
-            space_id: util::u32_val(&buf, addr),
+            space_id: util::u32_val(&buf, addr).into(),
             notused: util::u32_val(&buf, addr + 4),
             fsp_size: util::u32_val(&buf, addr + 8),
             free_limit: util::u32_val(&buf, addr + 12),
@@ -1277,7 +1309,7 @@ pub struct FSegHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space id
-    pub space_id: u32,
+    pub space_id: SpaceId,
     /// (4 bytes) page number
     pub page_no: u32,
     /// (2 bytes) byte offset
@@ -1287,7 +1319,7 @@ pub struct FSegHeader {
 impl FSegHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            space_id: util::u32_val(&buf, addr),
+            space_id: util::u32_val(&buf, addr).into(),
             page_no: util::u32_val(&buf, addr + 4),
             offset: util::u16_val(&buf, addr + 8),
             buf: buf.clone(),
@@ -1420,7 +1452,7 @@ pub struct RSegInfo {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space ID
-    pub space_id: u32,
+    pub space_id: SpaceId,
 
     /// (4 bytes) page number
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
@@ -1430,7 +1462,7 @@ pub struct RSegInfo {
 impl RSegInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
-            space_id: util::u32_val(&buf, addr),
+            space_id: util::u32_val(&buf, addr).into(),
             page_no: util::u32_val(&buf, addr + 4),
             buf: buf.clone(),
             addr,
