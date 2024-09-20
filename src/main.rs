@@ -19,7 +19,7 @@ mod util;
 #[derive(Debug, Parser)]
 #[command(author, version, about = "The innobase datafile(*.ibd) reader", long_about = None)]
 pub struct Args {
-    /// input innodb datafile. for example departments.ibd
+    /// Input innodb datafile. for example departments.ibd
     input: PathBuf,
 
     #[command(subcommand)]
@@ -28,56 +28,69 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// print basic information.
+    /// Print basic information.
     Info,
-    /// list all page. page_type, page_number and more
+
+    /// List all page. page_type, page_number and more
     List {
-        /// list index data
+        /// List index data
         #[arg(short, long, default_value_t = false)]
         index: bool,
-        /// list segment data
+
+        /// List segment data
         #[arg(short, long, default_value_t = false)]
         segment: bool,
-        /// list extent data
+
+        /// List extent data
         #[arg(short, long, default_value_t = false)]
         extent: bool,
-        /// list page data
+
+        /// List page data
         #[arg(short, long, default_value_t = false)]
         page: bool,
-        /// list all: index, segment, extent, page, ...
+
+        /// List all: index, segment, extent, page, ...
         #[arg(short, long, default_value_t = false)]
         all: bool,
     },
-    /// describe datafile information by sdi page
+
+    /// Describe datafile information by sdi page
     Desc,
-    /// print sdi json
+
+    /// Print SDI json
     Sdi {
-        /// print parsed table definition
+        /// Print parsed table definition
         #[arg(short, long, default_value_t = false)]
         table_define: bool,
-        /// print index root segements
+        /// Print index root segements
         #[arg(short, long, default_value_t = false)]
         root_segments: bool,
     },
-    /// view page data with given page_no.
+
+    /// View page data with given page_no.
     View {
-        /// page number, starts from 0.
+        /// The page number, starts from 0.
         page_no: usize,
     },
-    /// dump index page user records
+
+    /// Dump index page user records
     Dump {
-        /// page number, starts from 0.
+        /// The page number, starts from 0.
         page_no: Option<usize>,
-        /// limit the total row in the dump
+
+        /// Limit the total row in the dump
         #[arg(short, long, default_value_t = 10)]
         limit: usize,
-        /// dump the garbage list
+
+        /// Dump the garbage list
         #[arg(short, long, default_value_t = false)]
         garbage: bool,
-        /// print more information
+
+        /// Print more information
         #[arg(short, long, default_value_t = false)]
         verbose: bool,
-        /// dump the b-tree root
+
+        /// Dump the B+ tree root
         #[arg(short, long)]
         btree_root: Option<usize>,
     },
