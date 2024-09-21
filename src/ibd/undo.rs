@@ -222,9 +222,8 @@ pub struct UndoRecordHeader {
     /// compilation info, see info_bytes
     pub cmpl_info: Vec<CmplInfos>,
 
-    pub is_lob_undo: bool,
-
-    pub is_lob_updated: bool,
+    /// update external flags
+    pub extra_flags: Vec<UpdateExternFlags>,
 }
 
 impl UndoRecordHeader {
@@ -240,13 +239,23 @@ impl UndoRecordHeader {
             cmpl_info.push(CmplInfos::NO_SIZE_CHANGE);
         }
 
+        let mut extra_flags = Vec::new();
+        if (b1 & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
+            extra_flags.push(UpdateExternFlags::CMPL_INFO_MULT);
+        }
+        if (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0 {
+            extra_flags.push(UpdateExternFlags::MODIFY_BLOB);
+        }
+        if (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0 {
+            extra_flags.push(UpdateExternFlags::UPD_EXTERN);
+        }
+
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
             type_info: (b1 & 0x0f).into(),
             cmpl_info,
-            is_lob_undo: (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0,
-            is_lob_updated: (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0,
+            extra_flags,
             info_bits: b1,
             buf: buf.clone(),
             addr,
@@ -324,4 +333,14 @@ pub enum CmplInfos {
 
     /// no record field size will be changed in the update
     NO_SIZE_CHANGE = 2,
+}
+
+/// Update external flags
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum UpdateExternFlags {
+    CMPL_INFO_MULT,
+    MODIFY_BLOB,
+    UPD_EXTERN,
 }

@@ -13,11 +13,15 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::{sdi::SdiRecord, undo::UndoLogHeader};
+use super::{
+    sdi::SdiRecord,
+    undo::{UndoLogHeader, UndoRecordHeader},
+};
 use crate::{
     ibd::{
         record::{Record, RecordHeader, RowData, RowInfo},
         sdi::SdiDataHeader,
+        undo::UndoTypes,
     },
     meta::def::TableDef,
     sdi::record::EntryTypes,
@@ -1706,14 +1710,38 @@ pub struct UndoLogPageBody {
 
     /// (186 bytes) undo log header
     pub undo_log_hdr: UndoLogHeader,
+
+    /// undo record headers
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_rec_hdrs: Vec<UndoRecordHeader>,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut undo_rec_hdrs = Vec::new();
+        let undo_page_hdr = UndoPageHeader::new(addr, buf.clone());
+
+        let mut hdr_addr = undo_page_hdr.page_start as usize;
+        loop {
+            if hdr_addr <= 0 || hdr_addr > PAGE_SIZE {
+                break;
+            }
+
+            let rec = UndoRecordHeader::new(hdr_addr, buf.clone());
+            hdr_addr = rec.next_addr();
+            let type_info = rec.type_info.clone();
+            undo_rec_hdrs.push(rec);
+
+            if matches!(type_info, UndoTypes::ZERO) {
+                break;
+            }
+        }
+
         Self {
             undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
             undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
             undo_log_hdr: UndoLogHeader::new(addr + 18 + 30, buf.clone()),
+            undo_rec_hdrs,
             buf: buf.clone(),
             addr,
         }
