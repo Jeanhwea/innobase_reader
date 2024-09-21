@@ -606,14 +606,21 @@ impl App {
             PageTypes::UNDO_LOG => {
                 let undo_log_page: BasePage<UndoLogPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", undo_log_page);
-                let mut addr = undo_log_page.page_body.undo_log_hdr.log_start as usize;
+
+                // 打印一些 Undo 的信息
+                let mut addr = undo_log_page.page_body.undo_page_hdr.page_start as usize;
                 loop {
+                    addr = rec.next_addr();
+                    if addr <= 0 {
+                        break;
+                    }
+
                     let rec = UndoRecordHeader::new(addr, undo_log_page.buf.clone());
                     println!("{:?}", &rec);
+
                     if matches!(rec.type_info, UndoTypes::ZERO) {
                         break;
                     }
-                    addr = rec.next_addr();
                 }
             }
             _ => {
