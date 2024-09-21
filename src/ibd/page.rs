@@ -1709,7 +1709,7 @@ pub struct UndoLogPageBody {
     pub undo_seg_hdr: UndoSegmentHeader,
 
     /// (186 bytes) undo log header
-    pub undo_log_hdr: UndoLogHeader,
+    pub undo_log_hdr: Option<UndoLogHeader>,
 
     /// undo record headers
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
@@ -1718,10 +1718,11 @@ pub struct UndoLogPageBody {
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut undo_rec_hdrs = Vec::new();
-        let undo_page_hdr = UndoPageHeader::new(addr, buf.clone());
+        let mut rec_hdrs = Vec::new();
 
-        let mut hdr_addr = undo_page_hdr.page_start as usize;
+        let page_hdr = UndoPageHeader::new(addr, buf.clone());
+
+        let mut hdr_addr = page_hdr.page_start as usize;
         loop {
             if hdr_addr <= 0 || hdr_addr > PAGE_SIZE {
                 break;
@@ -1730,18 +1731,29 @@ impl BasePageBody for UndoLogPageBody {
             let rec = UndoRecordHeader::new(hdr_addr, buf.clone());
             hdr_addr = rec.next_addr();
             let type_info = rec.type_info.clone();
-            undo_rec_hdrs.push(rec);
+            rec_hdrs.push(rec);
 
             if matches!(type_info, UndoTypes::ZERO) {
                 break;
             }
         }
 
+        let seg_hdr = UndoSegmentHeader::new(addr + 18, buf.clone());
+
+        let log_hdr = if seg_hdr.undo_last_log > 0 {
+            Some(UndoLogHeader::new(
+                seg_hdr.undo_last_log as usize,
+                buf.clone(),
+            ))
+        } else {
+            None
+        };
+
         Self {
-            undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
-            undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
-            undo_log_hdr: UndoLogHeader::new(addr + 18 + 30, buf.clone()),
-            undo_rec_hdrs,
+            undo_page_hdr: page_hdr,
+            undo_seg_hdr: seg_hdr,
+            undo_log_hdr: log_hdr,
+            undo_rec_hdrs: rec_hdrs,
             buf: buf.clone(),
             addr,
         }
