@@ -610,7 +610,6 @@ impl App {
                 // 打印一些 Undo 的信息
                 let mut addr = undo_log_page.page_body.undo_page_hdr.page_start as usize;
                 loop {
-                    addr = rec.next_addr();
                     if addr <= 0 {
                         break;
                     }
@@ -621,6 +620,8 @@ impl App {
                     if matches!(rec.type_info, UndoTypes::ZERO) {
                         break;
                     }
+
+                    addr = rec.next_addr();
                 }
             }
             _ => {
