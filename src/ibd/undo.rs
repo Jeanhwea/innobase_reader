@@ -223,7 +223,7 @@ pub struct UndoRecordHeader {
     pub cmpl_info: Vec<CmplInfos>,
 
     /// update external flags
-    pub extra_flags: Vec<UpdateExternFlags>,
+    pub extra_flags: Vec<UndoExtraFlags>,
 }
 
 impl UndoRecordHeader {
@@ -241,13 +241,13 @@ impl UndoRecordHeader {
 
         let mut extra_flags = Vec::new();
         if (b1 & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
-            extra_flags.push(UpdateExternFlags::CMPL_INFO_MULT);
+            extra_flags.push(UndoExtraFlags::CMPL_INFO_MULT);
         }
         if (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0 {
-            extra_flags.push(UpdateExternFlags::MODIFY_BLOB);
+            extra_flags.push(UndoExtraFlags::MODIFY_BLOB);
         }
         if (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0 {
-            extra_flags.push(UpdateExternFlags::UPD_EXTERN);
+            extra_flags.push(UndoExtraFlags::UPD_EXTERN);
         }
 
         Self {
@@ -335,12 +335,20 @@ pub enum CmplInfos {
     NO_SIZE_CHANGE = 2,
 }
 
-/// Update external flags
+/// Extra flags: modify BLOB, Update external, ...
 #[repr(u8)]
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString)]
-pub enum UpdateExternFlags {
+pub enum UndoExtraFlags {
+    /// compilation info is multiplied by this and ORed to the type above
     CMPL_INFO_MULT,
+
+    /// If this bit is set in type_cmpl, then the undo log record has support
+    /// for partial update of BLOBs. Also to make the undo log format
+    /// extensible, introducing a new flag next to the type_cmpl flag.
     MODIFY_BLOB,
+
+    /// This bit can be ORed to type_cmpl to denote that we updated external
+    /// storage fields: used by purge to free the external storage
     UPD_EXTERN,
 }
