@@ -213,7 +213,7 @@ pub struct UndoRecordHeader {
 
     /// (1 byte) type, extern flag, compilation info
     #[derivative(Debug = "ignore")]
-    pub info_byte: u8,
+    pub info_bits: u8,
 
     /// type info, see info_bytes
     #[derivative(Debug(format_with = "util::fmt_enum"))]
@@ -247,7 +247,7 @@ impl UndoRecordHeader {
             cmpl_info,
             is_lob_undo: (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0,
             is_lob_updated: (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0,
-            info_byte: b1,
+            info_bits: b1,
             buf: buf.clone(),
             addr,
         }
