@@ -261,23 +261,23 @@ impl UndoRecordHeader {
         self.next_rec_offset as usize
     }
 
-    /// Compilation info flags: these must fit within 2 bits; see trx0rec.h
-    /// no secondary index record will be changed in the update and no ordering
+    /// Compilation info flags: these must fit within 2 bits; see trx0rec.h no
+    /// secondary index record will be changed in the update and no ordering
     /// field of the clustered index
     const UPD_NODE_NO_ORD_CHANGE: u8 = 1;
     /// no record field size will be changed in the update
     const UPD_NODE_NO_SIZE_CHANGE: u8 = 2;
 
-    /// compilation info is multiplied by this and ORed to the type above */
+    /// compilation info is multiplied by this and ORed to the type above
     const TRX_UNDO_CMPL_INFO_MULT: u8 = 16;
 
-    /// If this bit is set in type_cmpl,  then the undo log record has support for
-    /// partial update of BLOBs. Also to  make the undo log format extensible,
-    /// introducing a new flag next to the  type_cmpl flag.
+    /// If this bit is set in type_cmpl, then the undo log record has support
+    /// for partial update of BLOBs. Also to make the undo log format
+    /// extensible, introducing a new flag next to the type_cmpl flag.
     const TRX_UNDO_MODIFY_BLOB: u8 = 64;
 
-    /// This bit can be ORed to type_cmpl to denote that we updated external storage
-    /// fields: used by purge to free the external storage
+    /// This bit can be ORed to type_cmpl to denote that we updated external
+    /// storage fields: used by purge to free the external storage
     const TRX_UNDO_UPD_EXTERN: u8 = 128;
 }
 
@@ -301,7 +301,8 @@ pub enum UndoTypes {
     /// update of a non-delete-marked record
     UPD_EXIST_REC = 12,
 
-    /// update of a delete marked record to a not delete marked record; also the fields of the record can change
+    /// update of a delete marked record to a not delete marked record; also the
+    /// fields of the record can change
     UPD_DEL_REC = 13,
 
     /// delete marking of a record; fields do not change
@@ -316,8 +317,8 @@ pub enum CmplInfos {
     #[default]
     UNDEF = 0,
 
-    /// Compilation info flags: these must fit within 2 bits; see trx0rec.h
-    /// no secondary index record will be changed in the update and no ordering
+    /// Compilation info flags: these must fit within 2 bits; see trx0rec.h no
+    /// secondary index record will be changed in the update and no ordering
     /// field of the clustered index
     NO_ORD_CHANGE = 1,
 
