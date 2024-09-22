@@ -1633,15 +1633,26 @@ pub struct RSegArrayPageBody {
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
 
-    /// TODO (4*1024) undo segment slots
-    pub rseg_slots: Vec<u32>,
+    /// (4*1024) undo segment slots
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_slots: Vec<(usize, PageNumber)>,
 }
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_RSEG_N_SLOTS)
+            .map(|offset| {
+                (
+                    offset,
+                    util::u32_val(&buf, addr + 34 + offset * TRX_RSEG_SLOT_SIZE).into(),
+                )
+            })
+            .filter(|e| !matches!(e.1, PageNumber::None))
+            .collect();
+
         Self {
             rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
-            rseg_slots: Vec::new(),
+            undo_slots: slots,
             buf: buf.clone(),
             addr,
         }
