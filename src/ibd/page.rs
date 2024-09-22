@@ -1733,7 +1733,7 @@ impl BasePageBody for UndoLogPageBody {
             let type_info = rec.type_info.clone();
             rec_hdrs.push(rec);
 
-            if matches!(type_info, UndoTypes::ZERO) {
+            if matches!(type_info, UndoTypes::ZERO_VAL) {
                 break;
             }
         }

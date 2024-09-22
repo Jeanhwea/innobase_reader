@@ -295,8 +295,9 @@ impl UndoRecordHeader {
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum UndoTypes {
+    /// the default value: 0
     #[default]
-    ZERO = 0,
+    ZERO_VAL = 0,
 
     /// Operation type flags used in trx_undo_report_row_operation
     INSERT_OP = 1,
