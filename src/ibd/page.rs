@@ -1723,7 +1723,7 @@ impl BasePageBody for UndoLogPageBody {
 
         let mut hdr_addr = undo_page_hdr.page_start as usize;
         loop {
-            if hdr_addr <= 0 || hdr_addr > PAGE_SIZE {
+            if hdr_addr == 0 || hdr_addr > PAGE_SIZE {
                 break;
             }
 
