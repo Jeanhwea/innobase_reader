@@ -11,15 +11,12 @@ use log::{debug, error, info};
 
 use crate::{
     factory::{DataValue, DatafileFactory},
-    ibd::{
-        page::{
+    ibd::page::{
             BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
             IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
             SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
-        undo::UndoLogHeader,
-    },
     util::{extno, pagno},
     Commands,
 };

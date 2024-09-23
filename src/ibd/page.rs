@@ -60,7 +60,7 @@ pub const SUP_PAGE_BYTE_OFF: usize = 112;
 pub const RECORD_HEADER_SIZE: usize = 5;
 
 // TRX_SYS transaction system page
-pub const TRX_SYS_N_RSEGS: usize = 256;
+pub const TRX_SYS_N_RSEGS: usize = 128;
 pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
 pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
 pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
@@ -68,7 +68,7 @@ pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
 pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
 pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 
-// RSEG_ARRAY rollback segment array
+// Rollback segment header
 pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
@@ -1646,7 +1646,7 @@ pub struct RSegArrayPageBody {
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let slots = (0..TRX_RSEG_N_SLOTS)
+        let slots = (0..TRX_SYS_N_RSEGS)
             .map(|offset| {
                 (
                     offset,
