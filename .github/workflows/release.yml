@@ -82,6 +82,3 @@ jobs:
           rustc --version
           cargo --version
           cargo clippy
-      - name: Checkout build outputs
-        # run: ls -laR
-        run: find . -type f -not -path './.git/*' | sort
