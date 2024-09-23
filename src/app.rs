@@ -614,9 +614,8 @@ impl App {
                 let fil_hdr = fact.read_fil_hdr(page_no)?;
                 match fil_hdr.space_id {
                     SpaceId::UndoSpace => {
-                        let rseg_array_page: BasePage<RSegHeaderPageBody> =
-                            fact.read_page(page_no)?;
-                        println!("{:#?}", rseg_array_page);
+                        let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
+                        println!("{:#?}", rsa_hdr_page);
                     }
                     _ => todo!("不支持的系统页面类型"),
                 }

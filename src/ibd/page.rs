@@ -1631,7 +1631,7 @@ pub struct RSegArrayPageBody {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) The RSEG ARRAY version offset in the header.
-    pub rseg_arr_version: u32,
+    pub rseg_version: u32,
 
     /// (4 bytes) The current number of rollback segments being tracked in this array
     pub rseg_arr_size: u32,
@@ -1657,7 +1657,7 @@ impl BasePageBody for RSegArrayPageBody {
             .collect();
 
         Self {
-            rseg_arr_version: util::u32_val(&buf, addr) - Self::RSEG_ARRAY_BASE_VERSION,
+            rseg_version: util::u32_val(&buf, addr) - Self::RSEG_ARRAY_BASE_VERSION,
             rseg_arr_size: util::u32_val(&buf, addr + 4),
             fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
             arr_slots: slots,
