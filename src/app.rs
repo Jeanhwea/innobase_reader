@@ -434,8 +434,10 @@ impl App {
     }
 
     fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated");
-        println!("      Y:SYS, T:TRX_SYS, U:UNDO_LOG, B:IBUF_BITMAP, ?:Unknown");
+        println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI");
+        println!("      Y:SYS, T:TRX_SYS, R:RSEG_ARRAY, U:UNDO_LOG");
+        println!("      B:IBUF_BITMAP, A:Allocated, ?:Unknown");
+
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -448,6 +450,7 @@ impl App {
                 PageTypes::XDES => "X".on_purple(),
                 PageTypes::SYS => "Y".on_purple(),
                 PageTypes::TRX_SYS => "T".on_purple(),
+                PageTypes::RSEG_ARRAY => "R".on_yellow(),
                 PageTypes::INODE => "I".on_blue(),
                 PageTypes::INDEX => "D".on_cyan(),
                 PageTypes::SDI => "S".on_purple(),
