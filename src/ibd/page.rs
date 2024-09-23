@@ -1647,7 +1647,7 @@ impl BasePageBody for RSegArrayPageBody {
                     util::u32_val(&buf, addr + 34 + offset * TRX_RSEG_SLOT_SIZE).into(),
                 )
             })
-            .filter(|e| !matches!(e.1, PageNumber::None))
+            .filter(|entry| !matches!(entry.1, PageNumber::None))
             .collect();
 
         Self {
