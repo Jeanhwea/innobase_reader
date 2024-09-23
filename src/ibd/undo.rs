@@ -222,9 +222,8 @@ pub struct UndoRecordHeader {
     /// compilation info, see info_bytes
     pub cmpl_info: Vec<CmplInfos>,
 
-    pub is_lob_undo: bool,
-
-    pub is_lob_updated: bool,
+    /// update external flags
+    pub extra_flags: Vec<UndoExtraFlags>,
 }
 
 impl UndoRecordHeader {
@@ -240,13 +239,23 @@ impl UndoRecordHeader {
             cmpl_info.push(CmplInfos::NO_SIZE_CHANGE);
         }
 
+        let mut extra_flags = Vec::new();
+        if (b1 & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
+            extra_flags.push(UndoExtraFlags::CMPL_INFO_MULT);
+        }
+        if (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0 {
+            extra_flags.push(UndoExtraFlags::MODIFY_BLOB);
+        }
+        if (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0 {
+            extra_flags.push(UndoExtraFlags::UPD_EXTERN);
+        }
+
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
             type_info: (b1 & 0x0f).into(),
             cmpl_info,
-            is_lob_undo: (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0,
-            is_lob_updated: (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0,
+            extra_flags,
             info_bits: b1,
             buf: buf.clone(),
             addr,
@@ -286,8 +295,9 @@ impl UndoRecordHeader {
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum UndoTypes {
+    /// the default value: 0
     #[default]
-    ZERO = 0,
+    ZERO_VAL = 0,
 
     /// Operation type flags used in trx_undo_report_row_operation
     INSERT_OP = 1,
@@ -324,4 +334,22 @@ pub enum CmplInfos {
 
     /// no record field size will be changed in the update
     NO_SIZE_CHANGE = 2,
+}
+
+/// Extra flags: modify BLOB, Update external, ...
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum UndoExtraFlags {
+    /// compilation info is multiplied by this and ORed to the type above
+    CMPL_INFO_MULT,
+
+    /// If this bit is set in type_cmpl, then the undo log record has support
+    /// for partial update of BLOBs. Also to make the undo log format
+    /// extensible, introducing a new flag next to the type_cmpl flag.
+    MODIFY_BLOB,
+
+    /// This bit can be ORed to type_cmpl to denote that we updated external
+    /// storage fields: used by purge to free the external storage
+    UPD_EXTERN,
 }

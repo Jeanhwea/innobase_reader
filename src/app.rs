@@ -11,14 +11,10 @@ use log::{debug, error, info};
 
 use crate::{
     factory::{DataValue, DatafileFactory},
-    ibd::{
-        page::{
-            BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
-            IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody,
-            UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
-            XDES_PAGE_COUNT,
-        },
-        undo::{UndoRecordHeader, UndoTypes},
+    ibd::page::{
+        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
+        PageNumber, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody,
+        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
     },
     util::{extno, pagno},
     Commands,
@@ -606,23 +602,6 @@ impl App {
             PageTypes::UNDO_LOG => {
                 let undo_log_page: BasePage<UndoLogPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", undo_log_page);
-
-                // 打印一些 Undo 的信息
-                let mut addr = undo_log_page.page_body.undo_page_hdr.page_start as usize;
-                loop {
-                    if addr <= 0 {
-                        break;
-                    }
-
-                    let rec = UndoRecordHeader::new(addr, undo_log_page.buf.clone());
-                    println!("{:?}", &rec);
-
-                    if matches!(rec.type_info, UndoTypes::ZERO) {
-                        break;
-                    }
-
-                    addr = rec.next_addr();
-                }
             }
             _ => {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);

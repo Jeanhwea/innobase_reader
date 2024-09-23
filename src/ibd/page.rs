@@ -13,11 +13,15 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::{sdi::SdiRecord, undo::UndoLogHeader};
+use super::{
+    sdi::SdiRecord,
+    undo::{UndoLogHeader, UndoRecordHeader},
+};
 use crate::{
     ibd::{
         record::{Record, RecordHeader, RowData, RowInfo},
         sdi::SdiDataHeader,
+        undo::UndoTypes,
     },
     meta::def::TableDef,
     sdi::record::EntryTypes,
@@ -70,14 +74,14 @@ pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // space/page constants
 pub const SPACE_ID_MAX: u32 = 0xffffffff;
-pub const SPACE_UNDO_MAX: u32 = 0xffffffef;
+pub const UNDO_TABLESPACE_ID: u32 = 0xffffffef;
 
 /// Tablespace ID
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum SpaceId {
     SpaceMax,
-    UndoSpaceMax,
+    UndoSpace,
     Space(u32),
 }
 
@@ -85,7 +89,7 @@ impl From<u32> for SpaceId {
     fn from(value: u32) -> SpaceId {
         match value {
             SPACE_ID_MAX => SpaceId::SpaceMax,
-            SPACE_UNDO_MAX => SpaceId::UndoSpaceMax,
+            UNDO_TABLESPACE_ID => SpaceId::UndoSpace,
             val => SpaceId::Space(val),
         }
     }
@@ -1629,15 +1633,26 @@ pub struct RSegArrayPageBody {
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
 
-    /// TODO (4*1024) undo segment slots
-    pub rseg_slots: Vec<u32>,
+    /// (4*1024) undo segment slots
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_slots: Vec<(usize, PageNumber)>,
 }
 
 impl BasePageBody for RSegArrayPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_RSEG_N_SLOTS)
+            .map(|offset| {
+                (
+                    offset,
+                    util::u32_val(&buf, addr + 34 + offset * TRX_RSEG_SLOT_SIZE).into(),
+                )
+            })
+            .filter(|entry| !matches!(entry.1, PageNumber::None))
+            .collect();
+
         Self {
             rseg_hdr: RollbackSegmentHeader::new(addr, buf.clone()),
-            rseg_slots: Vec::new(),
+            undo_slots: slots,
             buf: buf.clone(),
             addr,
         }
@@ -1705,15 +1720,51 @@ pub struct UndoLogPageBody {
     pub undo_seg_hdr: UndoSegmentHeader,
 
     /// (186 bytes) undo log header
-    pub undo_log_hdr: UndoLogHeader,
+    pub undo_log_hdr: Option<UndoLogHeader>,
+
+    /// undo record headers
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_rec_hdrs: Vec<UndoRecordHeader>,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut rec_hdrs = Vec::new();
+
+        let page_hdr = UndoPageHeader::new(addr, buf.clone());
+
+        let mut hdr_addr = page_hdr.page_start as usize;
+        loop {
+            if hdr_addr == 0 || hdr_addr > PAGE_SIZE {
+                break;
+            }
+
+            let rec = UndoRecordHeader::new(hdr_addr, buf.clone());
+            hdr_addr = rec.next_addr();
+            let type_info = rec.type_info.clone();
+            rec_hdrs.push(rec);
+
+            if matches!(type_info, UndoTypes::ZERO_VAL) {
+                break;
+            }
+        }
+
+        let seg_hdr = UndoSegmentHeader::new(addr + 18, buf.clone());
+
+        let log_hdr = if seg_hdr.undo_last_log > 0 {
+            Some(UndoLogHeader::new(
+                seg_hdr.undo_last_log as usize,
+                buf.clone(),
+            ))
+        } else {
+            None
+        };
+
         Self {
-            undo_page_hdr: UndoPageHeader::new(addr, buf.clone()),
-            undo_seg_hdr: UndoSegmentHeader::new(addr + 18, buf.clone()),
-            undo_log_hdr: UndoLogHeader::new(addr + 18 + 30, buf.clone()),
+            undo_page_hdr: page_hdr,
+            undo_seg_hdr: seg_hdr,
+            undo_log_hdr: log_hdr,
+            undo_rec_hdrs: rec_hdrs,
             buf: buf.clone(),
             addr,
         }
