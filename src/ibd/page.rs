@@ -1639,7 +1639,7 @@ pub struct RSegArrayPageBody {
     /// (10 bytes) This is the pointer to the file segment inode that tracks this rseg array page.
     pub fseg_hdr: FSegHeader,
 
-    /// ()
+    /// (4*128 bytes) The start of the array of rollback segment header page numbers for this undo tablespace. The potential size of this array is limited only by the page size minus overhead. The actual size of the array is limited by srv_rollback_segments.
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub arr_slots: Vec<(usize, PageNumber)>,
 }
