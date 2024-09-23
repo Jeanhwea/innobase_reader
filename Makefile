@@ -27,6 +27,7 @@ lint: format
 
 fix: format
 	$(CARGO) fix $(CFLAG) --allow-dirty --allow-staged
+	$(CARGO) clippy --fix
 
 install:
 	$(CARGO) install $(CFLAG) --offline --path .
