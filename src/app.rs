@@ -11,10 +11,14 @@ use log::{debug, error, info};
 
 use crate::{
     factory::{DataValue, DatafileFactory},
-    ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageNumber, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody,
-        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+    ibd::{
+        page::{
+            BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
+            IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
+            SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
+            PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        },
+        undo::UndoLogHeader,
     },
     util::{extno, pagno},
     Commands,
@@ -605,6 +609,17 @@ impl App {
             PageTypes::UNDO_LOG => {
                 let undo_log_page: BasePage<UndoLogPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", undo_log_page);
+            }
+            PageTypes::SYS => {
+                let fil_hdr = fact.read_fil_hdr(page_no)?;
+                match fil_hdr.space_id {
+                    SpaceId::UndoSpace => {
+                        let rseg_array_page: BasePage<RSegHeaderPageBody> =
+                            fact.read_page(page_no)?;
+                        println!("{:#?}", rseg_array_page);
+                    }
+                    _ => todo!("不支持的系统页面类型"),
+                }
             }
             _ => {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);

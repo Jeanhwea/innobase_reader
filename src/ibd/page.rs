@@ -1618,10 +1618,66 @@ impl DoubleWriteBufferInfo {
     }
 }
 
-/// Rollback Segment Array Page, see trx0rseg.h
+/// Rollback Segment Header Page, see trx0rseg.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RSegArrayPageBody {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (4 bytes) The RSEG ARRAY version offset in the header.
+    pub rseg_arr_version: u32,
+
+    /// (4 bytes) The current number of rollback segments being tracked in this array
+    pub rseg_arr_size: u32,
+
+    /// (10 bytes) This is the pointer to the file segment inode that tracks this rseg array page.
+    pub fseg_hdr: FSegHeader,
+
+    /// ()
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub arr_slots: Vec<(usize, PageNumber)>,
+}
+
+impl BasePageBody for RSegArrayPageBody {
+    fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let slots = (0..TRX_RSEG_N_SLOTS)
+            .map(|offset| {
+                (
+                    offset,
+                    util::u32_val(&buf, addr + 18 + offset * TRX_RSEG_SLOT_SIZE).into(),
+                )
+            })
+            .filter(|entry| !matches!(entry.1, PageNumber::None))
+            .collect();
+
+        Self {
+            rseg_arr_version: util::u32_val(&buf, addr) - Self::RSEG_ARRAY_BASE_VERSION,
+            rseg_arr_size: util::u32_val(&buf, addr + 4),
+            fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
+            arr_slots: slots,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+impl RSegArrayPageBody {
+    /// The RSEG ARRAY base version is a number derived from the string
+    /// 'RSEG' [0x 52 53 45 47] for extra validation. Each new version
+    /// increments the base version by 1.
+    pub const RSEG_ARRAY_BASE_VERSION: u32 = 0x52534547;
+}
+
+/// Rollback Segment Header Page, see trx0rseg.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RSegHeaderPageBody {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1638,7 +1694,7 @@ pub struct RSegArrayPageBody {
     pub undo_slots: Vec<(usize, PageNumber)>,
 }
 
-impl BasePageBody for RSegArrayPageBody {
+impl BasePageBody for RSegHeaderPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let slots = (0..TRX_RSEG_N_SLOTS)
             .map(|offset| {
