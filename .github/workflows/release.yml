@@ -38,7 +38,7 @@ jobs:
           ARCHIVE_TYPES: ${{ matrix.archive }}
           EXTRA_FILES: "readme.org LICENSE"
 
-  release_without_not_required:
+  unit_tests:
     name: Release ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
@@ -62,7 +62,7 @@ jobs:
         # run: ls -laR
         run: find . -type f -not -path './.git/*' | sort
 
-  code_checker:
+  code_lint:
     name: Check ${{ matrix.target }} code quality
     runs-on: ubuntu-latest
     strategy:
