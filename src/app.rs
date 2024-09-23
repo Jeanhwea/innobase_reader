@@ -13,8 +13,9 @@ use crate::{
     factory::{DataValue, DatafileFactory},
     ibd::page::{
         BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageNumber, PageTypes, RSegArrayPageBody, SdiPageBody, TrxSysPageBody, UndoLogPageBody,
-        XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody, SdiPageBody, SpaceId,
+        TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
+        XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
     },
     util::{extno, pagno},
     Commands,
@@ -434,8 +435,10 @@ impl App {
     }
 
     fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
-        println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI, A:Allocated");
-        println!("      Y:SYS, T:TRX_SYS, U:UNDO_LOG, B:IBUF_BITMAP, ?:Unknown");
+        println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI");
+        println!("      Y:SYS, T:TRX_SYS, R:RSEG_ARRAY, U:UNDO_LOG");
+        println!("      B:IBUF_BITMAP, A:Allocated, ?:Unknown");
+
         let mut page_types_vec = Vec::with_capacity(fact.page_count());
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
@@ -448,6 +451,7 @@ impl App {
                 PageTypes::XDES => "X".on_purple(),
                 PageTypes::SYS => "Y".on_purple(),
                 PageTypes::TRX_SYS => "T".on_purple(),
+                PageTypes::RSEG_ARRAY => "R".on_yellow(),
                 PageTypes::INODE => "I".on_blue(),
                 PageTypes::INDEX => "D".on_cyan(),
                 PageTypes::SDI => "S".on_purple(),
@@ -602,6 +606,16 @@ impl App {
             PageTypes::UNDO_LOG => {
                 let undo_log_page: BasePage<UndoLogPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", undo_log_page);
+            }
+            PageTypes::SYS => {
+                let fil_hdr = fact.read_fil_hdr(page_no)?;
+                match fil_hdr.space_id {
+                    SpaceId::UndoSpace => {
+                        let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
+                        println!("{:#?}", rsa_hdr_page);
+                    }
+                    _ => todo!("不支持的系统页面类型"),
+                }
             }
             _ => {
                 error!("不支持的页面类型, hdr = {:#?}", fil_hdr);
