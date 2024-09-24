@@ -1696,7 +1696,7 @@ pub struct RSegHeaderPageBody {
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
 
-    /// (4*1024) undo segment slots
+    /// (4*1024 bytes) undo segment slots
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub undo_slots: Vec<(usize, PageNumber)>,
 }
