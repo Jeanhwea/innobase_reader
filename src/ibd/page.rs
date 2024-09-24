@@ -82,6 +82,7 @@ pub const UNDO_TABLESPACE_ID: u32 = 0xffffffef;
 pub enum SpaceId {
     SpaceMax,
     UndoSpace,
+    SystemSpace,
     Space(u32),
 }
 
@@ -90,6 +91,7 @@ impl From<u32> for SpaceId {
         match value {
             SPACE_ID_MAX => SpaceId::SpaceMax,
             UNDO_TABLESPACE_ID => SpaceId::UndoSpace,
+            0 => SpaceId::SystemSpace,
             val => SpaceId::Space(val),
         }
     }
