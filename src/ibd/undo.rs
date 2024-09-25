@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::FlstNode;
-use crate::util;
+use crate::util::{self, mach_u64_read_much_compressed};
 
 /// States of an undo log segment
 #[repr(u8)]
@@ -230,8 +231,6 @@ pub struct UndoRecordHeader {
 
     /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Table ID
     pub table_id: u64,
-
-    pub peek: Vec<u8>,
 }
 
 impl UndoRecordHeader {
@@ -258,15 +257,19 @@ impl UndoRecordHeader {
             extra_flags.push(UndoExtraFlags::UPD_EXTERN);
         }
 
+        let undo_no_pack = mach_u64_read_much_compressed(addr + 3, buf.clone());
+        info!("undo_no_pack={:?}", &undo_no_pack);
+        let table_id_pack = mach_u64_read_much_compressed(addr + 3 + undo_no_pack.0, buf.clone());
+        info!("table_id_pack={:?}", &table_id_pack);
+
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
             type_info: (b1 & 0x0f).into(),
             cmpl_info,
             extra_flags,
-            peek: buf.slice(addr + 3..addr + 23).to_vec(),
-            undo_no: 0,
-            table_id: 0,
+            undo_no: undo_no_pack.1,
+            table_id: table_id_pack.1,
             info_bits: b1,
             buf: buf.clone(),
             addr,

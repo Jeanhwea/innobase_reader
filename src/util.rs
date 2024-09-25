@@ -209,20 +209,21 @@ pub fn u32_val(buf: &[u8], addr: usize) -> u32 {
 
 pub fn u48_val(buf: &[u8], addr: usize) -> u64 {
     let arr = [
+        0u8,
+        0u8,
         buf[addr],
         buf[addr + 1],
         buf[addr + 2],
         buf[addr + 3],
         buf[addr + 4],
         buf[addr + 5],
-        0u8,
-        0u8,
     ];
     u64::from_be_bytes(arr)
 }
 
 pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
     let arr = [
+        0u8,
         buf[addr],
         buf[addr + 1],
         buf[addr + 2],
@@ -230,7 +231,6 @@ pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
         buf[addr + 4],
         buf[addr + 5],
         buf[addr + 6],
-        0u8,
     ];
     u64::from_be_bytes(arr)
 }
@@ -372,17 +372,17 @@ pub fn conv_strdata_to_bytes(s: &str) -> Option<Bytes> {
 }
 
 pub fn mach_read_from_1(addr: usize, buf: Arc<Bytes>) -> u32 {
-    let arr = [buf[addr], 0u8, 0u8, 0u8];
+    let arr = [0u8, 0u8, 0u8, buf[addr]];
     u32::from_be_bytes(arr)
 }
 
 pub fn mach_read_from_2(addr: usize, buf: Arc<Bytes>) -> u32 {
-    let arr = [buf[addr], buf[addr + 1], 0u8, 0u8];
+    let arr = [0u8, 0u8, buf[addr], buf[addr + 1]];
     u32::from_be_bytes(arr)
 }
 
 pub fn mach_read_from_3(addr: usize, buf: Arc<Bytes>) -> u32 {
-    let arr = [buf[addr], buf[addr + 1], buf[addr + 2], 0u8];
+    let arr = [0u8, buf[addr], buf[addr + 1], buf[addr + 2]];
     u32::from_be_bytes(arr)
 }
 
@@ -394,6 +394,8 @@ pub fn mach_read_from_4(addr: usize, buf: Arc<Bytes>) -> u32 {
 /// Read a ulint in a compressed form.
 pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
     let mut val = u8_val(&buf, addr) as u32;
+
+    dbg!(&val);
 
     if val < 0x80 {
         /* 0nnnnnnn (7 bits) */
@@ -433,7 +435,7 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
 }
 
 /// Return the size of an ulint when written in the compressed form.
-pub fn mach_get_compressed_size(n: u32) -> u32 {
+pub fn mach_get_compressed_size(n: u32) -> usize {
     if n < 0x80 {
         /* 0nnnnnnn (7 bits) */
         return 1;
@@ -459,6 +461,24 @@ pub fn mach_get_compressed_size(n: u32) -> u32 {
         /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
         return 5;
     }
+}
+
+/// Reads a 64-bit integer in a compressed form.
+pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
+    let b0 = u8_val(&buf, addr);
+    if b0 != 0xFF {
+        let low32 = mach_read_compressed(addr, buf.clone());
+        let size = mach_get_compressed_size(low32);
+        return (size, low32 as u64);
+    }
+
+    let high = mach_read_compressed(addr + 1, buf.clone());
+    let high_size = mach_get_compressed_size(high);
+    let low = mach_read_compressed(addr + 1 + high_size, buf.clone());
+    let low_size = mach_get_compressed_size(low);
+    let val = ((high as u64) << 32) | (low as u64);
+
+    return (1 + high_size + low_size, val);
 }
 
 #[cfg(test)]
@@ -550,5 +570,13 @@ mod util_tests {
         assert_eq!(bitmap_index(8), 1);
         assert_eq!(bitmap_index(15), 1);
         assert_eq!(bitmap_index(16), 2);
+    }
+
+    #[test]
+    fn it_works_01() {
+        init_unit_test();
+        let arr = [0, 0, 1, 2];
+        let ans = u32::from_be_bytes(arr);
+        info!("ans = {:x}", ans);
     }
 }
