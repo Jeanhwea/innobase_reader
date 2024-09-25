@@ -3,7 +3,7 @@ use std::{
     env::set_var,
     fmt::{Binary, Debug, Display, LowerHex},
     io::{Read, Write},
-    sync::Once,
+    sync::{Arc, Once},
 };
 
 use anyhow::Result;
@@ -369,6 +369,96 @@ pub fn conv_strdata_to_bytes(s: &str) -> Option<Bytes> {
         arr.push(u8::from_str_radix(s1, 16).unwrap_or(0));
     }
     Some(Bytes::from(arr))
+}
+
+pub fn mach_read_from_1(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [buf[addr], 0u8, 0u8, 0u8];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_2(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [buf[addr], buf[addr + 1], 0u8, 0u8];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_3(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [buf[addr], buf[addr + 1], buf[addr + 2], 0u8];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_4(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [buf[addr], buf[addr + 1], buf[addr + 2], buf[addr + 3]];
+    u32::from_be_bytes(arr)
+}
+
+/// Read a ulint in a compressed form.
+pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let mut val = u8_val(&buf, addr) as u32;
+
+    if val < 0x80 {
+        /* 0nnnnnnn (7 bits) */
+    } else if val < 0xC0 {
+        /* 10nnnnnn nnnnnnnn (14 bits) */
+        val = mach_read_from_2(addr, buf.clone()) & 0x3FFF;
+        assert!(val > 0x7F);
+    } else if val < 0xE0 {
+        /* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+        val = mach_read_from_3(addr, buf.clone()) & 0x1FFFFF;
+        assert!(val > 0x3FFF);
+    } else if val < 0xF0 {
+        /* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+        val = mach_read_from_4(addr, buf.clone()) & 0xFFFFFFF;
+        assert!(val > 0x1FFFFF);
+    } else if val < 0xF8 {
+        /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+        assert!(val == 0xF0);
+        val = mach_read_from_4(addr + 1, buf.clone());
+        /* this can treat not-extended format also. */
+        assert!(val > 0xFFFFFFF);
+    } else if val < 0xFC {
+        /* 111110nn nnnnnnnn (10 bits) (extended) */
+        val = (mach_read_from_2(addr, buf.clone()) & 0x3FF) | 0xFFFFFC00;
+    } else if val < 0xFE {
+        /* 1111110n nnnnnnnn nnnnnnnn (17 bits) (extended) */
+        val = (mach_read_from_3(addr, buf.clone()) & 0x1FFFF) | 0xFFFE0000;
+        assert!(val < 0xFFFFFC00);
+    } else {
+        /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
+        assert!(val == 0xFE);
+        val = mach_read_from_3(addr + 1, buf.clone()) | 0xFF000000;
+        assert!(val < 0xFFFE0000);
+    }
+
+    val
+}
+
+/// Return the size of an ulint when written in the compressed form.
+pub fn mach_get_compressed_size(n: u32) -> u32 {
+    if n < 0x80 {
+        /* 0nnnnnnn (7 bits) */
+        return 1;
+    } else if n < 0x4000 {
+        /* 10nnnnnn nnnnnnnn (14 bits) */
+        return 2;
+    } else if n < 0x200000 {
+        /* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+        return 3;
+    } else if n < 0x10000000 {
+        /* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+        return 4;
+    } else if n >= 0xFFFFFC00 {
+        /* 111110nn nnnnnnnn (10 bits) (extended) */
+        return 2;
+    } else if n >= 0xFFFE0000 {
+        /* 1111110n nnnnnnnn nnnnnnnn (17 bits) (extended) */
+        return 3;
+    } else if n >= 0xFF000000 {
+        /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
+        return 4;
+    } else {
+        /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+        return 5;
+    }
 }
 
 #[cfg(test)]

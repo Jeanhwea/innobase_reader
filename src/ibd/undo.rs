@@ -224,6 +224,14 @@ pub struct UndoRecordHeader {
 
     /// update external flags
     pub extra_flags: Vec<UndoExtraFlags>,
+
+    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Undo number
+    pub undo_no: u64,
+
+    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Table ID
+    pub table_id: u64,
+
+    pub peek: Vec<u8>,
 }
 
 impl UndoRecordHeader {
@@ -256,6 +264,9 @@ impl UndoRecordHeader {
             type_info: (b1 & 0x0f).into(),
             cmpl_info,
             extra_flags,
+            peek: buf.slice(addr + 3..addr + 23).to_vec(),
+            undo_no: 0,
+            table_id: 0,
             info_bits: b1,
             buf: buf.clone(),
             addr,
