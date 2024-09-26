@@ -394,9 +394,7 @@ pub fn mach_read_from_4(addr: usize, buf: Arc<Bytes>) -> u32 {
 /// Read a ulint in a compressed form.
 pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
     let mut val = u8_val(&buf, addr) as u32;
-
-    dbg!(&val);
-
+    // dbg!(&val);
     if val < 0x80 {
         /* 0nnnnnnn (7 bits) */
     } else if val < 0xC0 {
@@ -506,6 +504,14 @@ mod util_tests {
         assert_eq!(ans03, 0x010203);
         let ans04 = mach_read_from_4(0, buf.clone());
         assert_eq!(ans04, 0x01020304);
+    }
+
+    #[test]
+    fn test_mach_read_compressed_u32() {
+        init_unit_test();
+        assert_eq!(mach_read_compressed(0, buf_new(&[1, 2, 3, 4])), 1);
+        // 0xaa => 0b10101010
+        assert_eq!(mach_read_compressed(0, buf_new(&[0xaa, 3, 0, 0, 0])), 0x2a03);
     }
 
     #[test]
