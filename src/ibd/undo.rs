@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -259,19 +258,24 @@ impl UndoRecordHeader {
             extra_flags.push(UndoExtraFlags::UPD_EXTERN);
         }
 
-        let undo_no_pack = mach_u64_read_much_compressed(addr + 3, buf.clone());
-        info!("undo_no_pack={:?}", &undo_no_pack);
-        let table_id_pack = mach_u64_read_much_compressed(addr + 3 + undo_no_pack.0, buf.clone());
-        info!("table_id_pack={:?}", &table_id_pack);
+        let type_info: UndoTypes = (b1 & 0x0f).into();
+        let mut undo_no = 0u64;
+        let mut table_id = 0u64;
+        if !matches!(type_info, UndoTypes::ZERO_VAL) {
+            let pack01 = mach_u64_read_much_compressed(addr + 3, buf.clone());
+            let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
+            undo_no = pack01.1;
+            table_id = pack02.1;
+        }
 
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
-            type_info: (b1 & 0x0f).into(),
+            type_info,
             cmpl_info,
             extra_flags,
-            undo_no: undo_no_pack.1,
-            table_id: table_id_pack.1,
+            undo_no,
+            table_id,
             info_bits: b1,
             buf: buf.clone(),
             addr,

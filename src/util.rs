@@ -1,4 +1,5 @@
 use std::{
+    cmp::min,
     collections::HashMap,
     env::set_var,
     fmt::{Binary, Debug, Display, LowerHex},
@@ -11,7 +12,7 @@ use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use colored::{ColoredString, Colorize};
 use flate2::read::ZlibDecoder;
-use log::{debug, trace};
+use log::{debug, info, trace};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
@@ -394,7 +395,6 @@ pub fn mach_read_from_4(addr: usize, buf: Arc<Bytes>) -> u32 {
 /// Read a ulint in a compressed form.
 pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
     let mut val = u8_val(&buf, addr) as u32;
-    // dbg!(&val);
     if val < 0x80 {
         /* 0nnnnnnn (7 bits) */
     } else if val < 0xC0 {
@@ -428,6 +428,10 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
         val = mach_read_from_3(addr + 1, buf.clone()) | 0xFF000000;
         assert!(val < 0xFFFE0000);
     }
+
+    let beg = addr;
+    let end = min(addr + 5, buf.len());
+    info!("buf = {:?}, val = {:?}", buf.slice(beg..end).to_vec(), val);
 
     val
 }
@@ -511,7 +515,12 @@ mod util_tests {
         init_unit_test();
         assert_eq!(mach_read_compressed(0, buf_new(&[1, 2, 3, 4])), 1);
         // 0xaa => 0b10101010
-        assert_eq!(mach_read_compressed(0, buf_new(&[0xaa, 3, 0, 0, 0])), 0x2a03);
+        assert_eq!(
+            mach_read_compressed(0, buf_new(&[0xaa, 3, 0, 0, 0])),
+            0x2a03
+        );
+
+        assert_eq!(mach_read_compressed(0, buf_new(&[132, 120, 0, 0])), 1144);
     }
 
     #[test]
