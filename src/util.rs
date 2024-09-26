@@ -429,9 +429,11 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
         assert!(val < 0xFFFE0000);
     }
 
-    let beg = addr;
-    let end = min(addr + 5, buf.len());
-    info!("buf = {:?}, val = {:?}", buf.slice(beg..end).to_vec(), val);
+    info!(
+        "val = {:?}, buf = {:?}",
+        val,
+        buf.slice(addr..min(addr + 5, buf.len())).to_vec()
+    );
 
     val
 }
