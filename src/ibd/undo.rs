@@ -221,9 +221,11 @@ pub struct UndoRecordHeader {
     pub type_info: UndoTypes,
 
     /// compilation info, see info_bytes
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub cmpl_info: Vec<CmplInfos>,
 
     /// update external flags
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub extra_flags: Vec<UndoExtraFlags>,
 
     /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Undo number

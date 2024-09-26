@@ -1786,7 +1786,7 @@ pub struct UndoLogPageBody {
     pub undo_log_hdr: Option<UndoLogHeader>,
 
     /// undo record headers
-    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub undo_rec_hdrs: Vec<UndoRecordHeader>,
 }
 
