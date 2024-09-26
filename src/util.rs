@@ -490,6 +490,24 @@ mod util_tests {
 
     use super::*;
 
+    fn buf_new(data: &[u8]) -> Arc<Bytes> {
+        Arc::new(Bytes::copy_from_slice(data))
+    }
+
+    #[test]
+    fn mach_read_from_bytes_array() {
+        init_unit_test();
+        let buf = buf_new(&[1, 2, 3, 4]);
+        let ans01 = mach_read_from_1(0, buf.clone());
+        assert_eq!(ans01, 1);
+        let ans02 = mach_read_from_2(0, buf.clone());
+        assert_eq!(ans02, 0x0102);
+        let ans03 = mach_read_from_3(0, buf.clone());
+        assert_eq!(ans03, 0x010203);
+        let ans04 = mach_read_from_4(0, buf.clone());
+        assert_eq!(ans04, 0x01020304);
+    }
+
     #[test]
     fn it_works() {
         init_unit_test();
@@ -570,13 +588,5 @@ mod util_tests {
         assert_eq!(bitmap_index(8), 1);
         assert_eq!(bitmap_index(15), 1);
         assert_eq!(bitmap_index(16), 2);
-    }
-
-    #[test]
-    fn it_works_01() {
-        init_unit_test();
-        let arr = [0, 0, 1, 2];
-        let ans = u32::from_be_bytes(arr);
-        info!("ans = {:x}", ans);
     }
 }
