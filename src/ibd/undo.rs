@@ -7,7 +7,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::FlstNode;
-use crate::util;
+use crate::util::{self, mach_u64_read_much_compressed};
 
 /// States of an undo log segment
 #[repr(u8)]
@@ -220,10 +220,18 @@ pub struct UndoRecordHeader {
     pub type_info: UndoTypes,
 
     /// compilation info, see info_bytes
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub cmpl_info: Vec<CmplInfos>,
 
     /// update external flags
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub extra_flags: Vec<UndoExtraFlags>,
+
+    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Undo number
+    pub undo_no: u64,
+
+    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Table ID
+    pub table_id: u64,
 }
 
 impl UndoRecordHeader {
@@ -250,12 +258,24 @@ impl UndoRecordHeader {
             extra_flags.push(UndoExtraFlags::UPD_EXTERN);
         }
 
+        let type_info: UndoTypes = (b1 & 0x0f).into();
+        let mut undo_no = 0u64;
+        let mut table_id = 0u64;
+        if !matches!(type_info, UndoTypes::ZERO_VAL) {
+            let pack01 = mach_u64_read_much_compressed(addr + 3, buf.clone());
+            let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
+            undo_no = pack01.1;
+            table_id = pack02.1;
+        }
+
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
-            type_info: (b1 & 0x0f).into(),
+            type_info,
             cmpl_info,
             extra_flags,
+            undo_no,
+            table_id,
             info_bits: b1,
             buf: buf.clone(),
             addr,

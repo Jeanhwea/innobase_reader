@@ -1,9 +1,10 @@
 use std::{
+    cmp::min,
     collections::HashMap,
     env::set_var,
     fmt::{Binary, Debug, Display, LowerHex},
     io::{Read, Write},
-    sync::Once,
+    sync::{Arc, Once},
 };
 
 use anyhow::Result;
@@ -11,7 +12,7 @@ use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use colored::{ColoredString, Colorize};
 use flate2::read::ZlibDecoder;
-use log::{debug, trace};
+use log::{debug, info, trace};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
@@ -209,20 +210,21 @@ pub fn u32_val(buf: &[u8], addr: usize) -> u32 {
 
 pub fn u48_val(buf: &[u8], addr: usize) -> u64 {
     let arr = [
+        0u8,
+        0u8,
         buf[addr],
         buf[addr + 1],
         buf[addr + 2],
         buf[addr + 3],
         buf[addr + 4],
         buf[addr + 5],
-        0u8,
-        0u8,
     ];
     u64::from_be_bytes(arr)
 }
 
 pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
     let arr = [
+        0u8,
         buf[addr],
         buf[addr + 1],
         buf[addr + 2],
@@ -230,7 +232,6 @@ pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
         buf[addr + 4],
         buf[addr + 5],
         buf[addr + 6],
-        0u8,
     ];
     u64::from_be_bytes(arr)
 }
@@ -371,6 +372,117 @@ pub fn conv_strdata_to_bytes(s: &str) -> Option<Bytes> {
     Some(Bytes::from(arr))
 }
 
+pub fn mach_read_from_1(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [0u8, 0u8, 0u8, buf[addr]];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_2(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [0u8, 0u8, buf[addr], buf[addr + 1]];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_3(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [0u8, buf[addr], buf[addr + 1], buf[addr + 2]];
+    u32::from_be_bytes(arr)
+}
+
+pub fn mach_read_from_4(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let arr = [buf[addr], buf[addr + 1], buf[addr + 2], buf[addr + 3]];
+    u32::from_be_bytes(arr)
+}
+
+/// Read a ulint in a compressed form.
+pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
+    let mut val = u8_val(&buf, addr) as u32;
+    if val < 0x80 {
+        /* 0nnnnnnn (7 bits) */
+    } else if val < 0xC0 {
+        /* 10nnnnnn nnnnnnnn (14 bits) */
+        val = mach_read_from_2(addr, buf.clone()) & 0x3FFF;
+        assert!(val > 0x7F);
+    } else if val < 0xE0 {
+        /* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+        val = mach_read_from_3(addr, buf.clone()) & 0x1FFFFF;
+        assert!(val > 0x3FFF);
+    } else if val < 0xF0 {
+        /* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+        val = mach_read_from_4(addr, buf.clone()) & 0xFFFFFFF;
+        assert!(val > 0x1FFFFF);
+    } else if val < 0xF8 {
+        /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+        assert!(val == 0xF0);
+        val = mach_read_from_4(addr + 1, buf.clone());
+        /* this can treat not-extended format also. */
+        assert!(val > 0xFFFFFFF);
+    } else if val < 0xFC {
+        /* 111110nn nnnnnnnn (10 bits) (extended) */
+        val = (mach_read_from_2(addr, buf.clone()) & 0x3FF) | 0xFFFFFC00;
+    } else if val < 0xFE {
+        /* 1111110n nnnnnnnn nnnnnnnn (17 bits) (extended) */
+        val = (mach_read_from_3(addr, buf.clone()) & 0x1FFFF) | 0xFFFE0000;
+        assert!(val < 0xFFFFFC00);
+    } else {
+        /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
+        assert!(val == 0xFE);
+        val = mach_read_from_3(addr + 1, buf.clone()) | 0xFF000000;
+        assert!(val < 0xFFFE0000);
+    }
+
+    let beg = addr;
+    let end = min(addr + 5, buf.len());
+    info!("buf = {:?}, val = {:?}", buf.slice(beg..end).to_vec(), val);
+
+    val
+}
+
+/// Return the size of an ulint when written in the compressed form.
+pub fn mach_get_compressed_size(n: u32) -> usize {
+    if n < 0x80 {
+        /* 0nnnnnnn (7 bits) */
+        return 1;
+    } else if n < 0x4000 {
+        /* 10nnnnnn nnnnnnnn (14 bits) */
+        return 2;
+    } else if n < 0x200000 {
+        /* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+        return 3;
+    } else if n < 0x10000000 {
+        /* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+        return 4;
+    } else if n >= 0xFFFFFC00 {
+        /* 111110nn nnnnnnnn (10 bits) (extended) */
+        return 2;
+    } else if n >= 0xFFFE0000 {
+        /* 1111110n nnnnnnnn nnnnnnnn (17 bits) (extended) */
+        return 3;
+    } else if n >= 0xFF000000 {
+        /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
+        return 4;
+    } else {
+        /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+        return 5;
+    }
+}
+
+/// Reads a 64-bit integer in a compressed form.
+pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
+    let b0 = u8_val(&buf, addr);
+    if b0 != 0xFF {
+        let low32 = mach_read_compressed(addr, buf.clone());
+        let size = mach_get_compressed_size(low32);
+        return (size, low32 as u64);
+    }
+
+    let high = mach_read_compressed(addr + 1, buf.clone());
+    let high_size = mach_get_compressed_size(high);
+    let low = mach_read_compressed(addr + 1 + high_size, buf.clone());
+    let low_size = mach_get_compressed_size(low);
+    let val = ((high as u64) << 32) | (low as u64);
+
+    return (1 + high_size + low_size, val);
+}
+
 #[cfg(test)]
 mod util_tests {
 
@@ -379,6 +491,34 @@ mod util_tests {
     use log::info;
 
     use super::*;
+
+    fn newbuf(data: &[u8]) -> Arc<Bytes> {
+        Arc::new(Bytes::copy_from_slice(data))
+    }
+
+    #[test]
+    fn mach_read_from_bytes_array() {
+        init_unit_test();
+        let buf = newbuf(&[1, 2, 3, 4]);
+        let ans01 = mach_read_from_1(0, buf.clone());
+        assert_eq!(ans01, 1);
+        let ans02 = mach_read_from_2(0, buf.clone());
+        assert_eq!(ans02, 0x0102);
+        let ans03 = mach_read_from_3(0, buf.clone());
+        assert_eq!(ans03, 0x010203);
+        let ans04 = mach_read_from_4(0, buf.clone());
+        assert_eq!(ans04, 0x01020304);
+    }
+
+    #[test]
+    fn test_mach_read_compressed_u32() {
+        init_unit_test();
+        assert_eq!(mach_read_compressed(0, newbuf(&[1, 2, 3, 4])), 1);
+        // 0xaa => 0b10101010
+        assert_eq!(mach_read_compressed(0, newbuf(&[0xaa, 3, 0, 0, 0])), 0x2a03);
+
+        assert_eq!(mach_read_compressed(0, newbuf(&[132, 120, 0, 0])), 1144);
+    }
 
     #[test]
     fn it_works() {

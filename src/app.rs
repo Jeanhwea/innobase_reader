@@ -614,7 +614,7 @@ impl App {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
-                    _ => todo!("不支持的系统页面类型"),
+                    _ => todo!("不支持的 SYS 页面类型, hdr = {:#?}", fil_hdr),
                 }
             }
             _ => {

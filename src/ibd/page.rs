@@ -82,6 +82,7 @@ pub const UNDO_TABLESPACE_ID: u32 = 0xffffffef;
 pub enum SpaceId {
     SpaceMax,
     UndoSpace,
+    SystemSpace,
     Space(u32),
 }
 
@@ -90,6 +91,7 @@ impl From<u32> for SpaceId {
         match value {
             SPACE_ID_MAX => SpaceId::SpaceMax,
             UNDO_TABLESPACE_ID => SpaceId::UndoSpace,
+            0 => SpaceId::SystemSpace,
             val => SpaceId::Space(val),
         }
     }
@@ -1694,7 +1696,7 @@ pub struct RSegHeaderPageBody {
     /// (34 bytes) rollback segment header
     pub rseg_hdr: RollbackSegmentHeader,
 
-    /// (4*1024) undo segment slots
+    /// (4*1024 bytes) undo segment slots
     #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub undo_slots: Vec<(usize, PageNumber)>,
 }
@@ -1784,7 +1786,7 @@ pub struct UndoLogPageBody {
     pub undo_log_hdr: Option<UndoLogHeader>,
 
     /// undo record headers
-    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub undo_rec_hdrs: Vec<UndoRecordHeader>,
 }
 
