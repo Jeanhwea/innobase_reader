@@ -492,14 +492,14 @@ mod util_tests {
 
     use super::*;
 
-    fn buf_new(data: &[u8]) -> Arc<Bytes> {
+    fn newbuf(data: &[u8]) -> Arc<Bytes> {
         Arc::new(Bytes::copy_from_slice(data))
     }
 
     #[test]
     fn mach_read_from_bytes_array() {
         init_unit_test();
-        let buf = buf_new(&[1, 2, 3, 4]);
+        let buf = newbuf(&[1, 2, 3, 4]);
         let ans01 = mach_read_from_1(0, buf.clone());
         assert_eq!(ans01, 1);
         let ans02 = mach_read_from_2(0, buf.clone());
@@ -513,14 +513,11 @@ mod util_tests {
     #[test]
     fn test_mach_read_compressed_u32() {
         init_unit_test();
-        assert_eq!(mach_read_compressed(0, buf_new(&[1, 2, 3, 4])), 1);
+        assert_eq!(mach_read_compressed(0, newbuf(&[1, 2, 3, 4])), 1);
         // 0xaa => 0b10101010
-        assert_eq!(
-            mach_read_compressed(0, buf_new(&[0xaa, 3, 0, 0, 0])),
-            0x2a03
-        );
+        assert_eq!(mach_read_compressed(0, newbuf(&[0xaa, 3, 0, 0, 0])), 0x2a03);
 
-        assert_eq!(mach_read_compressed(0, buf_new(&[132, 120, 0, 0])), 1144);
+        assert_eq!(mach_read_compressed(0, newbuf(&[132, 120, 0, 0])), 1144);
     }
 
     #[test]
