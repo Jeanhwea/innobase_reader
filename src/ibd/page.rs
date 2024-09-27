@@ -1795,6 +1795,7 @@ impl BasePageBody for UndoLogPageBody {
         let mut rec_list = Vec::new();
 
         let page_hdr = UndoPageHeader::new(addr, buf.clone());
+        let upt = page_hdr.page_type.clone();
 
         let mut rec_addr = page_hdr.page_start as usize;
         loop {
@@ -1802,7 +1803,7 @@ impl BasePageBody for UndoLogPageBody {
                 break;
             }
 
-            let rec = UndoRecord::new(rec_addr, buf.clone());
+            let rec = UndoRecord::new(rec_addr, buf.clone(), upt.clone());
             rec_addr = rec.undo_rec_hdr.next_addr();
             let type_info = rec.undo_rec_hdr.type_info.clone();
             rec_list.push(rec);

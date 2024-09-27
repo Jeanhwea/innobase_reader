@@ -6,7 +6,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::FlstNode;
+use super::page::{FlstNode, UndoPageTypes};
 use crate::util::{self, mach_u32_read_much_compressed, mach_u64_read_much_compressed};
 
 /// States of an undo log segment
@@ -213,11 +213,15 @@ pub struct UndoRecord {
 }
 
 impl UndoRecord {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
 
         let data = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
-            Some(UndoRecordData::new(addr + hdr.total_bytes, buf.clone()))
+            Some(UndoRecordData::new(
+                addr + hdr.total_bytes,
+                buf.clone(),
+                upt,
+            ))
         } else {
             None
         };
@@ -447,7 +451,7 @@ pub struct UndoRecordData {
 }
 
 impl UndoRecordData {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
         // key fields
         let mut key_fields = Vec::new();
         let mut ptr = addr;
@@ -457,21 +461,25 @@ impl UndoRecordData {
             key_fields.push(key);
         }
 
-        // update count
-        let upd = mach_u32_read_much_compressed(addr, buf.clone());
-        ptr += upd.0;
-
-        // updated fields
+        let mut upd_count = 0;
         let mut upd_fields = Vec::new();
-        for i in 0..(upd.1 as usize) {
-            let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
-            ptr += fld.total_bytes;
-            upd_fields.push(fld);
+        if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
+            // update count
+            let upd = mach_u32_read_much_compressed(addr, buf.clone());
+            ptr += upd.0;
+            upd_count = upd.1;
+
+            // updated fields
+            for i in 0..(upd.1 as usize) {
+                let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
+                ptr += fld.total_bytes;
+                upd_fields.push(fld);
+            }
         }
 
         Self {
             key_fields,
-            upd_count: upd.1,
+            upd_count,
             upd_fields,
             buf: buf.clone(),
             addr,
