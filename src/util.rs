@@ -485,6 +485,13 @@ pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u6
     return (1 + high_size + low_size, val);
 }
 
+/// Reads a 32-bit integer in a compressed form.
+pub fn mach_u32_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u32) {
+    let value = mach_read_compressed(addr, buf.clone());
+    let size = mach_get_compressed_size(value);
+    return (size, value);
+}
+
 #[cfg(test)]
 mod util_tests {
 

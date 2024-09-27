@@ -7,7 +7,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::FlstNode;
-use crate::util::{self, mach_u64_read_much_compressed};
+use crate::util::{self, mach_u32_read_much_compressed, mach_u64_read_much_compressed};
 
 /// States of an undo log segment
 #[repr(u8)]
@@ -262,6 +262,7 @@ impl UndoRecordHeader {
         let mut undo_no = 0u64;
         let mut table_id = 0u64;
         if !matches!(type_info, UndoTypes::ZERO_VAL) {
+            // trx_undo_page_report_modify(...) for UndoRecord buffer structure
             let pack01 = mach_u64_read_much_compressed(addr + 3, buf.clone());
             let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
             undo_no = pack01.1;
@@ -372,4 +373,148 @@ pub enum UndoExtraFlags {
     /// This bit can be ORed to type_cmpl to denote that we updated external
     /// storage fields: used by purge to free the external storage
     UPD_EXTERN,
+}
+
+/// Undo Record Data
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecordData {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// key fields
+    pub key_fields: Vec<UndoRecKeyField>,
+
+    /// (1-5 bytes) updated field count
+    pub upd_count: u32,
+
+    /// updated fields
+    pub upd_fields: Vec<UndoRecUpdatedField>,
+}
+
+impl UndoRecordData {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        // key fields
+        let mut key_fields = Vec::new();
+        let mut ptr = addr;
+        for i in 0..1 {
+            let key = UndoRecKeyField::new(ptr, buf.clone(), i);
+            ptr += key.field_len;
+            key_fields.push(key);
+        }
+
+        // update count
+        let upd = mach_u32_read_much_compressed(addr, buf.clone());
+        ptr += upd.0;
+
+        // updated fields
+        let mut upd_fields = Vec::new();
+        for i in 0..(upd.1 as usize) {
+            let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
+            ptr += fld.field_len;
+            upd_fields.push(fld);
+        }
+
+        Self {
+            key_fields,
+            upd_count: upd.1,
+            upd_fields,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Record Key Fields
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecKeyField {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// sequence
+    pub seq: usize,
+
+    /// (1-5 bytes) key length
+    pub length: u32,
+
+    /// (??? bytes) key content, see length for total size
+    pub content: Bytes,
+
+    /// field length
+    #[derivative(Debug = "ignore")]
+    pub field_len: usize,
+}
+
+impl UndoRecKeyField {
+    pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
+        let len = mach_u32_read_much_compressed(addr, buf.clone());
+        let beg = addr + len.0;
+        let end = beg + (len.1 as usize);
+        Self {
+            seq,
+            length: len.1,
+            content: buf.clone().slice(beg..end),
+            field_len: len.0 + (len.1 as usize),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Undo Record Updated Fields
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecUpdatedField {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// sequence
+    pub seq: usize,
+
+    /// (1-5 bytes) field number
+    pub field_num: u32,
+
+    /// (1-5 bytes) key length
+    pub length: u32,
+
+    /// (??? bytes) key content, see length for total size
+    pub content: Bytes,
+
+    /// field length
+    #[derivative(Debug = "ignore")]
+    pub field_len: usize,
+}
+
+impl UndoRecUpdatedField {
+    pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
+        let fno = mach_u32_read_much_compressed(addr, buf.clone());
+        let len = mach_u32_read_much_compressed(addr + fno.0, buf.clone());
+        let beg = addr + fno.0 + len.0;
+        let end = beg + (len.1 as usize);
+        Self {
+            seq,
+            field_num: fno.1,
+            length: len.1,
+            content: buf.clone().slice(beg..end),
+            field_len: fno.0 + len.0 + (len.1 as usize),
+            buf: buf.clone(),
+            addr,
+        }
+    }
 }
