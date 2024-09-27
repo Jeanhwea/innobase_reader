@@ -15,7 +15,7 @@ use strum::{Display, EnumString};
 
 use super::{
     sdi::SdiRecord,
-    undo::{UndoLogHeader, UndoRecordHeader},
+    undo::{UndoLogHeader, UndoRecord},
 };
 use crate::{
     ibd::{
@@ -1787,25 +1787,25 @@ pub struct UndoLogPageBody {
 
     /// undo record headers
     // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
-    pub undo_rec_hdrs: Vec<UndoRecordHeader>,
+    pub undo_rec_list: Vec<UndoRecord>,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut rec_hdrs = Vec::new();
+        let mut rec_list = Vec::new();
 
         let page_hdr = UndoPageHeader::new(addr, buf.clone());
 
-        let mut hdr_addr = page_hdr.page_start as usize;
+        let mut rec_addr = page_hdr.page_start as usize;
         loop {
-            if hdr_addr == 0 || hdr_addr > PAGE_SIZE {
+            if rec_addr == 0 || rec_addr > PAGE_SIZE {
                 break;
             }
 
-            let rec = UndoRecordHeader::new(hdr_addr, buf.clone());
-            hdr_addr = rec.next_addr();
-            let type_info = rec.type_info.clone();
-            rec_hdrs.push(rec);
+            let rec = UndoRecord::new(rec_addr, buf.clone());
+            rec_addr = rec.undo_rec_hdr.next_addr();
+            let type_info = rec.undo_rec_hdr.type_info.clone();
+            rec_list.push(rec);
 
             if matches!(type_info, UndoTypes::ZERO_VAL) {
                 break;
@@ -1827,7 +1827,7 @@ impl BasePageBody for UndoLogPageBody {
             undo_page_hdr: page_hdr,
             undo_seg_hdr: seg_hdr,
             undo_log_hdr: log_hdr,
-            undo_rec_hdrs: rec_hdrs,
+            undo_rec_list: rec_list,
             buf: buf.clone(),
             addr,
         }

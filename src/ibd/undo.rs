@@ -193,6 +193,44 @@ impl XaTrxInfo {
     }
 }
 
+/// Undo Record
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecord {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// undo record header
+    pub undo_rec_hdr: UndoRecordHeader,
+
+    /// undo record data
+    pub undo_rec_data: Option<UndoRecordData>,
+}
+
+impl UndoRecord {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let hdr = UndoRecordHeader::new(addr, buf.clone());
+
+        let data = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
+            Some(UndoRecordData::new(addr + hdr.total_bytes, buf.clone()))
+        } else {
+            None
+        };
+
+        Self {
+            undo_rec_hdr: hdr,
+            undo_rec_data: data,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// Undo Record Header
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -232,6 +270,10 @@ pub struct UndoRecordHeader {
 
     /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Table ID
     pub table_id: u64,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
 }
 
 impl UndoRecordHeader {
@@ -259,13 +301,19 @@ impl UndoRecordHeader {
         }
 
         let type_info: UndoTypes = (b1 & 0x0f).into();
+
+        let mut total = 3usize;
+
         let mut undo_no = 0u64;
         let mut table_id = 0u64;
         if !matches!(type_info, UndoTypes::ZERO_VAL) {
             // trx_undo_page_report_modify(...) for UndoRecord buffer structure
             let pack01 = mach_u64_read_much_compressed(addr + 3, buf.clone());
-            let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
+            total += pack01.0;
             undo_no = pack01.1;
+
+            let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
+            total += pack02.0;
             table_id = pack02.1;
         }
 
@@ -278,6 +326,7 @@ impl UndoRecordHeader {
             undo_no,
             table_id,
             info_bits: b1,
+            total_bytes: total,
             buf: buf.clone(),
             addr,
         }
@@ -404,7 +453,7 @@ impl UndoRecordData {
         let mut ptr = addr;
         for i in 0..1 {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
-            ptr += key.field_len;
+            ptr += key.total_bytes;
             key_fields.push(key);
         }
 
@@ -416,7 +465,7 @@ impl UndoRecordData {
         let mut upd_fields = Vec::new();
         for i in 0..(upd.1 as usize) {
             let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
-            ptr += fld.field_len;
+            ptr += fld.total_bytes;
             upd_fields.push(fld);
         }
 
@@ -451,9 +500,9 @@ pub struct UndoRecKeyField {
     /// (??? bytes) key content, see length for total size
     pub content: Bytes,
 
-    /// field length
+    /// total bytes
     #[derivative(Debug = "ignore")]
-    pub field_len: usize,
+    pub total_bytes: usize,
 }
 
 impl UndoRecKeyField {
@@ -465,7 +514,7 @@ impl UndoRecKeyField {
             seq,
             length: len.1,
             content: buf.clone().slice(beg..end),
-            field_len: len.0 + (len.1 as usize),
+            total_bytes: len.0 + (len.1 as usize),
             buf: buf.clone(),
             addr,
         }
@@ -496,9 +545,9 @@ pub struct UndoRecUpdatedField {
     /// (??? bytes) key content, see length for total size
     pub content: Bytes,
 
-    /// field length
+    /// total bytes
     #[derivative(Debug = "ignore")]
-    pub field_len: usize,
+    pub total_bytes: usize,
 }
 
 impl UndoRecUpdatedField {
@@ -512,7 +561,7 @@ impl UndoRecUpdatedField {
             field_num: fno.1,
             length: len.1,
             content: buf.clone().slice(beg..end),
-            field_len: fno.0 + len.0 + (len.1 as usize),
+            total_bytes: fno.0 + len.0 + (len.1 as usize),
             buf: buf.clone(),
             addr,
         }
