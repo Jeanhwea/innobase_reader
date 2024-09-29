@@ -255,7 +255,7 @@ pub struct UndoRecordHeader {
 
     /// (1 byte) type, extern flag, compilation info
     #[derivative(Debug = "ignore")]
-    pub info_bits: u8,
+    pub type_cmpl: u8,
 
     /// type info, see info_bytes
     #[derivative(Debug(format_with = "util::fmt_enum"))]
@@ -269,10 +269,10 @@ pub struct UndoRecordHeader {
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub extra_flags: Vec<UndoExtraFlags>,
 
-    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Undo number
+    /// (1..11 bytes) undo number, in compressed form
     pub undo_no: u64,
 
-    /// (1..11 bytes) compressed form, see mach_u64_write_much_compressed(...), Table ID
+    /// (1..11 bytes) table id, in compressed form
     pub table_id: u64,
 
     /// total bytes
@@ -282,9 +282,9 @@ pub struct UndoRecordHeader {
 
 impl UndoRecordHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let b1 = util::u8_val(&buf, addr + 2);
+        let type_cmpl = util::u8_val(&buf, addr + 2);
 
-        let cmpl_info_bits = (b1 >> 4) & 0x03;
+        let cmpl_info_bits = (type_cmpl >> 4) & 0x03;
         let mut cmpl_info = Vec::new();
         if (cmpl_info_bits & Self::UPD_NODE_NO_ORD_CHANGE) > 0 {
             cmpl_info.push(CmplInfos::NO_ORD_CHANGE);
@@ -294,17 +294,17 @@ impl UndoRecordHeader {
         }
 
         let mut extra_flags = Vec::new();
-        if (b1 & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
+        if (type_cmpl & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
             extra_flags.push(UndoExtraFlags::CMPL_INFO_MULT);
         }
-        if (b1 & Self::TRX_UNDO_MODIFY_BLOB) > 0 {
+        if (type_cmpl & Self::TRX_UNDO_MODIFY_BLOB) > 0 {
             extra_flags.push(UndoExtraFlags::MODIFY_BLOB);
         }
-        if (b1 & Self::TRX_UNDO_UPD_EXTERN) > 0 {
+        if (type_cmpl & Self::TRX_UNDO_UPD_EXTERN) > 0 {
             extra_flags.push(UndoExtraFlags::UPD_EXTERN);
         }
 
-        let type_info: UndoTypes = (b1 & 0x0f).into();
+        let type_info: UndoTypes = (type_cmpl & 0x0f).into();
 
         let mut total = 3usize;
 
@@ -329,7 +329,7 @@ impl UndoRecordHeader {
             extra_flags,
             undo_no,
             table_id,
-            info_bits: b1,
+            type_cmpl,
             total_bytes: total,
             buf: buf.clone(),
             addr,
