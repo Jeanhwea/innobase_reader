@@ -221,6 +221,7 @@ impl UndoRecord {
                 addr + hdr.total_bytes,
                 buf.clone(),
                 upt,
+                &hdr,
             ))
         } else {
             None
@@ -460,12 +461,12 @@ pub struct UndoRecordData {
 }
 
 impl UndoRecordData {
-    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
         let mut ptr = addr;
         let mut info_bits = 0;
         let mut trx_id = 0;
         let mut roll_ptr = 0;
-        if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
+        if matches!(hdr.type_info, UndoTypes::UPD_EXIST_REC) {
             info_bits = util::u8_val(&buf, ptr);
             ptr += 1;
 
@@ -480,7 +481,8 @@ impl UndoRecordData {
 
         // key fields
         let mut key_fields = Vec::new();
-        for i in 0..1 {
+        let nkey = 1; // TODO: parse number of table key
+        for i in 0..nkey {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
             key_fields.push(key);
