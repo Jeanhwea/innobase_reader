@@ -440,6 +440,15 @@ pub struct UndoRecordData {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// (1 byte) info bits
+    pub info_bits: u8,
+
+    /// (1..11 bytes) transaction id, in compressed form
+    pub trx_id: u64,
+
+    /// (1..11 bytes) rollback pointer, in compressed form
+    pub roll_ptr: u64,
+
     /// key fields
     pub key_fields: Vec<UndoRecKeyField>,
 
@@ -452,9 +461,25 @@ pub struct UndoRecordData {
 
 impl UndoRecordData {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+        let mut ptr = addr;
+        let mut info_bits = 0;
+        let mut trx_id = 0;
+        let mut roll_ptr = 0;
+        if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
+            info_bits = util::u8_val(&buf, ptr);
+            ptr += 1;
+
+            let trx = mach_u64_read_much_compressed(ptr, buf.clone());
+            ptr += trx.0;
+            trx_id = trx.1;
+
+            let rpt = mach_u64_read_much_compressed(ptr, buf.clone());
+            ptr += rpt.0;
+            roll_ptr = rpt.1;
+        }
+
         // key fields
         let mut key_fields = Vec::new();
-        let mut ptr = addr;
         for i in 0..1 {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
@@ -465,7 +490,7 @@ impl UndoRecordData {
         let mut upd_fields = Vec::new();
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
-            let upd = mach_u32_read_much_compressed(addr, buf.clone());
+            let upd = mach_u32_read_much_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
 
@@ -478,6 +503,9 @@ impl UndoRecordData {
         }
 
         Self {
+            info_bits,
+            trx_id,
+            roll_ptr,
             key_fields,
             upd_count,
             upd_fields,
