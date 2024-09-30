@@ -502,7 +502,6 @@ impl UndoRecordData {
             let upd = mach_u32_read_much_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
-
             // updated fields
             for i in 0..(upd.1 as usize) {
                 let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
