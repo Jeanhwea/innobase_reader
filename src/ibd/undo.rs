@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -438,6 +439,7 @@ pub struct UndoRecordData {
 
 impl UndoRecordData {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
+        info!("{:?}", hdr);
         let mut ptr = addr;
 
         // common fields
