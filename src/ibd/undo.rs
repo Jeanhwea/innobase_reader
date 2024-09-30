@@ -440,9 +440,12 @@ impl UndoRecordData {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
         let mut ptr = addr;
 
-        let mut new1byte = 0;
+        // common fields
         let undo_no;
         let table_id;
+
+        // only for update record type
+        let mut new1byte = 0;
         let mut info_bits = 0;
         let mut trx_id = 0;
         let mut roll_ptr = 0;
