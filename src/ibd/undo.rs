@@ -457,7 +457,7 @@ impl UndoRecordData {
                 ptr += v02.0;
                 table_id = v02.1;
             }
-            UndoTypes::UPD_EXIST_REC => {
+            UndoTypes::UPD_EXIST_REC | UndoTypes::DEL_MARK_REC | UndoTypes::UPD_DEL_REC => {
                 new1byte = util::u8_val(&buf, ptr);
                 ptr += 1;
 
