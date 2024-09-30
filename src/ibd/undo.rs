@@ -217,12 +217,7 @@ impl UndoRecord {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
 
         let data = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
-            Some(UndoRecordData::new(
-                addr + hdr.total_bytes,
-                buf.clone(),
-                upt,
-                &hdr,
-            ))
+            Some(UndoRecordData::new(addr + 3, buf.clone(), upt, &hdr))
         } else {
             None
         };
@@ -269,16 +264,6 @@ pub struct UndoRecordHeader {
     /// update external flags
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub extra_flags: Vec<UndoExtraFlags>,
-
-    /// (1..11 bytes) undo number, in compressed form
-    pub undo_no: u64,
-
-    /// (1..11 bytes) table id, in compressed form
-    pub table_id: u64,
-
-    /// total bytes
-    // #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
 }
 
 impl UndoRecordHeader {
@@ -307,31 +292,13 @@ impl UndoRecordHeader {
 
         let type_info: UndoTypes = (type_cmpl & 0x0f).into();
 
-        let mut total = 3usize;
-
-        let mut undo_no = 0u64;
-        let mut table_id = 0u64;
-        if !matches!(type_info, UndoTypes::ZERO_VAL) {
-            // trx_undo_page_report_modify(...) for UndoRecord buffer structure
-            let pack01 = mach_u64_read_much_compressed(addr + 3, buf.clone());
-            total += pack01.0;
-            undo_no = pack01.1;
-
-            let pack02 = mach_u64_read_much_compressed(addr + 3 + pack01.0, buf.clone());
-            total += pack02.0;
-            table_id = pack02.1;
-        }
-
         Self {
             prev_rec_offset: util::u16_val(&buf, addr - 2),
             next_rec_offset: util::u16_val(&buf, addr),
+            type_cmpl,
             type_info,
             cmpl_info,
             extra_flags,
-            undo_no,
-            table_id,
-            type_cmpl,
-            total_bytes: total,
             buf: buf.clone(),
             addr,
         }
@@ -441,6 +408,15 @@ pub struct UndoRecordData {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// introducing a change in undo log format
+    pub new1byte: u8,
+
+    /// (1..11 bytes) undo number, in compressed form
+    pub undo_no: u64,
+
+    /// (1..11 bytes) table id, in compressed form
+    pub table_id: u64,
+
     /// (1 byte) info bits
     pub info_bits: u8,
 
@@ -463,20 +439,48 @@ pub struct UndoRecordData {
 impl UndoRecordData {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
         let mut ptr = addr;
+
+        let mut new1byte = 0;
+        let undo_no;
+        let table_id;
         let mut info_bits = 0;
         let mut trx_id = 0;
         let mut roll_ptr = 0;
-        if matches!(hdr.type_info, UndoTypes::UPD_EXIST_REC) {
-            info_bits = util::u8_val(&buf, ptr);
-            ptr += 1;
 
-            let trx = mach_u64_read_much_compressed(ptr, buf.clone());
-            ptr += trx.0;
-            trx_id = trx.1;
+        match hdr.type_info {
+            UndoTypes::INSERT_REC => {
+                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v01.0;
+                undo_no = v01.1;
 
-            let rpt = mach_u64_read_much_compressed(ptr, buf.clone());
-            ptr += rpt.0;
-            roll_ptr = rpt.1;
+                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v02.0;
+                table_id = v02.1;
+            }
+            UndoTypes::UPD_EXIST_REC => {
+                new1byte = util::u8_val(&buf, ptr);
+                ptr += 1;
+
+                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v01.0;
+                undo_no = v01.1;
+
+                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v02.0;
+                table_id = v02.1;
+
+                info_bits = util::u8_val(&buf, ptr);
+                ptr += 1;
+
+                let v03 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v03.0;
+                trx_id = v03.1;
+
+                let v04 = mach_u64_read_much_compressed(ptr, buf.clone());
+                ptr += v04.0;
+                roll_ptr = v04.1;
+            }
+            _ => todo!("未识别的 UndoRecord.type_info = {:?}", hdr.type_info),
         }
 
         // key fields
@@ -505,6 +509,9 @@ impl UndoRecordData {
         }
 
         Self {
+            new1byte,
+            undo_no,
+            table_id,
             info_bits,
             trx_id,
             roll_ptr,
@@ -533,26 +540,31 @@ pub struct UndoRecKeyField {
     pub seq: usize,
 
     /// (1-5 bytes) key length
-    pub length: u32,
+    pub length: usize,
 
     /// (??? bytes) key content, see length for total size
     pub content: Bytes,
 
     /// total bytes
-    // #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
 impl UndoRecKeyField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
-        let len = mach_u32_read_much_compressed(addr, buf.clone());
-        let beg = addr + len.0;
-        let end = beg + (len.1 as usize);
+        let mut ptr = addr;
+
+        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let length = v01.1 as usize;
+        ptr += v01.0;
+
+        let content = buf.slice(ptr..ptr + length);
+        ptr += length;
+
         Self {
             seq,
-            length: len.1,
-            content: buf.clone().slice(beg..end),
-            total_bytes: len.0 + (len.1 as usize),
+            length,
+            content,
+            total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
@@ -578,28 +590,36 @@ pub struct UndoRecUpdatedField {
     pub field_num: u32,
 
     /// (1-5 bytes) key length
-    pub length: u32,
+    pub length: usize,
 
     /// (??? bytes) key content, see length for total size
     pub content: Bytes,
 
     /// total bytes
-    // #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
 impl UndoRecUpdatedField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
-        let fno = mach_u32_read_much_compressed(addr, buf.clone());
-        let len = mach_u32_read_much_compressed(addr + fno.0, buf.clone());
-        let beg = addr + fno.0 + len.0;
-        let end = beg + (len.1 as usize);
+        let mut ptr = addr;
+
+        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let field_num = v01.1;
+        ptr += v01.0;
+
+        let v02 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let length = v02.1 as usize;
+        ptr += v02.0;
+
+        let content = buf.slice(ptr..ptr + length);
+        ptr += length;
+
         Self {
             seq,
-            field_num: fno.1,
-            length: len.1,
-            content: buf.clone().slice(beg..end),
-            total_bytes: fno.0 + len.0 + (len.1 as usize),
+            field_num,
+            length,
+            content,
+            total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
