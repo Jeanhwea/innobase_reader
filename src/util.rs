@@ -467,7 +467,7 @@ pub fn mach_get_compressed_size(n: u32) -> usize {
     }
 }
 
-/// Reads a 64-bit integer in a compressed form.
+/// Reads a 64-bit integer in much compressed form.
 pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
     let b0 = u8_val(&buf, addr);
     if b0 != 0xFF {
@@ -485,7 +485,17 @@ pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u6
     return (1 + high_size + low_size, val);
 }
 
-/// Reads a 32-bit integer in a compressed form.
+/// Reads a 64-bit integer in compressed form.
+pub fn mach_u64_read_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
+    let high = mach_read_compressed(addr, buf.clone());
+    let high_size = mach_get_compressed_size(high);
+    let low = u32_val(&buf, addr + high_size);
+    let val = ((high as u64) << 32) | (low as u64);
+
+    return (high_size + 4, val);
+}
+
+/// Reads a 32-bit integer in much compressed form.
 pub fn mach_u32_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u32) {
     let value = mach_read_compressed(addr, buf.clone());
     let size = mach_get_compressed_size(value);
@@ -525,8 +535,10 @@ mod util_tests {
         assert_eq!(mach_read_compressed(0, newbuf(&[1, 2, 3, 4])), 1);
         // 0xaa => 0b10101010
         assert_eq!(mach_read_compressed(0, newbuf(&[0xaa, 3, 0, 0, 0])), 0x2a03);
-
+        // 1144
         assert_eq!(mach_read_compressed(0, newbuf(&[132, 120, 0, 0])), 1144);
+        // 88
+        assert_eq!(mach_read_compressed(0, newbuf(&[88])), 88);
     }
 
     #[test]

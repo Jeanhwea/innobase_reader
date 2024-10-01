@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{FlstNode, UndoPageTypes};
-use crate::util::{self, mach_u32_read_much_compressed, mach_u64_read_much_compressed};
+use crate::util::{
+    self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
+};
 
 /// States of an undo log segment
 #[repr(u8)]
@@ -189,6 +192,39 @@ impl XaTrxInfo {
             xa_data: buf.slice(addr + 12..addr + 12 + 128),
             buf: buf.clone(),
             addr,
+        }
+    }
+}
+
+/// Parsed rollback pointer
+#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derivative(Debug)]
+pub struct RollPtr {
+    #[derivative(Debug(format_with = "util::fmt_hex56"))]
+    /// (7 bytes) original rollback pointer bytes value
+    pub value: u64,
+
+    /// (1 bit) insert flag
+    pub insert: bool,
+
+    /// (7 bits) rollback segment id
+    pub rseg_id: u8,
+
+    /// (4 bytes) page number
+    pub page_no: usize,
+
+    /// (2 bytes) page offset
+    pub boffset: u16,
+}
+
+impl RollPtr {
+    pub fn new(value: u64) -> Self {
+        Self {
+            value,
+            insert: ((value >> 55) & 0x1) > 0,
+            rseg_id: ((value >> 48) & 0x7f) as u8,
+            page_no: ((value >> 16) & 0xffffffff) as usize,
+            boffset: (value & 0xffff) as u16,
         }
     }
 }
@@ -411,10 +447,10 @@ pub struct UndoRecordData {
     /// introducing a change in undo log format
     pub new1byte: u8,
 
-    /// (1..11 bytes) undo number, in compressed form
+    /// (1..11 bytes) undo number, in much compressed form
     pub undo_no: u64,
 
-    /// (1..11 bytes) table id, in compressed form
+    /// (1..11 bytes) table id, in much compressed form
     pub table_id: u64,
 
     /// (1 byte) info bits
@@ -424,7 +460,7 @@ pub struct UndoRecordData {
     pub trx_id: u64,
 
     /// (1..11 bytes) rollback pointer, in compressed form
-    pub roll_ptr: u64,
+    pub roll_ptr: RollPtr,
 
     /// key fields
     pub key_fields: Vec<UndoRecKeyField>,
@@ -438,14 +474,18 @@ pub struct UndoRecordData {
 
 impl UndoRecordData {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
+        info!("{:?}", hdr);
         let mut ptr = addr;
 
-        let mut new1byte = 0;
+        // common fields
         let undo_no;
         let table_id;
+
+        // only for update record type
+        let mut new1byte = 0;
         let mut info_bits = 0;
         let mut trx_id = 0;
-        let mut roll_ptr = 0;
+        let mut roll = 0;
 
         match hdr.type_info {
             UndoTypes::INSERT_REC => {
@@ -457,28 +497,33 @@ impl UndoRecordData {
                 ptr += v02.0;
                 table_id = v02.1;
             }
-            UndoTypes::UPD_EXIST_REC => {
+            UndoTypes::UPD_EXIST_REC | UndoTypes::DEL_MARK_REC | UndoTypes::UPD_DEL_REC => {
+                info!("peek={:?}", buf.slice(ptr..ptr + 20).to_vec());
                 new1byte = util::u8_val(&buf, ptr);
                 ptr += 1;
 
                 let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v01={:?}", &v01);
                 ptr += v01.0;
                 undo_no = v01.1;
 
                 let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v02={:?}", &v02);
                 ptr += v02.0;
                 table_id = v02.1;
 
                 info_bits = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v03 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v03 = mach_u64_read_compressed(ptr, buf.clone());
+                info!("v03={:?}", &v03);
                 ptr += v03.0;
                 trx_id = v03.1;
 
-                let v04 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v04 = mach_u64_read_compressed(ptr, buf.clone());
+                info!("v04={:?}", &v04);
                 ptr += v04.0;
-                roll_ptr = v04.1;
+                roll = v04.1;
             }
             _ => todo!("未识别的 UndoRecord.type_info = {:?}", hdr.type_info),
         }
@@ -499,7 +544,6 @@ impl UndoRecordData {
             let upd = mach_u32_read_much_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
-
             // updated fields
             for i in 0..(upd.1 as usize) {
                 let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
@@ -514,7 +558,7 @@ impl UndoRecordData {
             table_id,
             info_bits,
             trx_id,
-            roll_ptr,
+            roll_ptr: RollPtr::new(roll),
             key_fields,
             upd_count,
             upd_fields,
