@@ -20,6 +20,7 @@ use crate::{
             FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
         },
         record::Record,
+        undo::RollPtr,
     },
     meta::{
         cst::coll_find,
@@ -50,39 +51,6 @@ pub enum DataValue {
     Timestamp(DateTime<Local>),
     Unknown(Bytes),
     Null,
-}
-
-/// Parsed rollback porinter
-#[derive(Clone, Derivative, Eq, PartialEq)]
-#[derivative(Debug)]
-pub struct RollPtr {
-    #[derivative(Debug(format_with = "util::fmt_hex56"))]
-    /// (7 bytes) original rollback pointer bytes value
-    pub rb_ptr: u64,
-
-    /// (1 bit) insert flag
-    pub insert: bool,
-
-    /// (7 bits) rollback segment id
-    pub seg_id: u8,
-
-    /// (4 bytes) page number
-    pub page_no: usize,
-
-    /// (2 bytes) page offset
-    pub boffset: u16,
-}
-
-impl RollPtr {
-    pub fn from(roll_ptr: u64) -> Self {
-        Self {
-            rb_ptr: roll_ptr,
-            insert: ((roll_ptr >> 55) & 0x1) > 0,
-            seg_id: ((roll_ptr >> 48) & 0x7f) as u8,
-            page_no: ((roll_ptr >> 16) & 0xffffffff) as usize,
-            boffset: (roll_ptr & 0xffff) as u16,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -386,7 +354,7 @@ impl DatafileFactory {
                                     "DB_ROW_ID" => DataValue::RowId(unpack_u48_val(b)),
                                     "DB_TRX_ID" => DataValue::TrxId(unpack_u48_val(b)),
                                     "DB_ROLL_PTR" => {
-                                        DataValue::RbPtr(RollPtr::from(unpack_u56_val(b)))
+                                        DataValue::RbPtr(RollPtr::new(unpack_u56_val(b)))
                                     }
                                     _ => todo!("不支持的隐藏字段名称: {:?}", col),
                                 },

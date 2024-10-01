@@ -196,6 +196,39 @@ impl XaTrxInfo {
     }
 }
 
+/// Parsed rollback pointer
+#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derivative(Debug)]
+pub struct RollPtr {
+    #[derivative(Debug(format_with = "util::fmt_hex56"))]
+    /// (7 bytes) original rollback pointer bytes value
+    pub value: u64,
+
+    /// (1 bit) insert flag
+    pub insert: bool,
+
+    /// (7 bits) rollback segment id
+    pub rseg_id: u8,
+
+    /// (4 bytes) page number
+    pub page_no: usize,
+
+    /// (2 bytes) page offset
+    pub boffset: u16,
+}
+
+impl RollPtr {
+    pub fn new(value: u64) -> Self {
+        Self {
+            value,
+            insert: ((value >> 55) & 0x1) > 0,
+            rseg_id: ((value >> 48) & 0x7f) as u8,
+            page_no: ((value >> 16) & 0xffffffff) as usize,
+            boffset: (value & 0xffff) as u16,
+        }
+    }
+}
+
 /// Undo Record
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -427,7 +460,7 @@ pub struct UndoRecordData {
     pub trx_id: u64,
 
     /// (1..11 bytes) rollback pointer, in compressed form
-    pub roll_ptr: u64,
+    pub roll_ptr: RollPtr,
 
     /// key fields
     pub key_fields: Vec<UndoRecKeyField>,
@@ -452,7 +485,7 @@ impl UndoRecordData {
         let mut new1byte = 0;
         let mut info_bits = 0;
         let mut trx_id = 0;
-        let mut roll_ptr = 0;
+        let mut roll = 0;
 
         match hdr.type_info {
             UndoTypes::INSERT_REC => {
@@ -490,7 +523,7 @@ impl UndoRecordData {
                 let v04 = mach_u64_read_compressed(ptr, buf.clone());
                 info!("v04={:?}", &v04);
                 ptr += v04.0;
-                roll_ptr = v04.1;
+                roll = v04.1;
             }
             _ => todo!("未识别的 UndoRecord.type_info = {:?}", hdr.type_info),
         }
@@ -525,7 +558,7 @@ impl UndoRecordData {
             table_id,
             info_bits,
             trx_id,
-            roll_ptr,
+            roll_ptr: RollPtr::new(roll),
             key_fields,
             upd_count,
             upd_fields,
