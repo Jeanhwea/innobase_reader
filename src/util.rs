@@ -525,8 +525,10 @@ mod util_tests {
         assert_eq!(mach_read_compressed(0, newbuf(&[1, 2, 3, 4])), 1);
         // 0xaa => 0b10101010
         assert_eq!(mach_read_compressed(0, newbuf(&[0xaa, 3, 0, 0, 0])), 0x2a03);
-
+        // 1144
         assert_eq!(mach_read_compressed(0, newbuf(&[132, 120, 0, 0])), 1144);
+        // 88
+        assert_eq!(mach_read_compressed(0, newbuf(&[88])), 88);
     }
 
     #[test]

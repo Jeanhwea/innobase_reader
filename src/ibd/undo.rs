@@ -463,14 +463,17 @@ impl UndoRecordData {
                 table_id = v02.1;
             }
             UndoTypes::UPD_EXIST_REC | UndoTypes::DEL_MARK_REC | UndoTypes::UPD_DEL_REC => {
+                info!("peek={:?}", buf.slice(ptr..ptr + 20).to_vec());
                 new1byte = util::u8_val(&buf, ptr);
                 ptr += 1;
 
                 let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v01={:?}", &v01);
                 ptr += v01.0;
                 undo_no = v01.1;
 
                 let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v02={:?}", &v02);
                 ptr += v02.0;
                 table_id = v02.1;
 
@@ -478,10 +481,12 @@ impl UndoRecordData {
                 ptr += 1;
 
                 let v03 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v03={:?}", &v03);
                 ptr += v03.0;
                 trx_id = v03.1;
 
                 let v04 = mach_u64_read_much_compressed(ptr, buf.clone());
+                info!("v04={:?}", &v04);
                 ptr += v04.0;
                 roll_ptr = v04.1;
             }
