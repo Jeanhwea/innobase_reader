@@ -8,7 +8,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{FlstNode, UndoPageTypes};
-use crate::util::{self, mach_u32_read_much_compressed, mach_u64_read_much_compressed};
+use crate::util::{
+    self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
+};
 
 /// States of an undo log segment
 #[repr(u8)]
@@ -412,10 +414,10 @@ pub struct UndoRecordData {
     /// introducing a change in undo log format
     pub new1byte: u8,
 
-    /// (1..11 bytes) undo number, in compressed form
+    /// (1..11 bytes) undo number, in much compressed form
     pub undo_no: u64,
 
-    /// (1..11 bytes) table id, in compressed form
+    /// (1..11 bytes) table id, in much compressed form
     pub table_id: u64,
 
     /// (1 byte) info bits
@@ -480,12 +482,12 @@ impl UndoRecordData {
                 info_bits = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v03 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v03 = mach_u64_read_compressed(ptr, buf.clone());
                 info!("v03={:?}", &v03);
                 ptr += v03.0;
                 trx_id = v03.1;
 
-                let v04 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v04 = mach_u64_read_compressed(ptr, buf.clone());
                 info!("v04={:?}", &v04);
                 ptr += v04.0;
                 roll_ptr = v04.1;
