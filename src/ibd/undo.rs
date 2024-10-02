@@ -134,7 +134,7 @@ impl UndoLogHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let b0 = util::u8_val(&buf, addr + 20);
 
-        let mut flags = Vec::new();
+        let mut flags = vec![];
         if (b0 & Self::TRX_UNDO_FLAG_XID) > 0 {
             flags.push(UndoFlags::XID);
         }
@@ -362,7 +362,7 @@ impl UndoRecordHeader {
         let type_cmpl = util::u8_val(&buf, addr + 2);
 
         let cmpl_info_bits = (type_cmpl >> 4) & 0x03;
-        let mut cmpl_info = Vec::new();
+        let mut cmpl_info = vec![];
         if (cmpl_info_bits & Self::UPD_NODE_NO_ORD_CHANGE) > 0 {
             cmpl_info.push(CmplInfos::NO_ORD_CHANGE);
         }
@@ -370,7 +370,7 @@ impl UndoRecordHeader {
             cmpl_info.push(CmplInfos::NO_SIZE_CHANGE);
         }
 
-        let mut extra_flags = Vec::new();
+        let mut extra_flags = vec![];
         if (type_cmpl & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
             extra_flags.push(UndoExtraFlags::CMPL_INFO_MULT);
         }
@@ -584,7 +584,7 @@ impl UndoRecordData {
         }
 
         // key fields
-        let mut key_fields = Vec::new();
+        let mut key_fields = vec![];
         // TODO: get the number of unique keys
         let n_unique_key = 1;
         for i in 0..n_unique_key {
@@ -594,7 +594,7 @@ impl UndoRecordData {
         }
 
         let mut upd_count = 0;
-        let mut upd_fields = Vec::new();
+        let mut upd_fields = vec![];
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
             let upd = mach_u32_read_much_compressed(ptr, buf.clone());

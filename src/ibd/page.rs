@@ -13,10 +13,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::{
-    sdi::SdiRecord,
-    undo::UndoLog,
-};
+use super::{sdi::SdiRecord, undo::UndoLog};
 use crate::{
     ibd::{
         record::{Record, RecordHeader, RowData, RowInfo},
@@ -1085,7 +1082,7 @@ impl BasePageBody for IndexPageBody {
             })
             .collect();
 
-        let mut free_hdrs = Vec::new();
+        let mut free_hdrs = vec![];
         if idx_hdr.page_garbage > 0 {
             let mut free_addr = idx_hdr.page_free as usize;
             loop {
@@ -1157,7 +1154,7 @@ impl IndexPageBody {
         let inf = &self.infimum;
         let mut rec_addr = (INF_PAGE_BYTE_OFF as i16 + inf.next_rec_offset) as usize;
 
-        let mut records = Vec::new();
+        let mut records = vec![];
         for nrec in 0..self.idx_hdr.page_n_recs {
             let rec = self.parse_record(rec_addr, tabdef.clone(), index_pos)?;
             info!("nrec={}, rec={:?}", nrec.to_string().green(), &rec);
@@ -1178,7 +1175,7 @@ impl IndexPageBody {
         index_pos: usize,
     ) -> Result<Vec<Record>, Error> {
         let mut rec_addr = self.idx_hdr.page_free as usize;
-        let mut free_records = Vec::new();
+        let mut free_records = vec![];
         loop {
             // if addr is invalid, just break
             if rec_addr < SUP_PAGE_BYTE_OFF {
