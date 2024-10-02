@@ -55,6 +55,7 @@ impl UndoLog {
                 break;
             }
         }
+
         Self {
             undo_log_hdr: log_hdr,
             undo_rec_list: rec_list,
