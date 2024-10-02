@@ -586,8 +586,8 @@ pub struct UndoRecKeyField {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// sequence
-    pub seq: usize,
+    /// sequence number
+    pub sequence: usize,
 
     /// (1-5 bytes) key length
     pub length: usize,
@@ -611,7 +611,7 @@ impl UndoRecKeyField {
         ptr += length;
 
         Self {
-            seq,
+            sequence: seq,
             length,
             content,
             total_bytes: ptr - addr,
@@ -633,11 +633,11 @@ pub struct UndoRecUpdatedField {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// sequence
-    pub seq: usize,
+    /// sequence number
+    pub sequence: usize,
 
     /// (1-5 bytes) field number
-    pub field_num: u32,
+    pub field_number: u32,
 
     /// (1-5 bytes) key length
     pub length: usize,
@@ -665,8 +665,8 @@ impl UndoRecUpdatedField {
         ptr += length;
 
         Self {
-            seq,
-            field_num,
+            sequence: seq,
+            field_number: field_num,
             length,
             content,
             total_bytes: ptr - addr,
