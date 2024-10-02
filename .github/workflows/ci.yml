@@ -81,4 +81,4 @@ jobs:
           sudo chown -R $(whoami) .
           rustc --version
           cargo --version
-          cargo clippy
+          cargo -q clippy
