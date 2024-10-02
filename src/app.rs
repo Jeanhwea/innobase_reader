@@ -48,12 +48,40 @@ impl App {
         match command {
             Commands::Info => self.do_info()?,
             Commands::List {
-                index: ind,
-                segment: seg,
-                extent: ext,
-                page: pag,
+                index,
+                segment,
+                extent,
+                page,
                 all,
-            } => self.do_list(ind, seg, ext, pag, all)?,
+                limit,
+            } => {
+                let mut fact = DatafileFactory::from_file(self.input.clone())?;
+                let mut show_meta = true;
+
+                if all || index {
+                    show_meta = false;
+                    self.do_list_indexes(&mut fact, limit)?
+                }
+
+                if all || segment {
+                    show_meta = false;
+                    self.do_list_inodes(&mut fact, limit)?
+                }
+
+                if all || extent {
+                    show_meta = false;
+                    self.do_list_extents(&mut fact)?
+                }
+
+                if all || page {
+                    show_meta = false;
+                    self.do_list_pages(&mut fact, limit)?
+                }
+
+                if show_meta {
+                    self.do_list_metadata(&mut fact, limit)?
+                }
+            }
             Commands::Desc => self.do_desc()?,
             Commands::Sdi {
                 table_define,
@@ -144,42 +172,12 @@ impl App {
         Ok(())
     }
 
-    fn do_list(&self, ind: bool, seg: bool, ext: bool, pag: bool, all: bool) -> Result<()> {
-        let mut fact = DatafileFactory::from_file(self.input.clone())?;
-
-        if all {
-            self.do_list_inodes(&mut fact)?;
-            self.do_list_extents(&mut fact)?;
-            self.do_list_pages(&mut fact)?;
-            self.do_list_indexes(&mut fact)?;
-            return Ok(());
-        }
-
-        if ind {
-            self.do_list_indexes(&mut fact)?;
-            return Ok(());
-        }
-
-        if seg {
-            self.do_list_inodes(&mut fact)?;
-            return Ok(());
-        }
-
-        if ext {
-            self.do_list_extents(&mut fact)?;
-            return Ok(());
-        }
-
-        if pag {
-            self.do_list_pages(&mut fact)?;
-            return Ok(());
-        }
-
-        self.do_list_metadata(&mut fact)
-    }
-
-    fn do_list_metadata(&self, fact: &mut DatafileFactory) -> Result<()> {
+    /// list page metadata, page_type, page_no, space_id, etc..
+    fn do_list_metadata(&self, fact: &mut DatafileFactory, limit: usize) -> Result<()> {
         for page_no in 0..fact.page_count() {
+            if page_no >= limit {
+                break;
+            }
             let fil_hdr = fact.read_fil_hdr(page_no)?;
             let page_type = &fil_hdr.page_type;
             let offset = page_no * PAGE_SIZE;
@@ -196,9 +194,12 @@ impl App {
         Ok(())
     }
 
-    fn do_list_indexes(&self, fact: &mut DatafileFactory) -> Result<()> {
+    fn do_list_indexes(&self, fact: &mut DatafileFactory, limit: usize) -> Result<()> {
         let tabdef = fact.load_table_def()?;
-        for idxdef in &tabdef.idx_defs {
+        for (i, idxdef) in tabdef.idx_defs.iter().enumerate() {
+            if i >= limit {
+                break;
+            }
             debug!("idxdef={:?}", idxdef);
             if idxdef.idx_root <= 0 {
                 return Err(Error::msg(format!(
@@ -238,12 +239,15 @@ impl App {
         Ok(())
     }
 
-    fn do_list_inodes(&self, fact: &mut DatafileFactory) -> Result<()> {
+    fn do_list_inodes(&self, fact: &mut DatafileFactory, limit: usize) -> Result<()> {
         println!("INode:");
         let inode_page: BasePage<INodePageBody> = fact.read_page(2)?;
 
         let inodes = &inode_page.page_body.inode_ent_list;
-        for inode in inodes {
+        for (i, inode) in inodes.iter().enumerate() {
+            if i >= limit {
+                break;
+            }
             self.do_list_inode(fact, inode)?;
         }
 
@@ -434,7 +438,7 @@ impl App {
         Ok(())
     }
 
-    fn do_list_pages(&self, fact: &mut DatafileFactory) -> Result<()> {
+    fn do_list_pages(&self, fact: &mut DatafileFactory, limit: usize) -> Result<()> {
         println!("Page: H:FSH_HDR, X:XDES, I:INode, D:Index, S:SDI");
         println!("      Y:SYS, T:TRX_SYS, R:RSEG_ARRAY, U:UNDO_LOG");
         println!("      B:IBUF_BITMAP, A:Allocated, ?:Unknown");
@@ -446,6 +450,9 @@ impl App {
         }
 
         for (i, page_type) in page_types_vec.iter().enumerate() {
+            if i >= limit {
+                break;
+            }
             let page_type_rept = match page_type {
                 PageTypes::FSP_HDR => "H".on_purple(),
                 PageTypes::XDES => "X".on_purple(),
@@ -610,7 +617,7 @@ impl App {
             PageTypes::SYS => {
                 let fil_hdr = fact.read_fil_hdr(page_no)?;
                 match fil_hdr.space_id {
-                    SpaceId::UndoSpace => {
+                    SpaceId::UndoSpace(_) => {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
@@ -794,6 +801,7 @@ mod app_tests {
                 extent: false,
                 page: false,
                 all: true,
+                limit: 32,
             })
             .is_ok());
     }

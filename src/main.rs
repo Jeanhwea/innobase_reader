@@ -52,6 +52,10 @@ enum Commands {
         /// List all: index, segment, extent, page, ...
         #[arg(short, long, default_value_t = false)]
         all: bool,
+
+        /// Limit the total data rows
+        #[arg(short, long, default_value_t = 65535)]
+        limit: usize,
     },
 
     /// Describe datafile information by sdi page
