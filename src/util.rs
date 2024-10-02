@@ -442,7 +442,7 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
 pub fn mach_get_compressed_size(n: u32) -> usize {
     if n < 0x80 {
         /* 0nnnnnnn (7 bits) */
-        return 1;
+        1
     } else if n < 0x4000 {
         /* 10nnnnnn nnnnnnnn (14 bits) */
         return 2;
@@ -482,7 +482,7 @@ pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u6
     let low_size = mach_get_compressed_size(low);
     let val = ((high as u64) << 32) | (low as u64);
 
-    return (1 + high_size + low_size, val);
+    (1 + high_size + low_size, val)
 }
 
 /// Reads a 64-bit integer in compressed form.
@@ -492,14 +492,14 @@ pub fn mach_u64_read_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
     let low = u32_val(&buf, addr + high_size);
     let val = ((high as u64) << 32) | (low as u64);
 
-    return (high_size + 4, val);
+    (high_size + 4, val)
 }
 
 /// Reads a 32-bit integer in much compressed form.
 pub fn mach_u32_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u32) {
     let value = mach_read_compressed(addr, buf.clone());
     let size = mach_get_compressed_size(value);
-    return (size, value);
+    (size, value)
 }
 
 #[cfg(test)]

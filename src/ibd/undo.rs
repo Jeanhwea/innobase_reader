@@ -12,18 +12,24 @@ use crate::util::{
     self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
 };
 
+/// XID data size
+pub const XIDDATASIZE: usize = 128;
+
 /// States of an undo log segment
 #[repr(u8)]
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum UndoFlags {
-    ///  undo log header includes X/Open XA transaction identification XID
+    /// TRX_UNDO_FLAG_XID, undo log header includes X/Open XA transaction
+    /// identification XID,
     XID,
 
-    /// undo log header includes GTID information from replication
+    /// TRX_UNDO_FLAG_GTID, undo log header includes GTID information from
+    /// replication
     GTID,
 
-    ///  undo log header includes GTID information for XA PREPARE
+    /// TRX_UNDO_FLAG_XA_PREPARE_GTID, undo log header includes GTID information
+    /// for XA PREPARE
     XA_PREPARE_GTID,
 
     #[default]
@@ -179,7 +185,7 @@ pub struct XaTrxInfo {
     /// (4 bytes) TRX_UNDO_XA_BQUAL_LEN xid_t::bqual_length
     pub xa_bqual_len: u32,
 
-    /// (128 bytes) XA Data
+    /// (128 bytes) XA Data, distributed trx identifier. not \0-terminated.
     pub xa_data: Bytes,
 }
 
@@ -189,7 +195,7 @@ impl XaTrxInfo {
             xa_format: util::u32_val(&buf, addr),
             xa_trid_len: util::u32_val(&buf, addr + 4),
             xa_bqual_len: util::u32_val(&buf, addr + 8),
-            xa_data: buf.slice(addr + 12..addr + 12 + 128),
+            xa_data: buf.slice(addr + 12..addr + 12 + XIDDATASIZE),
             buf: buf.clone(),
             addr,
         }
@@ -580,8 +586,8 @@ pub struct UndoRecKeyField {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// sequence
-    pub seq: usize,
+    /// sequence number
+    pub sequence: usize,
 
     /// (1-5 bytes) key length
     pub length: usize,
@@ -605,7 +611,7 @@ impl UndoRecKeyField {
         ptr += length;
 
         Self {
-            seq,
+            sequence: seq,
             length,
             content,
             total_bytes: ptr - addr,
@@ -627,11 +633,11 @@ pub struct UndoRecUpdatedField {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// sequence
-    pub seq: usize,
+    /// sequence number
+    pub sequence: usize,
 
     /// (1-5 bytes) field number
-    pub field_num: u32,
+    pub field_number: u32,
 
     /// (1-5 bytes) key length
     pub length: usize,
@@ -659,8 +665,8 @@ impl UndoRecUpdatedField {
         ptr += length;
 
         Self {
-            seq,
-            field_num,
+            sequence: seq,
+            field_number: field_num,
             length,
             content,
             total_bytes: ptr - addr,
