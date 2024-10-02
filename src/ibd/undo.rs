@@ -536,8 +536,9 @@ impl UndoRecordData {
 
         // key fields
         let mut key_fields = Vec::new();
-        let nkey = 1; // TODO: parse number of table key
-        for i in 0..nkey {
+        // TODO: get the number of unique keys
+        let n_unique_key = 1;
+        for i in 0..n_unique_key {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
             key_fields.push(key);
