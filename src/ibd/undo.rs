@@ -7,7 +7,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, UndoPageTypes};
+use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
 use crate::util::{
     self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
 };
@@ -15,25 +15,53 @@ use crate::util::{
 /// XID data size
 pub const XIDDATASIZE: usize = 128;
 
-/// States of an undo log segment
-#[repr(u8)]
-#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
-pub enum UndoFlags {
-    /// TRX_UNDO_FLAG_XID, undo log header includes X/Open XA transaction
-    /// identification XID,
-    XID,
+/// Undo Log, see trx0undo.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoLog {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
 
-    /// TRX_UNDO_FLAG_GTID, undo log header includes GTID information from
-    /// replication
-    GTID,
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
 
-    /// TRX_UNDO_FLAG_XA_PREPARE_GTID, undo log header includes GTID information
-    /// for XA PREPARE
-    XA_PREPARE_GTID,
+    /// (186 bytes) undo log header
+    pub undo_log_hdr: UndoLogHeader,
 
-    #[default]
-    UNDEF,
+    /// undo record headers
+    // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_rec_list: Vec<UndoRecord>,
+}
+
+impl UndoLog {
+    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+        let log_hdr = UndoLogHeader::new(addr, buf.clone());
+
+        let mut rec_addr = log_hdr.log_start as usize;
+        let mut rec_list = vec![];
+        loop {
+            if rec_addr == 0 || rec_addr > PAGE_SIZE {
+                break;
+            }
+
+            let rec = UndoRecord::new(rec_addr, buf.clone(), upt.clone());
+            rec_addr = rec.undo_rec_hdr.next_addr();
+            let type_info = rec.undo_rec_hdr.type_info.clone();
+            rec_list.push(rec);
+
+            if matches!(type_info, UndoTypes::ZERO_VAL) {
+                break;
+            }
+        }
+        Self {
+            undo_log_hdr: log_hdr,
+            undo_rec_list: rec_list,
+            buf: buf.clone(),
+            addr,
+        }
+    }
 }
 
 /// Undo Log Header, see trx0undo.h
@@ -162,6 +190,27 @@ impl UndoLogHeader {
     pub fn is_xa_prepare_gtid(&self) -> bool {
         (self.undo_flags_bits & Self::TRX_UNDO_FLAG_XA_PREPARE_GTID) > 0
     }
+}
+
+/// States of an undo log segment
+#[repr(u8)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum UndoFlags {
+    /// TRX_UNDO_FLAG_XID, undo log header includes X/Open XA transaction
+    /// identification XID,
+    XID,
+
+    /// TRX_UNDO_FLAG_GTID, undo log header includes GTID information from
+    /// replication
+    GTID,
+
+    /// TRX_UNDO_FLAG_XA_PREPARE_GTID, undo log header includes GTID information
+    /// for XA PREPARE
+    XA_PREPARE_GTID,
+
+    #[default]
+    UNDEF,
 }
 
 /// X/Open XA Transaction Identification, see trx0undo.h

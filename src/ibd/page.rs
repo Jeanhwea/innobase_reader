@@ -15,13 +15,12 @@ use strum::{Display, EnumString};
 
 use super::{
     sdi::SdiRecord,
-    undo::{UndoLogHeader, UndoRecord},
+    undo::UndoLog,
 };
 use crate::{
     ibd::{
         record::{Record, RecordHeader, RowData, RowInfo},
         sdi::SdiDataHeader,
-        undo::UndoTypes,
     },
     meta::def::TableDef,
     sdi::record::EntryTypes,
@@ -1793,53 +1792,27 @@ pub struct UndoLogPageBody {
     /// (30 bytes) undo segment header
     pub undo_seg_hdr: UndoSegmentHeader,
 
-    /// (186 bytes) undo log header
-    pub undo_log_hdr: Option<UndoLogHeader>,
-
-    /// undo record headers
-    // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
-    pub undo_rec_list: Vec<UndoRecord>,
+    /// Undo Log
+    pub undo_log: Option<UndoLog>,
 }
 
 impl BasePageBody for UndoLogPageBody {
     fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut rec_list = Vec::new();
-
         let page_hdr = UndoPageHeader::new(addr, buf.clone());
-        let upt = page_hdr.page_type.clone();
-
-        let mut rec_addr = page_hdr.page_start as usize;
-        loop {
-            if rec_addr == 0 || rec_addr > PAGE_SIZE {
-                break;
-            }
-
-            let rec = UndoRecord::new(rec_addr, buf.clone(), upt.clone());
-            rec_addr = rec.undo_rec_hdr.next_addr();
-            let type_info = rec.undo_rec_hdr.type_info.clone();
-            rec_list.push(rec);
-
-            if matches!(type_info, UndoTypes::ZERO_VAL) {
-                break;
-            }
-        }
-
         let seg_hdr = UndoSegmentHeader::new(addr + 18, buf.clone());
 
-        let log_hdr = if seg_hdr.undo_last_log > 0 {
-            Some(UndoLogHeader::new(
-                seg_hdr.undo_last_log as usize,
-                buf.clone(),
-            ))
-        } else {
-            None
-        };
-
         Self {
+            undo_log: if seg_hdr.undo_last_log > 0 {
+                Some(UndoLog::new(
+                    seg_hdr.undo_last_log as usize,
+                    buf.clone(),
+                    page_hdr.page_type.clone(),
+                ))
+            } else {
+                None
+            },
             undo_page_hdr: page_hdr,
             undo_seg_hdr: seg_hdr,
-            undo_log_hdr: log_hdr,
-            undo_rec_list: rec_list,
             buf: buf.clone(),
             addr,
         }
