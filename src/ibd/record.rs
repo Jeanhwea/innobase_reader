@@ -98,7 +98,7 @@ impl RecordHeader {
         let b1 = util::u16_val(&buf, addr + 1);
         debug!("rec_hdr, b0=0x{:0x?}, b1=0x{:0x?}", b0, b1);
 
-        let mut flags = Vec::new();
+        let mut flags = vec![];
         if (b0 & Self::REC_INFO_MIN_REC_FLAG) > 0 {
             flags.push(RecInfoFlag::MIN_REC);
         }
@@ -372,7 +372,7 @@ impl RowInfo {
             varaddr.to_string().yellow()
         );
 
-        let mut row_meta_list = Vec::new();
+        let mut row_meta_list = vec![];
         let mut nilfld_nth = 0;
         let mut varptr = varaddr;
         let mut fldaddr = self.addr + RECORD_HEADER_SIZE;
@@ -447,7 +447,7 @@ impl RowInfo {
             .map(|(phy_pos, ele)| (phy_pos, (ele.column_opx, true, true)))
             .collect::<BTreeMap<usize, _>>();
 
-        let mut row_meta_list = Vec::new();
+        let mut row_meta_list = vec![];
         let mut varptr = self.addr;
         let mut fldaddr = self.addr + RECORD_HEADER_SIZE;
         for (_, (col_pos, phy_exist, log_exist)) in phy_layout {

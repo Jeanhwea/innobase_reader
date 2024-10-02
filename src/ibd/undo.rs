@@ -7,7 +7,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, UndoPageTypes};
+use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
 use crate::util::{
     self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
 };
@@ -15,25 +15,53 @@ use crate::util::{
 /// XID data size
 pub const XIDDATASIZE: usize = 128;
 
-/// States of an undo log segment
-#[repr(u8)]
-#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
-pub enum UndoFlags {
-    /// TRX_UNDO_FLAG_XID, undo log header includes X/Open XA transaction
-    /// identification XID,
-    XID,
+/// Undo Log, see trx0undo.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoLog {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
 
-    /// TRX_UNDO_FLAG_GTID, undo log header includes GTID information from
-    /// replication
-    GTID,
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
 
-    /// TRX_UNDO_FLAG_XA_PREPARE_GTID, undo log header includes GTID information
-    /// for XA PREPARE
-    XA_PREPARE_GTID,
+    /// (186 bytes) undo log header
+    pub undo_log_hdr: UndoLogHeader,
 
-    #[default]
-    UNDEF,
+    /// undo record headers
+    // #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
+    pub undo_rec_list: Vec<UndoRecord>,
+}
+
+impl UndoLog {
+    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+        let log_hdr = UndoLogHeader::new(addr, buf.clone());
+
+        let mut rec_addr = log_hdr.log_start as usize;
+        let mut rec_list = vec![];
+        loop {
+            if rec_addr == 0 || rec_addr > PAGE_SIZE {
+                break;
+            }
+
+            let rec = UndoRecord::new(rec_addr, buf.clone(), upt.clone());
+            rec_addr = rec.undo_rec_hdr.next_addr();
+            let type_info = rec.undo_rec_hdr.type_info.clone();
+            rec_list.push(rec);
+
+            if matches!(type_info, UndoTypes::ZERO_VAL) {
+                break;
+            }
+        }
+        Self {
+            undo_log_hdr: log_hdr,
+            undo_rec_list: rec_list,
+            buf: buf.clone(),
+            addr,
+        }
+    }
 }
 
 /// Undo Log Header, see trx0undo.h
@@ -106,7 +134,7 @@ impl UndoLogHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let b0 = util::u8_val(&buf, addr + 20);
 
-        let mut flags = Vec::new();
+        let mut flags = vec![];
         if (b0 & Self::TRX_UNDO_FLAG_XID) > 0 {
             flags.push(UndoFlags::XID);
         }
@@ -162,6 +190,27 @@ impl UndoLogHeader {
     pub fn is_xa_prepare_gtid(&self) -> bool {
         (self.undo_flags_bits & Self::TRX_UNDO_FLAG_XA_PREPARE_GTID) > 0
     }
+}
+
+/// States of an undo log segment
+#[repr(u8)]
+#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum UndoFlags {
+    /// TRX_UNDO_FLAG_XID, undo log header includes X/Open XA transaction
+    /// identification XID,
+    XID,
+
+    /// TRX_UNDO_FLAG_GTID, undo log header includes GTID information from
+    /// replication
+    GTID,
+
+    /// TRX_UNDO_FLAG_XA_PREPARE_GTID, undo log header includes GTID information
+    /// for XA PREPARE
+    XA_PREPARE_GTID,
+
+    #[default]
+    UNDEF,
 }
 
 /// X/Open XA Transaction Identification, see trx0undo.h
@@ -313,7 +362,7 @@ impl UndoRecordHeader {
         let type_cmpl = util::u8_val(&buf, addr + 2);
 
         let cmpl_info_bits = (type_cmpl >> 4) & 0x03;
-        let mut cmpl_info = Vec::new();
+        let mut cmpl_info = vec![];
         if (cmpl_info_bits & Self::UPD_NODE_NO_ORD_CHANGE) > 0 {
             cmpl_info.push(CmplInfos::NO_ORD_CHANGE);
         }
@@ -321,7 +370,7 @@ impl UndoRecordHeader {
             cmpl_info.push(CmplInfos::NO_SIZE_CHANGE);
         }
 
-        let mut extra_flags = Vec::new();
+        let mut extra_flags = vec![];
         if (type_cmpl & Self::TRX_UNDO_CMPL_INFO_MULT) > 0 {
             extra_flags.push(UndoExtraFlags::CMPL_INFO_MULT);
         }
@@ -535,16 +584,17 @@ impl UndoRecordData {
         }
 
         // key fields
-        let mut key_fields = Vec::new();
-        let nkey = 1; // TODO: parse number of table key
-        for i in 0..nkey {
+        let mut key_fields = vec![];
+        // TODO: get the number of unique keys
+        let n_unique_key = 1;
+        for i in 0..n_unique_key {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
             key_fields.push(key);
         }
 
         let mut upd_count = 0;
-        let mut upd_fields = Vec::new();
+        let mut upd_fields = vec![];
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
             let upd = mach_u32_read_much_compressed(ptr, buf.clone());
