@@ -172,6 +172,7 @@ impl App {
         Ok(())
     }
 
+    /// list page metadata, page_type, page_no, space_id, etc..
     fn do_list_metadata(&self, fact: &mut DatafileFactory, limit: usize) -> Result<()> {
         for page_no in 0..fact.page_count() {
             if page_no >= limit {
