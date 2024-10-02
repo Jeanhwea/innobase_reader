@@ -54,7 +54,7 @@ enum Commands {
         all: bool,
 
         /// Limit the total data rows
-        #[arg(short, long, default_value_t = 64)]
+        #[arg(short, long, default_value_t = 65535)]
         limit: usize,
     },
 
