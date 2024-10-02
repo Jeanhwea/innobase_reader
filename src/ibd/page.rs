@@ -74,24 +74,35 @@ pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
 // space/page constants
 pub const SPACE_ID_MAX: u32 = 0xffffffff;
-pub const UNDO_TABLESPACE_ID: u32 = 0xffffffef;
+
+// Since s_max_undo_space_id = 0xFFFFFFEF, FSP_MAX_UNDO_TABLESPACES = 127
+// and s_undo_space_id_range = 400,000:
+//   Space ID   Space Num    Space ID   Space Num   ...  Space ID   Space Num
+//   0xFFFFFFEF      1       0xFFFFFFEe       2     ...  0xFFFFFF71    127
+//   0xFFFFFF70      1       0xFFFFFF6F       2     ...  0xFFFFFEF2    127
+//   0xFFFFFEF1      1       0xFFFFFEF0       2     ...  0xFFFFFE73    127
+// ...
+pub const UNDO_SPACE_ID_MIN: u32 = 0xffffffef - 127;
+pub const UNDO_SPACE_ID_MAX: u32 = 0xffffffef;
 
 /// Tablespace ID
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum SpaceId {
     SpaceMax,
-    UndoSpace,
     SystemSpace,
+    UndoSpace(u32),
     Space(u32),
 }
 
 impl From<u32> for SpaceId {
     fn from(value: u32) -> SpaceId {
         match value {
-            SPACE_ID_MAX => SpaceId::SpaceMax,
-            UNDO_TABLESPACE_ID => SpaceId::UndoSpace,
             0 => SpaceId::SystemSpace,
+            SPACE_ID_MAX => SpaceId::SpaceMax,
+            val if value >= UNDO_SPACE_ID_MIN && value <= UNDO_SPACE_ID_MAX => {
+                SpaceId::UndoSpace(val)
+            }
             val => SpaceId::Space(val),
         }
     }

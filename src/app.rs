@@ -617,7 +617,7 @@ impl App {
             PageTypes::SYS => {
                 let fil_hdr = fact.read_fil_hdr(page_no)?;
                 match fil_hdr.space_id {
-                    SpaceId::UndoSpace => {
+                    SpaceId::UndoSpace(_) => {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
