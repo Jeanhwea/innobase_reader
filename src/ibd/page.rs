@@ -101,7 +101,7 @@ impl From<u32> for SpaceId {
             0 => SpaceId::SystemSpace,
             SPACE_ID_MAX => SpaceId::SpaceMax,
             val if value >= UNDO_SPACE_ID_MIN && value <= UNDO_SPACE_ID_MAX => {
-                SpaceId::UndoSpace(val)
+                SpaceId::UndoSpace(UNDO_SPACE_ID_MAX - val + 1)
             }
             val => SpaceId::Space(val),
         }
