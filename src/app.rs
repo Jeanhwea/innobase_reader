@@ -116,7 +116,7 @@ impl App {
                     self.do_view_block(block_no)?;
                 }
                 None => {
-                    println!("aaa");
+                    unimplemented!("view redo log");
                 }
             },
         }
