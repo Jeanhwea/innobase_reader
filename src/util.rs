@@ -124,6 +124,17 @@ where
     }
 }
 
+pub fn fmt_bytes_str(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    let chars = d
+        .to_vec()
+        .iter()
+        .take_while(|char| **char != 0)
+        .copied()
+        .collect();
+    let text = String::from_utf8(chars).unwrap_or("???".to_string());
+    write!(f, "{}", format!("{:?}", text).yellow())
+}
+
 pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
     let vs = d.to_vec();
     if vs.is_empty() {

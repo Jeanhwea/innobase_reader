@@ -45,15 +45,18 @@ pub struct LogFileHeader {
     /// directory is initialized, and allows to detect situation, in which some
     /// of log files came from other data directory (detection is performed on
     /// startup, before starting recovery).
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub log_uuid: u32,
 
     /// (8 bytes) start LSN, LSN of the start of data in this log file (with
     /// format version 1 and 2).
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub start_lsn: u64,
 
     /// (32 bytes) A null-terminated string which will contain either the string
     /// 'MEB' and the MySQL version if the log file was created by mysqlbackup,
     /// or 'MySQL' and the MySQL version that created the redo log file.
+    #[derivative(Debug(format_with = "util::fmt_bytes_str"))]
     pub creator: Bytes,
 
     /// (4 bytes) 32 BITs flag, log header flags
