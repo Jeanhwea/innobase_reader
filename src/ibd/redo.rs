@@ -133,7 +133,6 @@ impl LogBlock {
     const LOG_BLOCK_FLUSH_BIT_MASK: u32 = 0x80000000;
 
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let x = 10;
         let b0 = util::u32_val(&buf, addr);
         Self {
             hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
