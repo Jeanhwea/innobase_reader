@@ -107,6 +107,14 @@ impl App {
                     }
                 },
             },
+            Commands::Redo { block_no } => match block_no {
+                Some(block_no) => {
+                    println!("block_no={:?}", block_no);
+                }
+                None => {
+                    println!("aaa");
+                }
+            },
         }
 
         Ok(())

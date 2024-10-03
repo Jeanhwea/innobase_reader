@@ -98,6 +98,12 @@ enum Commands {
         #[arg(short, long)]
         btree_root: Option<usize>,
     },
+
+    /// Redo log print
+    Redo {
+        /// The block number, starts from 0.
+        block_no: Option<usize>,
+    },
 }
 
 fn main() -> Result<()> {
