@@ -10,12 +10,16 @@ use colored::Colorize;
 use log::{debug, error, info};
 
 use crate::{
-    factory::{DataValue, DatafileFactory},
-    ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody, SdiPageBody, SpaceId,
-        TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
-        XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+    factory::DatafileFactory,
+    ibd::{
+        page::{
+            BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
+            IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
+            SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
+            PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        },
+        record::DataValue,
+        redo::Blocks,
     },
     util::{extno, pagno},
     Commands,
@@ -87,7 +91,7 @@ impl App {
                 table_define,
                 root_segments,
             } => self.do_sdi_print(table_define, root_segments)?,
-            Commands::View { page_no } => self.do_view(page_no)?,
+            Commands::View { page_no } => self.do_view_page(page_no)?,
             Commands::Dump {
                 page_no,
                 limit,
@@ -106,6 +110,14 @@ impl App {
                         self.do_dump_index_header()?
                     }
                 },
+            },
+            Commands::Redo { block_no } => match block_no {
+                Some(block_no) => {
+                    self.do_view_block(block_no)?;
+                }
+                None => {
+                    unimplemented!("view redo log");
+                }
             },
         }
 
@@ -567,7 +579,7 @@ impl App {
         Ok(())
     }
 
-    fn do_view(&self, page_no: usize) -> Result<(), Error> {
+    fn do_view_page(&self, page_no: usize) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
 
         let fil_hdr = fact.read_fil_hdr(page_no)?;
@@ -770,6 +782,29 @@ impl App {
             )
         }
 
+        Ok(())
+    }
+
+    fn do_view_block(&self, block_no: usize) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let block = fact.read_block(block_no)?;
+        match block {
+            Blocks::FileHeader(log_fil_hdr) => {
+                println!("{:#?}", log_fil_hdr);
+            }
+            Blocks::Block(log_block) => {
+                println!("{:#?}", log_block);
+            }
+            Blocks::Checkpoint(checkpoint) => {
+                println!("{:#?}", checkpoint);
+            }
+            Blocks::Unused => {
+                println!("Unused block");
+            }
+            Blocks::Unknown(buf) => {
+                println!("Unknown block: {:?}", buf.clone());
+            }
+        }
         Ok(())
     }
 }

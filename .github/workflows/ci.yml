@@ -81,4 +81,4 @@ jobs:
           sudo chown -R $(whoami) .
           rustc --version
           cargo --version
-          cargo clippy --quiet
+          RUSTFLAGS="-Dwarnings" cargo clippy --quiet

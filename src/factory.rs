@@ -8,8 +8,6 @@ use std::{
 
 use anyhow::{Error, Result};
 use bytes::Bytes;
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
-use derivative::Derivative;
 use log::{debug, info, warn};
 
 use crate::{
@@ -19,7 +17,8 @@ use crate::{
             INodePageBody, IndexHeader, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody,
             FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
         },
-        record::Record,
+        record::{DataValue, ResultSet},
+        redo::{Blocks, LogBlock, LogCheckpoint, LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
         undo::RollPtr,
     },
     meta::{
@@ -28,38 +27,12 @@ use crate::{
     },
     sdi::record::SdiTableObject,
     util::{
-        self, u32_val, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
+        u32_val, unpack_datetime2_val, unpack_enum_val, unpack_i32_val, unpack_i64_val,
         unpack_newdate_val, unpack_timestamp2_val, unpack_u48_val, unpack_u56_val,
     },
 };
 
 pub const SDI_META_INFO_MIN_VER: u32 = 80000;
-
-#[derive(Clone, Derivative, Eq, PartialEq)]
-#[derivative(Debug)]
-pub enum DataValue {
-    RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
-    TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
-    RbPtr(RollPtr),
-    PageNo(u32),
-    I32(i32),
-    I64(i64),
-    Str(String),
-    Enum(u16),
-    Date(NaiveDate),
-    DateTime(NaiveDateTime),
-    Timestamp(DateTime<Local>),
-    Unknown(Bytes),
-    Null,
-}
-
-#[derive(Debug)]
-pub struct ResultSet {
-    pub garbage: bool,
-    pub tabdef: Arc<TableDef>,
-    pub records: Vec<Record>,
-    pub tuples: Vec<Vec<(String, DataValue)>>,
-}
 
 #[derive(Debug)]
 pub struct DatafileFactory {
@@ -80,6 +53,7 @@ pub struct DatafileFactory {
 }
 
 impl DatafileFactory {
+    /// construct the datafile factory
     pub fn from_file(target: PathBuf) -> Result<Self> {
         if !target.exists() {
             return Err(Error::msg(format!("没有找到目标文件: {:?}", target)));
@@ -99,10 +73,31 @@ impl DatafileFactory {
         })
     }
 
+    /// count the log block
+    pub fn block_count(&self) -> usize {
+        self.file_size / OS_FILE_LOG_BLOCK_SIZE
+    }
+
+    /// get block buffer
+    pub fn block_buffer(&mut self, block_no: usize) -> Result<Arc<Bytes>> {
+        if block_no >= self.block_count() {
+            return Err(Error::msg(format!("块号范围溢出: block_no={}", block_no)));
+        }
+
+        let offset = (block_no * OS_FILE_LOG_BLOCK_SIZE) as u64;
+        self.file_handler.seek(SeekFrom::Start(offset))?;
+
+        let mut buffer = vec![0; OS_FILE_LOG_BLOCK_SIZE];
+        self.file_handler.read_exact(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
+    }
+
+    /// count the page
     pub fn page_count(&self) -> usize {
         self.file_size / PAGE_SIZE
     }
 
+    /// get page buffer
     pub fn page_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
         if page_no >= self.page_count() {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
@@ -116,6 +111,7 @@ impl DatafileFactory {
         Ok(Arc::new(Bytes::from(buffer)))
     }
 
+    /// get file header buffer
     pub fn fil_hdr_buffer(&mut self, page_no: usize) -> Result<Arc<Bytes>> {
         if page_no >= self.page_count() {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
@@ -158,6 +154,31 @@ impl DatafileFactory {
     {
         let buf = self.page_buffer(page_no)?;
         Ok(BasePage::new(0, buf.clone()))
+    }
+
+    pub fn read_block(&mut self, block_no: usize) -> Result<Blocks> {
+        let buf = self.block_buffer(block_no)?;
+        let data = match block_no {
+            0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
+            2 => Blocks::Unused,
+            1 | 3 => {
+                let chk = LogCheckpoint::new(0, buf);
+                if chk.checksum > 0 {
+                    Blocks::Checkpoint(chk)
+                } else {
+                    Blocks::Unused
+                }
+            }
+            _ => {
+                let blk = LogBlock::new(0, buf);
+                if blk.checksum > 0 {
+                    Blocks::Block(blk)
+                } else {
+                    Blocks::Unused
+                }
+            }
+        };
+        Ok(data)
     }
 
     pub fn read_inode_entry(&mut self, page_no: usize, boffset: u16) -> Result<INodeEntry> {
