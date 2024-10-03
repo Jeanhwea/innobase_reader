@@ -55,6 +55,7 @@ impl UndoLog {
                 break;
             }
         }
+
         Self {
             undo_log_hdr: log_hdr,
             undo_rec_list: rec_list,
@@ -403,10 +404,12 @@ impl UndoRecordHeader {
         self.next_rec_offset as usize
     }
 
-    /// Compilation info flags: these must fit within 2 bits; see trx0rec.h no
-    /// secondary index record will be changed in the update and no ordering
+    // Compilation info flags: these must fit within 2 bits; see trx0rec.h
+
+    /// no secondary index record will be changed in the update and no ordering
     /// field of the clustered index
     const UPD_NODE_NO_ORD_CHANGE: u8 = 1;
+
     /// no record field size will be changed in the update
     const UPD_NODE_NO_SIZE_CHANGE: u8 = 2;
 
