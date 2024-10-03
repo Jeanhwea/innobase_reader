@@ -19,7 +19,6 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::LogFileHeader,
     },
     util::{extno, pagno},
     Commands,
@@ -115,7 +114,7 @@ impl App {
                 let mut fact = DatafileFactory::from_file(self.input.clone())?;
                 match block_no {
                     Some(block_no) => {
-                        let block: LogFileHeader = fact.read_block(block_no)?;
+                        let block = fact.read_block(block_no)?;
                         dbg!(&block);
                     }
                     None => {

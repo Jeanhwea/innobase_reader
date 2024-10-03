@@ -18,7 +18,7 @@ use crate::{
             FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
         },
         record::{DataValue, ResultSet},
-        redo::{LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
+        redo::{Blocks, LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
         undo::RollPtr,
     },
     meta::{
@@ -156,9 +156,13 @@ impl DatafileFactory {
         Ok(BasePage::new(0, buf.clone()))
     }
 
-    pub fn read_block(&mut self, block_no: usize) -> Result<LogFileHeader> {
+    pub fn read_block(&mut self, block_no: usize) -> Result<Blocks> {
         let buf = self.block_buffer(block_no)?;
-        Ok(LogFileHeader::new(0, buf.clone()))
+        let data = match block_no {
+            0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
+            _ => Blocks::Unknown(buf),
+        };
+        Ok(data)
     }
 
     pub fn read_inode_entry(&mut self, page_no: usize, boffset: u16) -> Result<INodeEntry> {

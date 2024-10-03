@@ -59,3 +59,10 @@ impl LogFileHeader {
         }
     }
 }
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum Blocks {
+    FileHeader(LogFileHeader),
+    Unknown(Arc<Bytes>),
+}
