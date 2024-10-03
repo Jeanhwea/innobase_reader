@@ -89,19 +89,19 @@ pub struct LogBlock {
     /// around at LOG_BLOCK_MAX_NO. In older versions of MySQL the highest bit
     /// (LOG_BLOCK_FLUSH_BIT_MASK) of hdr_no is set to 1, if this is the first
     /// block in a call to write.
-    pub log_block_no: u32,
+    pub hdr_no: u32,
 
     /// (1 bit) log flush flag, the bit from log_block_no
-    pub log_flush_flag: bool,
+    pub flush_flag: bool,
 
     /// (2 bytes) log data length, see LOG_BLOCK_HDR_DATA_LEN, Offset to number
     /// of bytes written to this block (also header bytes).
-    pub log_data_len: u16,
+    pub data_len: u16,
 
     /// (2 bytes) first record offset, see LOG_BLOCK_FIRST_REC_GROUP, An archive
     /// recovery can start parsing the log records starting from this offset in
     /// this log block, if value is not 0.
-    pub first_rec_offset: u16,
+    pub first_rec_group: u16,
 
     /// (4 bytes) checkpoint number, see LOG_BLOCK_EPOCH_NO. Offset to epoch_no
     /// stored in this log block. The epoch_no is computed as the number of
@@ -131,10 +131,10 @@ impl LogBlock {
         let b0 = util::u32_val(&buf, addr);
         Self {
             // header
-            log_block_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
-            log_flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
-            log_data_len: util::u16_val(&buf, addr + 4),
-            first_rec_offset: util::u16_val(&buf, addr + 6),
+            hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
+            flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
+            data_len: util::u16_val(&buf, addr + 4),
+            first_rec_group: util::u16_val(&buf, addr + 6),
             epoch_no: util::u32_val(&buf, addr + 8),
             // trailer
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
