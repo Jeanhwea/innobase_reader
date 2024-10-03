@@ -18,7 +18,7 @@ use crate::{
             FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
         },
         record::{DataValue, ResultSet},
-        redo::{Blocks, LogBlock, LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
+        redo::{Blocks, LogBlock, LogCheckpoint, LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
         undo::RollPtr,
     },
     meta::{
@@ -160,8 +160,23 @@ impl DatafileFactory {
         let buf = self.block_buffer(block_no)?;
         let data = match block_no {
             0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
-            4.. => Blocks::Block(LogBlock::new(0, buf)),
-            _ => Blocks::Unknown(buf),
+            2 => Blocks::Unused,
+            1 | 3 => {
+                let chk = LogCheckpoint::new(0, buf);
+                if chk.checksum > 0 {
+                    Blocks::Checkpoint(chk)
+                } else {
+                    Blocks::Unused
+                }
+            }
+            _ => {
+                let blk = LogBlock::new(0, buf);
+                if blk.checksum > 0 {
+                    Blocks::Block(blk)
+                } else {
+                    Blocks::Unused
+                }
+            }
         };
         Ok(data)
     }

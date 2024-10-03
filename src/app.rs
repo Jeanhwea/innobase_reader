@@ -795,6 +795,12 @@ impl App {
             Blocks::Block(log_block) => {
                 println!("{:#?}", log_block);
             }
+            Blocks::Checkpoint(checkpoint) => {
+                println!("{:#?}", checkpoint);
+            }
+            Blocks::Unused => {
+                println!("Unused block");
+            }
             Blocks::Unknown(buf) => {
                 println!("Unknown block: {:?}", buf.clone());
             }
