@@ -10,12 +10,16 @@ use colored::Colorize;
 use log::{debug, error, info};
 
 use crate::{
-    factory::{DataValue, DatafileFactory},
-    ibd::page::{
-        BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody, IndexPageBody,
-        PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody, SdiPageBody, SpaceId,
-        TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM, PAGE_SIZE,
-        XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+    factory::DatafileFactory,
+    ibd::{
+        page::{
+            BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
+            IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
+            SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
+            PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+        },
+        record::DataValue,
+        redo::LogFileHeader,
     },
     util::{extno, pagno},
     Commands,
@@ -107,14 +111,18 @@ impl App {
                     }
                 },
             },
-            Commands::Redo { block_no } => match block_no {
-                Some(block_no) => {
-                    println!("block_no={:?}", block_no);
+            Commands::Redo { block_no } => {
+                let mut fact = DatafileFactory::from_file(self.input.clone())?;
+                match block_no {
+                    Some(block_no) => {
+                        let block: LogFileHeader = fact.read_block(block_no)?;
+                        dbg!(&block);
+                    }
+                    None => {
+                        println!("aaa");
+                    }
                 }
-                None => {
-                    println!("aaa");
-                }
-            },
+            }
         }
 
         Ok(())

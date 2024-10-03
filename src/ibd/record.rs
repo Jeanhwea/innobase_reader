@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Error;
 use bytes::Bytes;
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use colored::Colorize;
 use derivative::Derivative;
 use log::{debug, info};
@@ -16,6 +17,7 @@ use crate::{
     ibd::{
         page::{PAGE_NONE, RECORD_HEADER_SIZE},
         record::RecordStatus::NODE_PTR,
+        undo::RollPtr,
     },
     meta::def::{HiddenTypes, TableDef},
     util,
@@ -689,4 +691,30 @@ pub struct RecordLayout {
     pub rec_hdr_size: usize,
     pub phy_data_size: usize,
     pub total_size: usize,
+}
+
+#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derivative(Debug)]
+pub enum DataValue {
+    RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
+    TrxId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
+    RbPtr(RollPtr),
+    PageNo(u32),
+    I32(i32),
+    I64(i64),
+    Str(String),
+    Enum(u16),
+    Date(NaiveDate),
+    DateTime(NaiveDateTime),
+    Timestamp(DateTime<Local>),
+    Unknown(Bytes),
+    Null,
+}
+
+#[derive(Debug)]
+pub struct ResultSet {
+    pub garbage: bool,
+    pub tabdef: Arc<TableDef>,
+    pub records: Vec<Record>,
+    pub tuples: Vec<Vec<(String, DataValue)>>,
 }
