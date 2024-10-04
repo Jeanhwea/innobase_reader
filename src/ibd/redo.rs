@@ -520,6 +520,7 @@ pub struct LogRecordHeader {
 
     /// (1 bit) single record flag, highest bit on log_rec_type, see
     /// MLOG_SINGLE_REC_FLAG
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
     pub single_rec_flag: bool,
 
     /// (1 byte) log record type

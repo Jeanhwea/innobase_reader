@@ -95,6 +95,10 @@ where
     write!(f, "0x{:04x}@({})", d, d.to_string().yellow())
 }
 
+pub fn fmt_bool(d: &bool, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    write!(f, "{}", if *d { "T".green() } else { "F".red() })
+}
+
 pub fn fmt_enum<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
 where
     T: Display,

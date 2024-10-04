@@ -823,7 +823,11 @@ impl App {
                 let type_count = stats[&rec_type];
                 if type_count < 3 {
                     if let Some(rec) = &block.record {
-                        println!("{:>5} => {:?}", block_no.to_string().green(), rec.log_rec_hdr);
+                        println!(
+                            "{:>5} => {:?}",
+                            block_no.to_string().green(),
+                            rec.log_rec_hdr
+                        );
                     }
                 }
             }
