@@ -68,38 +68,68 @@ pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 pub const TRX_RSEG_SLOT_SIZE: usize = 4;
 pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
 
-// space/page constants
-pub const SPACE_ID_MAX: u32 = 0xffffffff;
-
-// Since s_max_undo_space_id = 0xFFFFFFEF, FSP_MAX_UNDO_TABLESPACES = 127
-// and s_undo_space_id_range = 400,000:
-//   Space ID   Space Num    Space ID   Space Num   ...  Space ID   Space Num
-//   0xFFFFFFEF      1       0xFFFFFFEe       2     ...  0xFFFFFF71    127
-//   0xFFFFFF70      1       0xFFFFFF6F       2     ...  0xFFFFFEF2    127
-//   0xFFFFFEF1      1       0xFFFFFEF0       2     ...  0xFFFFFE73    127
-// ...
-pub const UNDO_SPACE_ID_MIN: u32 = 0xffffffef - 127;
-pub const UNDO_SPACE_ID_MAX: u32 = 0xffffffef;
+// space constants, see dict0dict.h, s_log_space_id, s_dict_space_id, ...
+pub const INVALID_SPACE_ID: u32 = 0xFFFFFFFF;
+pub const REDO_LOG_SPACE_ID: u32 = 0xFFFFFFF0;
+pub const UNDO_SPACE_ID_MAX: u32 = REDO_LOG_SPACE_ID - 1;
+pub const UNDO_SPACE_ID_MIN: u32 = REDO_LOG_SPACE_ID - (127 * 400000);
+pub const DICT_SPACE_ID: u32 = 0xFFFFFFFE;
+pub const INNODB_TEMP_SPACE_ID: u32 = 0xFFFFFFFD;
+pub const TEMP_SPACE_ID_MAX: u32 = UNDO_SPACE_ID_MIN - 1;
+pub const TEMP_SPACE_ID_MIN: u32 = UNDO_SPACE_ID_MIN - 400000;
 
 /// Tablespace ID
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum SpaceId {
-    SpaceMax,
-    SystemSpace,
+    /// s_log_space_id, The first ID of the redo log pseudo-tablespace
+    RedoSpace,
+
+    /// s_invalid_space_id, Use maximum UINT value to indicate invalid space ID.
+    Invalid,
+
+    /// s_dict_space_id, The data dictionary tablespace ID.
+    DictSpace,
+
+    /// s_temp_space_id, The innodb_temporary tablespace ID.
+    InnoTempSpace,
+
+    /// s_min_undo_space_id, s_max_undo_space_id. undo tablespace ID
     UndoSpace(u32),
+
+    /// s_min_temp_space_id, s_max_temp_space_id, for temporary tablespaces.
+    TempSpace(u32),
+
+    /// s_dd_dict_space_id, The dd::Tablespace::id of the dictionary tablespace.
+    DdDictSpace,
+
+    /// s_dd_sys_space_id, The dd::Tablespace::id of innodb_system.
+    DdSysSpace,
+
+    /// s_dd_temp_space_id, The dd::Tablespace::id of innodb_temporary.
+    DdTempSpace,
+
+    /// normal space ID
     Space(u32),
 }
 
 impl From<u32> for SpaceId {
     fn from(value: u32) -> SpaceId {
         match value {
-            0 => SpaceId::SystemSpace,
-            SPACE_ID_MAX => SpaceId::SpaceMax,
+            INVALID_SPACE_ID => Self::Invalid,
+            1 => Self::DdDictSpace,
+            2 => Self::DdSysSpace,
+            3 => Self::DdTempSpace,
+            REDO_LOG_SPACE_ID => Self::RedoSpace,
             val @ (UNDO_SPACE_ID_MIN..=UNDO_SPACE_ID_MAX) => {
-                SpaceId::UndoSpace(UNDO_SPACE_ID_MAX - val + 1)
+                Self::UndoSpace(UNDO_SPACE_ID_MAX - val + 1)
             }
-            val => SpaceId::Space(val),
+            DICT_SPACE_ID => Self::DictSpace,
+            INNODB_TEMP_SPACE_ID => Self::InnoTempSpace,
+            val @ (TEMP_SPACE_ID_MIN..=TEMP_SPACE_ID_MAX) => {
+                Self::TempSpace(TEMP_SPACE_ID_MAX - val + 1)
+            }
+            val => Self::Space(val),
         }
     }
 }
@@ -335,7 +365,7 @@ pub struct FilePageHeader {
     pub check_sum: u32,
 
     /// (4 bytes) page number/offset, FIL_PAGE_OFFSET
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub page_no: PageNumber,
 
     /// (4 bytes) previous page, FIL_PAGE_PREV
@@ -358,7 +388,7 @@ pub struct FilePageHeader {
     pub flush_lsn: u64,
 
     /// (4 bytes) space ID, FIL_PAGE_SPACE_ID
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
     pub space_id: SpaceId,
 }
 
@@ -500,7 +530,7 @@ pub struct FilAddr {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) Page number within a space
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub page_no: PageNumber,
 
     /// (2 bytes) Byte offset within the page
@@ -590,7 +620,7 @@ pub struct FileSpaceHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) tablespace ID
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
     pub space_id: SpaceId,
 
     /// (4 bytes) not used now
@@ -1355,11 +1385,11 @@ pub struct FSegHeader {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space id
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
     pub space_id: SpaceId,
 
     /// (4 bytes) page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub page_no: PageNumber,
 
     /// (2 bytes) byte offset
@@ -1502,11 +1532,11 @@ pub struct RSegInfo {
     pub buf: Arc<Bytes>,
 
     /// (4 bytes) space ID
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
     pub space_id: SpaceId,
 
     /// (4 bytes) page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub page_no: PageNumber,
 }
 

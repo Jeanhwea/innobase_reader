@@ -528,11 +528,11 @@ pub struct LogRecordHeader {
     pub log_rec_type: LogRecordTypes,
 
     /// space ID
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
     pub space_id: SpaceId,
 
     /// Page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub page_no: PageNumber,
 
     /// total bytes
@@ -551,10 +551,10 @@ impl LogRecordHeader {
         let flag_type = util::u8_val(&buf, ptr);
         ptr += 1;
 
-        let space_id = util::mach_u32_read_compressed(ptr, buf.clone());
+        let space_id = util::u32_compressed(ptr, buf.clone());
         ptr += space_id.0;
 
-        let page_no = util::mach_u32_read_compressed(ptr, buf.clone());
+        let page_no = util::u32_compressed(ptr, buf.clone());
         ptr += page_no.0;
 
         Self {

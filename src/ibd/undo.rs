@@ -8,9 +8,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
-use crate::util::{
-    self, mach_u32_read_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
-};
+use crate::util;
 
 /// XID data size
 pub const XIDDATASIZE: usize = 128;
@@ -547,11 +545,11 @@ impl UndoRecordPayload {
 
         match hdr.type_info {
             UndoTypes::INSERT_REC => {
-                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v01 = util::u64_much_compressed(ptr, buf.clone());
                 ptr += v01.0;
                 undo_no = v01.1;
 
-                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v02 = util::u64_much_compressed(ptr, buf.clone());
                 ptr += v02.0;
                 table_id = v02.1;
             }
@@ -560,12 +558,12 @@ impl UndoRecordPayload {
                 new1byte = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v01 = util::u64_much_compressed(ptr, buf.clone());
                 info!("v01={:?}", &v01);
                 ptr += v01.0;
                 undo_no = v01.1;
 
-                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v02 = util::u64_much_compressed(ptr, buf.clone());
                 info!("v02={:?}", &v02);
                 ptr += v02.0;
                 table_id = v02.1;
@@ -573,12 +571,12 @@ impl UndoRecordPayload {
                 info_bits = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v03 = mach_u64_read_compressed(ptr, buf.clone());
+                let v03 = util::u64_compressed(ptr, buf.clone());
                 info!("v03={:?}", &v03);
                 ptr += v03.0;
                 trx_id = v03.1;
 
-                let v04 = mach_u64_read_compressed(ptr, buf.clone());
+                let v04 = util::u64_compressed(ptr, buf.clone());
                 info!("v04={:?}", &v04);
                 ptr += v04.0;
                 roll = v04.1;
@@ -600,7 +598,7 @@ impl UndoRecordPayload {
         let mut upd_fields = vec![];
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
-            let upd = mach_u32_read_compressed(ptr, buf.clone());
+            let upd = util::u32_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
             // updated fields
@@ -656,7 +654,7 @@ impl UndoRecKeyField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_compressed(ptr, buf.clone());
+        let v01 = util::u32_compressed(ptr, buf.clone());
         let length = v01.1 as usize;
         ptr += v01.0;
 
@@ -706,11 +704,11 @@ impl UndoRecUpdatedField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_compressed(ptr, buf.clone());
+        let v01 = util::u32_compressed(ptr, buf.clone());
         let field_num = v01.1;
         ptr += v01.0;
 
-        let v02 = mach_u32_read_compressed(ptr, buf.clone());
+        let v02 = util::u32_compressed(ptr, buf.clone());
         let length = v02.1 as usize;
         ptr += v02.0;
 

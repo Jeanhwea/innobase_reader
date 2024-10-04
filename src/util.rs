@@ -12,7 +12,7 @@ use bytes::Bytes;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use colored::{ColoredString, Colorize};
 use flate2::read::ZlibDecoder;
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
@@ -104,6 +104,20 @@ where
     T: Display,
 {
     write!(f, "{}", d.to_string().magenta())
+}
+
+pub fn fmt_enum_2<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display,
+{
+    write!(f, "{}", d.to_string().cyan())
+}
+
+pub fn fmt_enum_3<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
+where
+    T: Display,
+{
+    write!(f, "{}", d.to_string().green())
 }
 
 pub fn fmt_oneline<T>(d: &T, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
@@ -444,7 +458,7 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
         assert!(val < 0xFFFE0000);
     }
 
-    info!(
+    trace!(
         "val = {:?}, buf = {:?}",
         val,
         buf.slice(addr..min(addr + 5, buf.len())).to_vec()
@@ -483,7 +497,7 @@ pub fn mach_get_compressed_size(n: u32) -> usize {
 }
 
 /// Reads a 64-bit integer in much compressed form.
-pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
+pub fn u64_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
     let b0 = u8_val(&buf, addr);
     if b0 != 0xFF {
         let low32 = mach_read_compressed(addr, buf.clone());
@@ -501,7 +515,7 @@ pub fn mach_u64_read_much_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u6
 }
 
 /// Reads a 64-bit integer in compressed form.
-pub fn mach_u64_read_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
+pub fn u64_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
     let high = mach_read_compressed(addr, buf.clone());
     let high_size = mach_get_compressed_size(high);
     let low = u32_val(&buf, addr + high_size);
@@ -511,7 +525,7 @@ pub fn mach_u64_read_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u64) {
 }
 
 /// Reads a 32-bit integer in much compressed form.
-pub fn mach_u32_read_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u32) {
+pub fn u32_compressed(addr: usize, buf: Arc<Bytes>) -> (usize, u32) {
     let value = mach_read_compressed(addr, buf.clone());
     let size = mach_get_compressed_size(value);
     (size, value)
