@@ -12,6 +12,44 @@ pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
 pub const LOG_HEADER_CREATOR_BEG: usize = 16;
 pub const LOG_HEADER_CREATOR_END: usize = 48;
 
+/// log file, see log0constants.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct LogFile {
+    /// file address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// file data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// block 0: is log file header
+    pub block_0: Blocks,
+
+    /// block 1: LOG_CHECKPOINT_1 or unused
+    pub block_1: Blocks,
+
+    /// block 2: LOG_ENCRYPTION or Unused
+    pub block_2: Blocks,
+
+    /// block 3: LOG_CHECKPOINT_2 or unused
+    pub block_3: Blocks,
+}
+
+impl LogFile {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
+            block_1: LogCheckpoint::from(addr + 1 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
+            block_2: Blocks::Unused,
+            block_3: LogCheckpoint::from(addr + 3 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum Blocks {
@@ -108,6 +146,15 @@ impl LogCheckpoint {
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,
+        }
+    }
+
+    pub fn from(addr: usize, buf: Arc<Bytes>) -> Blocks {
+        let chk = Self::new(addr, buf);
+        if chk.checksum > 0 {
+            Blocks::Checkpoint(chk)
+        } else {
+            Blocks::Unused
         }
     }
 }

@@ -19,7 +19,7 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::Blocks,
+        redo::{Blocks, LogFile},
     },
     util::{extno, pagno},
     Commands,
@@ -118,7 +118,8 @@ impl App {
                 None => {
                     let mut fact = DatafileFactory::from_file(self.input.clone())?;
                     let buf = fact.file_buffer()?;
-                    info!("bufsize = {}", buf.len());
+                    let log_file = LogFile::new(0, buf);
+                    println!("{:#?}", log_file);
                 }
             },
         }
