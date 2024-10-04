@@ -523,6 +523,7 @@ pub struct LogRecordHeader {
     pub single_rec_flag: bool,
 
     /// (1 byte) log record type
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub log_rec_type: LogRecordTypes,
 
     /// (4 bytes) space ID
