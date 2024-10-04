@@ -73,6 +73,13 @@ impl DatafileFactory {
         })
     }
 
+    /// get file buffer
+    pub fn file_buffer(&mut self) -> Result<Arc<Bytes>> {
+        let mut buffer = vec![];
+        self.file_handler.read_to_end(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
+    }
+
     /// count the log block
     pub fn block_count(&self) -> usize {
         self.file_size / OS_FILE_LOG_BLOCK_SIZE

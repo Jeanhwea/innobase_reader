@@ -116,7 +116,9 @@ impl App {
                     self.do_view_block(block_no)?;
                 }
                 None => {
-                    todo!("查看所以的 Redo Log 记录");
+                    let mut fact = DatafileFactory::from_file(self.input.clone())?;
+                    let buf = fact.file_buffer()?;
+                    info!("bufsize = {}", buf.len());
                 }
             },
         }
