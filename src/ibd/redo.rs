@@ -12,17 +12,88 @@ pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
 pub const LOG_HEADER_CREATOR_BEG: usize = 16;
 pub const LOG_HEADER_CREATOR_END: usize = 48;
 
+/// log file, see log0constants.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct LogFile {
+    /// file address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// file data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// block 0: is log file header
+    pub block_0: Blocks,
+
+    /// block 1: LOG_CHECKPOINT_1 or unused
+    pub block_1: Blocks,
+
+    /// block 2: LOG_ENCRYPTION or Unused
+    pub block_2: Blocks,
+
+    /// block 3: LOG_CHECKPOINT_2 or unused
+    pub block_3: Blocks,
+
+    /// other block is log block
+    pub log_block_list: Vec<Blocks>,
+}
+
+impl LogFile {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut blocks = vec![];
+        let mut ptr = addr + 4 * OS_FILE_LOG_BLOCK_SIZE;
+        loop {
+            if ptr >= buf.len() {
+                break;
+            }
+            blocks.push(LogBlock::new(ptr, buf.clone()).into());
+            ptr += OS_FILE_LOG_BLOCK_SIZE;
+        }
+
+        Self {
+            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
+            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
+            block_2: Blocks::Unused,
+            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone()).into(),
+            log_block_list: blocks,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum Blocks {
     FileHeader(LogFileHeader),
-    Block(LogBlock),
     Checkpoint(LogCheckpoint),
-    Unknown(Arc<Bytes>),
+    Block(LogBlock),
     Unused,
 }
 
-/// Log file header, see log0constants.h
+impl From<LogBlock> for Blocks {
+    fn from(value: LogBlock) -> Self {
+        if value.checksum > 0 {
+            Blocks::Block(value)
+        } else {
+            Blocks::Unused
+        }
+    }
+}
+
+impl From<LogCheckpoint> for Blocks {
+    fn from(value: LogCheckpoint) -> Self {
+        if value.checksum > 0 {
+            Blocks::Checkpoint(value)
+        } else {
+            Blocks::Unused
+        }
+    }
+}
+
+/// log file header, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogFileHeader {
@@ -77,7 +148,43 @@ impl LogFileHeader {
     }
 }
 
-/// Log block, see log0constants.h
+/// log checkpoint, see log0constants.h
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct LogCheckpoint {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (8 bytes) checkpoint number
+    pub checkpoint_no: u64,
+
+    /// (8 bytes) LOG_CHECKPOINT_LSN, Checkpoint lsn. Recovery starts from this
+    /// lsn and searches for the first log record group that starts since then.
+    pub checkpoint_lsn: u64,
+
+    /// (4 bytes) last checksum
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
+    pub checksum: u32,
+}
+
+impl LogCheckpoint {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            checkpoint_no: util::u64_val(&buf, addr),
+            checkpoint_lsn: util::u64_val(&buf, addr + 8),
+            checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log block, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogBlock {
@@ -124,6 +231,7 @@ pub struct LogBlock {
     pub epoch_no: u32,
 
     /// (4 bytes) last checksum
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub checksum: u32,
 }
 
@@ -140,41 +248,6 @@ impl LogBlock {
             data_len: util::u16_val(&buf, addr + 4),
             first_rec_group: util::u16_val(&buf, addr + 6),
             epoch_no: util::u32_val(&buf, addr + 8),
-            checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// Log checkpoint, see log0constants.h
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct LogCheckpoint {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// (8 bytes) checkpoint number
-    pub checkpoint_no: u64,
-
-    /// (8 bytes) LOG_CHECKPOINT_LSN, Checkpoint lsn. Recovery starts from this
-    /// lsn and searches for the first log record group that starts since then.
-    pub checkpoint_lsn: u64,
-
-    /// (4 bytes) last checksum
-    pub checksum: u32,
-}
-
-impl LogCheckpoint {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        Self {
-            checkpoint_no: util::u64_val(&buf, addr),
-            checkpoint_lsn: util::u64_val(&buf, addr + 8),
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,

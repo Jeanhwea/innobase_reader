@@ -19,7 +19,7 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::Blocks,
+        redo::{Blocks, LogFile},
     },
     util::{extno, pagno},
     Commands,
@@ -116,7 +116,7 @@ impl App {
                     self.do_view_block(block_no)?;
                 }
                 None => {
-                    unimplemented!("view redo log");
+                    self.do_view_log_file()?;
                 }
             },
         }
@@ -801,8 +801,17 @@ impl App {
             Blocks::Unused => {
                 println!("Unused block");
             }
-            Blocks::Unknown(buf) => {
-                println!("Unknown block: {:?}", buf.clone());
+        }
+        Ok(())
+    }
+
+    fn do_view_log_file(&self) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let buf = fact.file_buffer()?;
+        let log_file = LogFile::new(0, buf);
+        for blk in &log_file.log_block_list {
+            if let Blocks::Block(block) = blk {
+                println!("{:?}", block);
             }
         }
         Ok(())

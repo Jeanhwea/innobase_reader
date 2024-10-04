@@ -73,6 +73,13 @@ impl DatafileFactory {
         })
     }
 
+    /// get file buffer
+    pub fn file_buffer(&mut self) -> Result<Arc<Bytes>> {
+        let mut buffer = vec![];
+        self.file_handler.read_to_end(&mut buffer)?;
+        Ok(Arc::new(Bytes::from(buffer)))
+    }
+
     /// count the log block
     pub fn block_count(&self) -> usize {
         self.file_size / OS_FILE_LOG_BLOCK_SIZE
@@ -161,22 +168,8 @@ impl DatafileFactory {
         let data = match block_no {
             0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
             2 => Blocks::Unused,
-            1 | 3 => {
-                let chk = LogCheckpoint::new(0, buf);
-                if chk.checksum > 0 {
-                    Blocks::Checkpoint(chk)
-                } else {
-                    Blocks::Unused
-                }
-            }
-            _ => {
-                let blk = LogBlock::new(0, buf);
-                if blk.checksum > 0 {
-                    Blocks::Block(blk)
-                } else {
-                    Blocks::Unused
-                }
-            }
+            1 | 3 => LogCheckpoint::new(0, buf).into(),
+            _ => LogBlock::new(0, buf).into(),
         };
         Ok(data)
     }
