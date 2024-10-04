@@ -54,9 +54,9 @@ impl LogFile {
 
         Self {
             block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
-            block_1: LogCheckpoint::new(addr + 1 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
+            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
             block_2: Blocks::Unused,
-            block_3: LogCheckpoint::new(addr + 3 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
+            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone()).into(),
             log_block_list: blocks,
             buf: buf.clone(),
             addr,
