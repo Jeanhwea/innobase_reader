@@ -809,7 +809,10 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         let buf = fact.file_buffer()?;
         let log_file = LogFile::new(0, buf);
-        for blk in &log_file.log_block_list {
+        for (i, blk) in log_file.log_block_list.iter().enumerate() {
+            if i > 10 {
+                break;
+            }
             if let Blocks::Block(block) = blk {
                 println!("{:?}", block);
             }

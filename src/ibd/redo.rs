@@ -254,3 +254,25 @@ impl LogBlock {
         }
     }
 }
+
+/// log record
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct LogRecord {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+}
+
+impl LogRecord {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        Self {
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
