@@ -22,7 +22,7 @@ pub enum Blocks {
     Unused,
 }
 
-/// Log file header, see log0constants.h
+/// log file header, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogFileHeader {
@@ -77,7 +77,7 @@ impl LogFileHeader {
     }
 }
 
-/// Log block, see log0constants.h
+/// log block, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogBlock {
@@ -147,7 +147,7 @@ impl LogBlock {
     }
 }
 
-/// Log checkpoint, see log0constants.h
+/// log checkpoint, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogCheckpoint {
