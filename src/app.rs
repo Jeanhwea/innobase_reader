@@ -801,9 +801,6 @@ impl App {
             Blocks::Unused => {
                 println!("Unused block");
             }
-            Blocks::Unknown(buf) => {
-                println!("Unknown block: {:?}", buf.clone());
-            }
         }
         Ok(())
     }
