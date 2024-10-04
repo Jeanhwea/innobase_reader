@@ -168,6 +168,7 @@ pub struct LogCheckpoint {
     pub checkpoint_lsn: u64,
 
     /// (4 bytes) last checksum
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub checksum: u32,
 }
 
@@ -230,6 +231,7 @@ pub struct LogBlock {
     pub epoch_no: u32,
 
     /// (4 bytes) last checksum
+    #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub checksum: u32,
 }
 
