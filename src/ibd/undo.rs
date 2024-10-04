@@ -9,7 +9,7 @@ use strum::{Display, EnumString};
 
 use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
 use crate::util::{
-    self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
+    self, mach_u32_read_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
 };
 
 /// XID data size
@@ -600,7 +600,7 @@ impl UndoRecordPayload {
         let mut upd_fields = vec![];
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
-            let upd = mach_u32_read_much_compressed(ptr, buf.clone());
+            let upd = mach_u32_read_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
             // updated fields
@@ -656,7 +656,7 @@ impl UndoRecKeyField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v01 = mach_u32_read_compressed(ptr, buf.clone());
         let length = v01.1 as usize;
         ptr += v01.0;
 
@@ -706,11 +706,11 @@ impl UndoRecUpdatedField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v01 = mach_u32_read_compressed(ptr, buf.clone());
         let field_num = v01.1;
         ptr += v01.0;
 
-        let v02 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v02 = mach_u32_read_compressed(ptr, buf.clone());
         let length = v02.1 as usize;
         ptr += v02.0;
 

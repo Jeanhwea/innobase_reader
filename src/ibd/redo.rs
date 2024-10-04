@@ -506,7 +506,7 @@ pub enum LogRecordTypes {
     UNDEF,
 }
 
-/// log record header
+/// log record header, see mtr0log.ic, mlog_write_initial_log_record_low(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogRecordHeader {
@@ -527,13 +527,16 @@ pub struct LogRecordHeader {
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub log_rec_type: LogRecordTypes,
 
-    /// (4 bytes) space ID
+    /// space ID
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub space_id: SpaceId,
 
-    /// (4 bytes) Page number
+    /// Page number
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub page_no: PageNumber,
+
+    /// total bytes
+    pub total_bytes: usize,
 }
 
 impl LogRecordHeader {
@@ -543,14 +546,23 @@ impl LogRecordHeader {
     const MLOG_SINGLE_REC_FLAG: u8 = 0x80;
 
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let flag_type = util::u8_val(&buf, addr);
-        let space_id = util::u32_val(&buf, addr + 1);
-        let page_no = util::u32_val(&buf, addr + 5);
+        let mut ptr = addr;
+
+        let flag_type = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let space_id = util::mach_u32_read_compressed(ptr, buf.clone());
+        ptr += space_id.0;
+
+        let page_no = util::mach_u32_read_compressed(ptr, buf.clone());
+        ptr += page_no.0;
+
         Self {
             log_rec_type: (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into(),
             single_rec_flag: (flag_type & Self::MLOG_SINGLE_REC_FLAG) > 0,
-            space_id: space_id.into(),
-            page_no: page_no.into(),
+            space_id: space_id.1.into(),
+            page_no: page_no.1.into(),
+            total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
