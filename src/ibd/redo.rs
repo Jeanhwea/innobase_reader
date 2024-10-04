@@ -68,9 +68,8 @@ impl LogFile {
 #[derivative(Debug)]
 pub enum Blocks {
     FileHeader(LogFileHeader),
-    Block(LogBlock),
     Checkpoint(LogCheckpoint),
-    Unknown(Arc<Bytes>),
+    Block(LogBlock),
     Unused,
 }
 
