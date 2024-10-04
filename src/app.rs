@@ -818,8 +818,11 @@ impl App {
                 } else {
                     LogRecordTypes::UNDEF
                 };
-                *stats.entry(rec_type).or_insert(0) += 1;
-                // println!("{}=>{:?}", i, &block);
+                *stats.entry(rec_type.clone()).or_insert(0) += 1;
+                let type_count = stats[&rec_type];
+                if type_count < 3 {
+                    println!("{}=>{:?}", i, &block);
+                }
             }
         }
 

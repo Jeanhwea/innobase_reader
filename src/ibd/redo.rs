@@ -6,6 +6,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
+use super::page::{PageNumber, SpaceId};
 use crate::util;
 
 // log file size
@@ -517,11 +518,20 @@ pub struct LogRecordHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// log record type
+    /// (1 bit) single record flag, highest bit on log_rec_type, see
+    /// MLOG_SINGLE_REC_FLAG
+    pub single_rec_flag: bool,
+
+    /// (1 byte) log record type
     pub log_rec_type: LogRecordTypes,
 
-    /// single record flag, see MLOG_SINGLE_REC_FLAG
-    pub single_rec_flag: bool,
+    /// (4 bytes) space ID
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub space_id: SpaceId,
+
+    /// (4 bytes) Page number
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub page_no: PageNumber,
 }
 
 impl LogRecordHeader {
@@ -531,10 +541,14 @@ impl LogRecordHeader {
     const MLOG_SINGLE_REC_FLAG: u8 = 0x80;
 
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let b0 = util::u8_val(&buf, addr);
+        let flag_type = util::u8_val(&buf, addr);
+        let space_id = util::u32_val(&buf, addr + 1);
+        let page_no = util::u32_val(&buf, addr + 5);
         Self {
-            log_rec_type: (b0 & !Self::MLOG_SINGLE_REC_FLAG).into(),
-            single_rec_flag: (b0 & Self::MLOG_SINGLE_REC_FLAG) > 0,
+            log_rec_type: (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into(),
+            single_rec_flag: (flag_type & Self::MLOG_SINGLE_REC_FLAG) > 0,
+            space_id: space_id.into(),
+            page_no: page_no.into(),
             buf: buf.clone(),
             addr,
         }
