@@ -168,22 +168,8 @@ impl DatafileFactory {
         let data = match block_no {
             0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
             2 => Blocks::Unused,
-            1 | 3 => {
-                let chk = LogCheckpoint::new(0, buf);
-                if chk.checksum > 0 {
-                    Blocks::Checkpoint(chk)
-                } else {
-                    Blocks::Unused
-                }
-            }
-            _ => {
-                let blk = LogBlock::new(0, buf);
-                if blk.checksum > 0 {
-                    Blocks::Block(blk)
-                } else {
-                    Blocks::Unused
-                }
-            }
+            1 | 3 => LogCheckpoint::new(0, buf).into(),
+            _ => LogBlock::new(0, buf).into(),
         };
         Ok(data)
     }

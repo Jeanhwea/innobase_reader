@@ -48,15 +48,15 @@ impl LogFile {
             if ptr >= buf.len() {
                 break;
             }
-            blocks.push(LogBlock::from(ptr, buf.clone()));
+            blocks.push(LogBlock::new(ptr, buf.clone()).into());
             ptr += OS_FILE_LOG_BLOCK_SIZE;
         }
 
         Self {
             block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
-            block_1: LogCheckpoint::from(addr + 1 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
+            block_1: LogCheckpoint::new(addr + 1 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
             block_2: Blocks::Unused,
-            block_3: LogCheckpoint::from(addr + 3 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
+            block_3: LogCheckpoint::new(addr + 3 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
             log_block_list: blocks,
             buf: buf.clone(),
             addr,
@@ -71,6 +71,26 @@ pub enum Blocks {
     Checkpoint(LogCheckpoint),
     Block(LogBlock),
     Unused,
+}
+
+impl From<LogBlock> for Blocks {
+    fn from(value: LogBlock) -> Self {
+        if value.checksum > 0 {
+            Blocks::Block(value)
+        } else {
+            Blocks::Unused
+        }
+    }
+}
+
+impl From<LogCheckpoint> for Blocks {
+    fn from(value: LogCheckpoint) -> Self {
+        if value.checksum > 0 {
+            Blocks::Checkpoint(value)
+        } else {
+            Blocks::Unused
+        }
+    }
 }
 
 /// log file header, see log0constants.h
@@ -161,15 +181,6 @@ impl LogCheckpoint {
             addr,
         }
     }
-
-    pub fn from(addr: usize, buf: Arc<Bytes>) -> Blocks {
-        let chk = Self::new(addr, buf);
-        if chk.checksum > 0 {
-            Blocks::Checkpoint(chk)
-        } else {
-            Blocks::Unused
-        }
-    }
 }
 
 /// log block, see log0constants.h
@@ -238,15 +249,6 @@ impl LogBlock {
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,
-        }
-    }
-
-    pub fn from(addr: usize, buf: Arc<Bytes>) -> Blocks {
-        let blk = Self::new(addr, buf);
-        if blk.checksum > 0 {
-            Blocks::Block(blk)
-        } else {
-            Blocks::Unused
         }
     }
 }
