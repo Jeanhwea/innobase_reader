@@ -35,15 +35,29 @@ pub struct LogFile {
 
     /// block 3: LOG_CHECKPOINT_2 or unused
     pub block_3: Blocks,
+
+    /// other block is log block
+    pub log_block_list: Vec<Blocks>,
 }
 
 impl LogFile {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut blocks = vec![];
+        let mut ptr = addr + 4 * OS_FILE_LOG_BLOCK_SIZE;
+        loop {
+            if ptr >= buf.len() {
+                break;
+            }
+            blocks.push(LogBlock::from(ptr, buf.clone()));
+            ptr += OS_FILE_LOG_BLOCK_SIZE;
+        }
+
         Self {
             block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
             block_1: LogCheckpoint::from(addr + 1 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
             block_2: Blocks::Unused,
             block_3: LogCheckpoint::from(addr + 3 * OS_FILE_LOG_BLOCK_SIZE, buf.clone()),
+            log_block_list: blocks,
             buf: buf.clone(),
             addr,
         }
@@ -225,6 +239,15 @@ impl LogBlock {
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,
+        }
+    }
+
+    pub fn from(addr: usize, buf: Arc<Bytes>) -> Blocks {
+        let blk = Self::new(addr, buf);
+        if blk.checksum > 0 {
+            Blocks::Block(blk)
+        } else {
+            Blocks::Unused
         }
     }
 }
