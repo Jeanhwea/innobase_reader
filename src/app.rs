@@ -116,7 +116,7 @@ impl App {
                     self.do_view_block(block_no)?;
                 }
                 None => {
-                    unimplemented!("view redo log");
+                    todo!("查看所以的 Redo Log 记录");
                 }
             },
         }
