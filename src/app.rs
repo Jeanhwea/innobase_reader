@@ -116,10 +116,7 @@ impl App {
                     self.do_view_block(block_no)?;
                 }
                 None => {
-                    let mut fact = DatafileFactory::from_file(self.input.clone())?;
-                    let buf = fact.file_buffer()?;
-                    let log_file = LogFile::new(0, buf);
-                    println!("{:#?}", log_file);
+                    self.do_view_log_file()?;
                 }
             },
         }
@@ -806,6 +803,18 @@ impl App {
             }
             Blocks::Unknown(buf) => {
                 println!("Unknown block: {:?}", buf.clone());
+            }
+        }
+        Ok(())
+    }
+
+    fn do_view_log_file(&self) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let buf = fact.file_buffer()?;
+        let log_file = LogFile::new(0, buf);
+        for blk in &log_file.log_block_list {
+            if let Blocks::Block(block) = blk {
+                println!("{:?}", block);
             }
         }
         Ok(())
