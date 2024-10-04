@@ -19,7 +19,7 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::{Blocks, LogFile},
+        redo::{Blocks, LogFile, LogRecordTypes},
     },
     util::{extno, pagno},
     Commands,
@@ -809,11 +809,39 @@ impl App {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         let buf = fact.file_buffer()?;
         let log_file = LogFile::new(0, buf);
-        for blk in &log_file.log_block_list {
+
+        let mut stats: BTreeMap<LogRecordTypes, u32> = BTreeMap::new();
+        for (i, blk) in log_file.log_block_list.iter().enumerate() {
+            let block_no = i + 4;
             if let Blocks::Block(block) = blk {
-                println!("{:?}", block);
+                let rec_type = if let Some(rec) = &block.record {
+                    rec.log_rec_hdr.log_rec_type.clone()
+                } else {
+                    LogRecordTypes::UNDEF
+                };
+                *stats.entry(rec_type.clone()).or_insert(0) += 1;
+                let type_count = stats[&rec_type];
+                if type_count < 3 {
+                    if let Some(rec) = &block.record {
+                        println!(
+                            "{:>5} => {:?}",
+                            block_no.to_string().green(),
+                            rec.log_rec_hdr
+                        );
+                    }
+                }
             }
         }
+
+        println!("RedoRecordTypes Statistics:");
+        for entry in &stats {
+            println!(
+                "{:>28} => {}",
+                entry.0.to_string().yellow(),
+                entry.1.to_string().blue()
+            );
+        }
+
         Ok(())
     }
 }

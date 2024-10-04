@@ -8,14 +8,12 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
-use crate::util::{
-    self, mach_u32_read_much_compressed, mach_u64_read_compressed, mach_u64_read_much_compressed,
-};
+use crate::util;
 
 /// XID data size
 pub const XIDDATASIZE: usize = 128;
 
-/// Undo Log, see trx0undo.h
+/// undo log, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoLog {
@@ -65,7 +63,7 @@ impl UndoLog {
     }
 }
 
-/// Undo Log Header, see trx0undo.h
+/// undo log header, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoLogHeader {
@@ -193,7 +191,7 @@ impl UndoLogHeader {
     }
 }
 
-/// States of an undo log segment
+/// states of an undo log segment
 #[repr(u8)]
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
@@ -214,7 +212,7 @@ pub enum UndoFlags {
     UNDEF,
 }
 
-/// X/Open XA Transaction Identification, see trx0undo.h
+/// X/Open XA transaction identification, see trx0undo.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct XaTrxInfo {
@@ -252,7 +250,7 @@ impl XaTrxInfo {
     }
 }
 
-/// Parsed rollback pointer
+/// parsed rollback pointer
 #[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub struct RollPtr {
@@ -285,7 +283,7 @@ impl RollPtr {
     }
 }
 
-/// Undo Record
+/// undo record
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecord {
@@ -300,30 +298,30 @@ pub struct UndoRecord {
     /// undo record header
     pub undo_rec_hdr: UndoRecordHeader,
 
-    /// undo record data
-    pub undo_rec_data: Option<UndoRecordData>,
+    /// undo record payload
+    pub undo_rec_body: Option<UndoRecordPayload>,
 }
 
 impl UndoRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
 
-        let data = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
-            Some(UndoRecordData::new(addr + 3, buf.clone(), upt, &hdr))
+        let payload = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
+            Some(UndoRecordPayload::new(addr + 3, buf.clone(), upt, &hdr))
         } else {
             None
         };
 
         Self {
             undo_rec_hdr: hdr,
-            undo_rec_data: data,
+            undo_rec_body: payload,
             buf: buf.clone(),
             addr,
         }
     }
 }
 
-/// Undo Record Header
+/// undo record header
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecordHeader {
@@ -426,7 +424,7 @@ impl UndoRecordHeader {
     const TRX_UNDO_UPD_EXTERN: u8 = 128;
 }
 
-/// States of an undo log segment
+/// states of an undo log segment
 #[repr(u8)]
 #[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
@@ -472,7 +470,7 @@ pub enum CmplInfos {
     NO_SIZE_CHANGE = 2,
 }
 
-/// Extra flags: modify BLOB, Update external, ...
+/// extra flags: modify BLOB, update external, ...
 #[repr(u8)]
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString)]
@@ -490,10 +488,10 @@ pub enum UndoExtraFlags {
     UPD_EXTERN,
 }
 
-/// Undo Record Data
+/// undo record payload
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct UndoRecordData {
+pub struct UndoRecordPayload {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -530,7 +528,7 @@ pub struct UndoRecordData {
     pub upd_fields: Vec<UndoRecUpdatedField>,
 }
 
-impl UndoRecordData {
+impl UndoRecordPayload {
     pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
         info!("{:?}", hdr);
         let mut ptr = addr;
@@ -547,11 +545,11 @@ impl UndoRecordData {
 
         match hdr.type_info {
             UndoTypes::INSERT_REC => {
-                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v01 = util::u64_much_compressed(ptr, buf.clone());
                 ptr += v01.0;
                 undo_no = v01.1;
 
-                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v02 = util::u64_much_compressed(ptr, buf.clone());
                 ptr += v02.0;
                 table_id = v02.1;
             }
@@ -560,12 +558,12 @@ impl UndoRecordData {
                 new1byte = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v01 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v01 = util::u64_much_compressed(ptr, buf.clone());
                 info!("v01={:?}", &v01);
                 ptr += v01.0;
                 undo_no = v01.1;
 
-                let v02 = mach_u64_read_much_compressed(ptr, buf.clone());
+                let v02 = util::u64_much_compressed(ptr, buf.clone());
                 info!("v02={:?}", &v02);
                 ptr += v02.0;
                 table_id = v02.1;
@@ -573,12 +571,12 @@ impl UndoRecordData {
                 info_bits = util::u8_val(&buf, ptr);
                 ptr += 1;
 
-                let v03 = mach_u64_read_compressed(ptr, buf.clone());
+                let v03 = util::u64_compressed(ptr, buf.clone());
                 info!("v03={:?}", &v03);
                 ptr += v03.0;
                 trx_id = v03.1;
 
-                let v04 = mach_u64_read_compressed(ptr, buf.clone());
+                let v04 = util::u64_compressed(ptr, buf.clone());
                 info!("v04={:?}", &v04);
                 ptr += v04.0;
                 roll = v04.1;
@@ -600,7 +598,7 @@ impl UndoRecordData {
         let mut upd_fields = vec![];
         if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
             // update count
-            let upd = mach_u32_read_much_compressed(ptr, buf.clone());
+            let upd = util::u32_compressed(ptr, buf.clone());
             ptr += upd.0;
             upd_count = upd.1;
             // updated fields
@@ -627,7 +625,7 @@ impl UndoRecordData {
     }
 }
 
-/// Undo Record Key Fields
+/// undo record key fields
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecKeyField {
@@ -656,7 +654,7 @@ impl UndoRecKeyField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v01 = util::u32_compressed(ptr, buf.clone());
         let length = v01.1 as usize;
         ptr += v01.0;
 
@@ -674,7 +672,7 @@ impl UndoRecKeyField {
     }
 }
 
-/// Undo Record Updated Fields
+/// undo record updated fields
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecUpdatedField {
@@ -706,11 +704,11 @@ impl UndoRecUpdatedField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v01 = util::u32_compressed(ptr, buf.clone());
         let field_num = v01.1;
         ptr += v01.0;
 
-        let v02 = mach_u32_read_much_compressed(ptr, buf.clone());
+        let v02 = util::u32_compressed(ptr, buf.clone());
         let length = v02.1 as usize;
         ptr += v02.0;
 
