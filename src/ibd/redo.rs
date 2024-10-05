@@ -13,10 +13,6 @@ use crate::util;
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
 
-// log file header
-pub const LOG_HEADER_CREATOR_BEG: usize = 16;
-pub const LOG_HEADER_CREATOR_END: usize = 48;
-
 /// log file, see log0constants.h
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -132,8 +128,8 @@ pub struct LogFileHeader {
     /// (32 bytes) A null-terminated string which will contain either the string
     /// 'MEB' and the MySQL version if the log file was created by mysqlbackup,
     /// or 'MySQL' and the MySQL version that created the redo log file.
-    #[derivative(Debug(format_with = "util::fmt_bytes_str"))]
-    pub creator: Bytes,
+    #[derivative(Debug(format_with = "util::fmt_str"))]
+    pub creator: String,
 
     /// (4 bytes) 32 BITs flag, log header flags
     pub log_hdr_flags: u32,
@@ -145,8 +141,8 @@ impl LogFileHeader {
             log_group_id: util::u32_val(&buf, addr),
             log_uuid: util::u32_val(&buf, addr + 4),
             start_lsn: util::u64_val(&buf, addr + 8),
-            creator: buf.slice(addr + LOG_HEADER_CREATOR_BEG..addr + LOG_HEADER_CREATOR_END),
-            log_hdr_flags: util::u32_val(&buf, addr + LOG_HEADER_CREATOR_END),
+            creator: util::str_val(&buf, addr + 16, 32),
+            log_hdr_flags: util::u32_val(&buf, addr + 16 + 32),
             buf: buf.clone(),
             addr,
         }
@@ -667,6 +663,10 @@ pub struct RedoRecForFileDelete {
 
     /// (2 bytes) file name length
     pub length: u16,
+
+    /// (??? bytes) file name
+    #[derivative(Debug(format_with = "util::fmt_str"))]
+    pub file_name: String,
 }
 
 impl RedoRecForFileDelete {
@@ -675,6 +675,7 @@ impl RedoRecForFileDelete {
         assert!(len >= 5);
         Self {
             length: len,
+            file_name: util::str_val(&buf, addr + 2, len as usize),
             buf: buf.clone(),
             addr,
         }

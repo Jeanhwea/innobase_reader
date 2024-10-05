@@ -1577,16 +1577,16 @@ pub struct LogInfo {
     pub log_offset: u64,
 
     /// (100 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
+    #[derivative(Debug(format_with = "util::fmt_str"))]
     pub log_name: String,
 }
 
 impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let name = buf.clone().slice(addr + 12..addr + 112);
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
-            log_name: String::from_utf8(name.to_vec()).unwrap_or("".to_string()),
+            log_name: util::str_val(&buf, addr + 12, 100),
             buf: buf.clone(),
             addr,
         }

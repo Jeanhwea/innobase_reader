@@ -142,15 +142,8 @@ where
     }
 }
 
-pub fn fmt_bytes_str(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-    let chars = d
-        .to_vec()
-        .iter()
-        .take_while(|char| **char != 0)
-        .copied()
-        .collect();
-    let text = String::from_utf8(chars).unwrap_or("???".to_string());
-    write!(f, "{}", format!("{:?}", text).yellow())
+pub fn fmt_str(d: &String, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    write!(f, "{}", format!("{:?}", d).yellow())
 }
 
 pub fn fmt_bytes_bin(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
@@ -267,6 +260,15 @@ pub fn u56_val(buf: &[u8], addr: usize) -> u64 {
 
 pub fn u64_val(buf: &[u8], addr: usize) -> u64 {
     u64::from_be_bytes(buf[addr..addr + 8].try_into().expect("ERR_READ_VALUE_u64"))
+}
+
+pub fn str_val(buf: &[u8], addr: usize, len: usize) -> String {
+    assert!(addr + len <= buf.len());
+    let bytes = (addr..addr + len)
+        .take_while(|i| buf[*i] != 0)
+        .map(|i| buf[i])
+        .collect();
+    String::from_utf8(bytes).unwrap_or("".to_string())
 }
 
 // https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
