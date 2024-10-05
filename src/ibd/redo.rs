@@ -234,12 +234,12 @@ pub struct LogBlock {
     /// OS_FILE_LOG_BLOCK_SIZE, and then divided by the LOG_BLOCK_MAX_NO.
     pub epoch_no: u32,
 
+    /// log record
+    pub log_record: Option<LogRecord>,
+
     /// (4 bytes) last checksum
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub checksum: u32,
-
-    /// log record
-    pub record: Option<LogRecord>,
 }
 
 impl LogBlock {
@@ -266,7 +266,7 @@ impl LogBlock {
             data_len: util::u16_val(&buf, addr + 4),
             first_rec_group: first_rec_offset,
             epoch_no: util::u32_val(&buf, addr + 8),
-            record: rec,
+            log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,
@@ -554,18 +554,28 @@ impl LogRecordHeader {
 
         let flag_type = util::u8_val(&buf, ptr);
         ptr += 1;
+        let log_rec_type: LogRecordTypes = (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into();
 
-        let space_id = util::u32_compressed(ptr, buf.clone());
-        ptr += space_id.0;
+        let mut space_id = 0;
+        let mut page_no = 0;
+        if !matches!(
+            log_rec_type,
+            LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END
+        ) {
+            let space = util::u32_compressed(ptr, buf.clone());
+            ptr += space.0;
+            space_id = space.1;
 
-        let page_no = util::u32_compressed(ptr, buf.clone());
-        ptr += page_no.0;
+            let page = util::u32_compressed(ptr, buf.clone());
+            ptr += page.0;
+            page_no = page.1;
+        }
 
         Self {
-            log_rec_type: (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into(),
+            log_rec_type,
             single_rec_flag: (flag_type & Self::MLOG_SINGLE_REC_FLAG) > 0,
-            space_id: space_id.1.into(),
-            page_no: page_no.1.into(),
+            space_id: space_id.into(),
+            page_no: page_no.into(),
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,

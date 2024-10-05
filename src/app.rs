@@ -814,7 +814,7 @@ impl App {
         for (i, blk) in log_file.log_block_list.iter().enumerate() {
             let block_no = i + 4;
             if let Blocks::Block(block) = blk {
-                let rec_type = if let Some(rec) = &block.record {
+                let rec_type = if let Some(rec) = &block.log_record {
                     rec.log_rec_hdr.log_rec_type.clone()
                 } else {
                     LogRecordTypes::UNDEF
@@ -822,7 +822,7 @@ impl App {
                 *stats.entry(rec_type.clone()).or_insert(0) += 1;
                 let type_count = stats[&rec_type];
                 if type_count < 3 {
-                    if let Some(rec) = &block.record {
+                    if let Some(rec) = &block.log_record {
                         println!(
                             "{:>5} => {:?}",
                             block_no.to_string().green(),
