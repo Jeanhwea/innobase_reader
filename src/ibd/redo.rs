@@ -793,7 +793,7 @@ impl RedoRecForRecordUpdateInPlace {
 
     /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
     /// will take care of updating IBUF_BITMAP_FREE
-    const BTR_KEEP_IBUF_BITMAP: u8 = 3;
+    const BTR_KEEP_IBUF_BITMAP: u8 = 32;
 
     /// parse mode flags
     pub fn parse_mode_flags(b: u8) -> Vec<BtrModeFlags> {
