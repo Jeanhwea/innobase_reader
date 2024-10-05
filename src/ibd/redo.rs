@@ -664,11 +664,17 @@ pub struct RedoRecForFileDelete {
     /// block data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// (2 bytes) file name length
+    pub length: u16,
 }
 
 impl RedoRecForFileDelete {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let len = util::u16_val(&buf, addr);
+        assert!(len >= 5);
         Self {
+            length: len,
             buf: buf.clone(),
             addr,
         }

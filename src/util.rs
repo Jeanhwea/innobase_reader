@@ -189,11 +189,11 @@ pub fn fmt_bytes_hex(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::
     }
 }
 
-pub fn pagno(page_no: usize) -> ColoredString {
+pub fn colored_page_number(page_no: usize) -> ColoredString {
     format!("#{}", page_no).cyan()
 }
 
-pub fn extno(xdes_no: usize) -> ColoredString {
+pub fn colored_extent_number(xdes_no: usize) -> ColoredString {
     format!("${}", xdes_no).yellow()
 }
 

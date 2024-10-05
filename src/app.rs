@@ -21,7 +21,7 @@ use crate::{
         record::DataValue,
         redo::{Blocks, LogFile, LogRecordTypes},
     },
-    util::{extno, pagno},
+    util::{colored_extent_number, colored_page_number},
     Commands,
 };
 
@@ -312,7 +312,7 @@ impl App {
             }
 
             let xdes_no = page_no / EXTENT_PAGE_NUM * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-            print!("{:>7}", extno(xdes_no));
+            print!("{:>7}", colored_extent_number(xdes_no));
 
             if i % N_ELE_PER_LINE == 0 {
                 println!();
@@ -334,7 +334,7 @@ impl App {
             if i % N_ELE_PER_LINE == 0 {
                 print!("   {:>3} => ", i);
             }
-            print!("{:>7}", pagno(*page_no as usize));
+            print!("{:>7}", colored_page_number(*page_no as usize));
             if (i + 1) % N_ELE_PER_LINE == 0 {
                 println!();
             }
@@ -370,7 +370,7 @@ impl App {
 
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>5} ", extno(xdes_no));
+                print!(" {:>5} ", colored_extent_number(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -419,7 +419,7 @@ impl App {
             // Print Clean Bit Map
             for xdes in xdes_list {
                 let xdes_no = i * XDES_ENTRY_MAX_COUNT + xdes.xdes_seq;
-                print!(" {:>5} ", extno(xdes_no));
+                print!(" {:>5} ", colored_extent_number(xdes_no));
 
                 for nth in 0..8 {
                     for shf in 0..8 {
@@ -481,7 +481,7 @@ impl App {
             };
             if i % XDES_PAGE_COUNT == 0 {
                 let xdes_no = i / XDES_PAGE_COUNT;
-                print!(" {:>5} ", extno(xdes_no));
+                print!(" {:>5} ", colored_extent_number(xdes_no));
             }
             print!("{}", page_type_rept);
             if i % XDES_PAGE_COUNT == XDES_PAGE_COUNT - 1 {
@@ -677,7 +677,7 @@ impl App {
         let key = &first[0..sep_idx];
         println!(
             "{}: level={}, min_key={:?}, n_rec={}",
-            pagno(page_no),
+            colored_page_number(page_no),
             idx_hdr.page_level,
             &key,
             idx_hdr.page_n_recs,
@@ -704,7 +704,7 @@ impl App {
             let fil_hdr = fact.read_fil_hdr(page_no)?;
 
             if page_no % 8 == 0 {
-                print!("{:>7} ", pagno(page_no));
+                print!("{:>7} ", colored_page_number(page_no));
             }
 
             if fil_hdr.page_type == PageTypes::INDEX {
