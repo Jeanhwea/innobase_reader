@@ -295,11 +295,11 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        info!(
-            "LogRecord: addr={}, peek={:?}",
-            addr,
-            buf.slice(addr..addr + 16).to_vec()
-        );
+        // info!(
+        //     "LogRecord: addr={}, peek={:?}",
+        //     addr,
+        //     buf.slice(addr..addr + 16).to_vec()
+        // );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
         info!("{:?}", &hdr);
@@ -701,6 +701,24 @@ pub enum IndexInfoFlags {
     INSTANT,
 }
 
+/// index field nullable
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexFieldNullable {
+    Null,
+    NotNull,
+}
+
+/// index field fixed
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexFieldFixed {
+    Fixed,
+    NotFixed,
+}
+
 /// redo log index info, see mlog_parse_index(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -729,6 +747,10 @@ pub struct RedoLogIndexInfo {
     pub n_uniq: u16,
     /// (2 bytes) number of column before first instant add was done.
     pub inst_cols: u16,
+
+    /// (2*n bytes) index fields info
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub index_fields: Vec<(u16, IndexFieldNullable, IndexFieldFixed)>,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -782,6 +804,29 @@ impl RedoLogIndexInfo {
             }
         }
 
+        // parse index field
+        let mut index_fields = vec![];
+        for _ in 0..n {
+            let data = util::u16_val(&buf, ptr);
+            ptr += 2;
+
+            // The high-order bit of data is the NOT NULL flag;
+            // the rest is 0 or 0x7fff for variable-length fields,
+            // and 1..0x7ffe for fixed-length fields.
+            let fixed = if (((data as u32) + 1) & 0x7fff) > 1 {
+                IndexFieldFixed::Fixed
+            } else {
+                IndexFieldFixed::NotFixed
+            };
+            let nullable = if (data & 0x8000) > 0 {
+                IndexFieldNullable::Null
+            } else {
+                IndexFieldNullable::NotNull
+            };
+            let length = data & 0x7fff;
+            index_fields.push((length, nullable, fixed));
+        }
+
         Self {
             index_log_version: version,
             index_flags: flags,
@@ -789,6 +834,7 @@ impl RedoLogIndexInfo {
             n,
             n_uniq,
             inst_cols,
+            index_fields,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
