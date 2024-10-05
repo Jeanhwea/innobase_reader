@@ -2,19 +2,16 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
-use crate::util;
+use crate::{ibd::undo::RollPtr, util};
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
-
-// log file header
-pub const LOG_HEADER_CREATOR_BEG: usize = 16;
-pub const LOG_HEADER_CREATOR_END: usize = 48;
 
 /// log file, see log0constants.h
 #[derive(Clone, Derivative)]
@@ -131,8 +128,8 @@ pub struct LogFileHeader {
     /// (32 bytes) A null-terminated string which will contain either the string
     /// 'MEB' and the MySQL version if the log file was created by mysqlbackup,
     /// or 'MySQL' and the MySQL version that created the redo log file.
-    #[derivative(Debug(format_with = "util::fmt_bytes_str"))]
-    pub creator: Bytes,
+    #[derivative(Debug(format_with = "util::fmt_str"))]
+    pub creator: String,
 
     /// (4 bytes) 32 BITs flag, log header flags
     pub log_hdr_flags: u32,
@@ -144,8 +141,8 @@ impl LogFileHeader {
             log_group_id: util::u32_val(&buf, addr),
             log_uuid: util::u32_val(&buf, addr + 4),
             start_lsn: util::u64_val(&buf, addr + 8),
-            creator: buf.slice(addr + LOG_HEADER_CREATOR_BEG..addr + LOG_HEADER_CREATOR_END),
-            log_hdr_flags: util::u32_val(&buf, addr + LOG_HEADER_CREATOR_END),
+            creator: util::str_val(&buf, addr + 16, 32),
+            log_hdr_flags: util::u32_val(&buf, addr + 16 + 32),
             buf: buf.clone(),
             addr,
         }
@@ -234,12 +231,12 @@ pub struct LogBlock {
     /// OS_FILE_LOG_BLOCK_SIZE, and then divided by the LOG_BLOCK_MAX_NO.
     pub epoch_no: u32,
 
+    /// redo log record
+    pub log_record: Option<LogRecord>,
+
     /// (4 bytes) last checksum
     #[derivative(Debug(format_with = "util::fmt_hex32"))]
     pub checksum: u32,
-
-    /// log record
-    pub record: Option<LogRecord>,
 }
 
 impl LogBlock {
@@ -266,7 +263,7 @@ impl LogBlock {
             data_len: util::u16_val(&buf, addr + 4),
             first_rec_group: first_rec_offset,
             epoch_no: util::u32_val(&buf, addr + 8),
-            record: rec,
+            log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
             addr,
@@ -288,12 +285,41 @@ pub struct LogRecord {
 
     /// log record header
     pub log_rec_hdr: LogRecordHeader,
+
+    /// log record payload
+    pub redo_rec_data: RedoRecordPayloads,
 }
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        info!(
+            "LogRecord: addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+
+        let hdr = LogRecordHeader::new(addr, buf.clone());
+        let payload = match hdr.log_rec_type {
+            LogRecordTypes::MLOG_1BYTE
+            | LogRecordTypes::MLOG_2BYTES
+            | LogRecordTypes::MLOG_4BYTES
+            | LogRecordTypes::MLOG_8BYTES => RedoRecordPayloads::NByte(RedoRecForNByte::new(
+                addr + hdr.total_bytes,
+                buf.clone(),
+                &hdr,
+            )),
+            LogRecordTypes::MLOG_FILE_DELETE => RedoRecordPayloads::DeleteFile(
+                RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
+                RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            _ => RedoRecordPayloads::Nothing,
+        };
+
         Self {
-            log_rec_hdr: LogRecordHeader::new(addr, buf.clone()),
+            log_rec_hdr: hdr,
+            redo_rec_data: payload,
             buf: buf.clone(),
             addr,
         }
@@ -536,6 +562,7 @@ pub struct LogRecordHeader {
     pub page_no: PageNumber,
 
     /// total bytes
+    #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
@@ -550,21 +577,245 @@ impl LogRecordHeader {
 
         let flag_type = util::u8_val(&buf, ptr);
         ptr += 1;
+        let log_rec_type: LogRecordTypes = (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into();
 
-        let space_id = util::u32_compressed(ptr, buf.clone());
-        ptr += space_id.0;
+        let mut space_id = 0;
+        let mut page_no = 0;
+        if !matches!(
+            log_rec_type,
+            LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END
+        ) {
+            let space = util::u32_compressed(ptr, buf.clone());
+            ptr += space.0;
+            space_id = space.1;
 
-        let page_no = util::u32_compressed(ptr, buf.clone());
-        ptr += page_no.0;
+            let page = util::u32_compressed(ptr, buf.clone());
+            ptr += page.0;
+            page_no = page.1;
+        }
 
         Self {
-            log_rec_type: (flag_type & !Self::MLOG_SINGLE_REC_FLAG).into(),
+            log_rec_type,
             single_rec_flag: (flag_type & Self::MLOG_SINGLE_REC_FLAG) > 0,
-            space_id: space_id.1.into(),
-            page_no: page_no.1.into(),
+            space_id: space_id.into(),
+            page_no: page_no.into(),
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
+    }
+}
+
+/// redo record payload, see recv_parse_or_apply_log_rec_body(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum RedoRecordPayloads {
+    NByte(RedoRecForNByte),
+    DeleteFile(RedoRecForFileDelete),
+    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
+    Nothing,
+}
+
+/// log record payload for nByte, see mlog_parse_nbytes(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForNByte {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) page offset
+    pub page_offset: u16,
+
+    /// (1..4 bytes) value
+    pub value: u64,
+}
+
+impl RedoRecForNByte {
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: &LogRecordHeader) -> Self {
+        let offset = util::u16_val(&buf, addr);
+        let value = match hdr.log_rec_type {
+            LogRecordTypes::MLOG_1BYTE => util::u8_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_2BYTES => util::u16_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_4BYTES => util::u32_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_8BYTES => util::u64_val(&buf, addr + 2),
+            _ => panic!("未知的 MLOG_nBYTES 类型"),
+        };
+        Self {
+            page_offset: offset,
+            value,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for file delete, see fil_tablespace_redo_delete(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForFileDelete {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) file name length
+    pub length: u16,
+
+    /// (??? bytes) file name
+    #[derivative(Debug(format_with = "util::fmt_str"))]
+    pub file_name: String,
+}
+
+impl RedoRecForFileDelete {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let len = util::u16_val(&buf, addr);
+        assert!(len >= 5);
+        Self {
+            length: len,
+            file_name: util::str_val(&buf, addr + 2, len as usize),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for update record in-place, see
+/// btr_cur_parse_update_in_place(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordUpdateInPlace {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub mode_flags: Vec<BtrModeFlags>,
+
+    #[derivative(Debug = "ignore")]
+    pub mode_flags_byte: u8,
+
+    /// (1-5 bytes) TRX_ID position in record
+    pub trx_id_pos: u32,
+
+    /// (7 bytes) rollback pointer
+    pub roll_ptr: RollPtr,
+
+    /// (5-9 bytes) transaction ID
+    pub trx_id: u64,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum BtrModeFlags {
+    /// do no undo logging
+    NO_UNDO_LOG_FLAG,
+
+    /// do no record lock checking
+    NO_LOCKING_FLAG,
+
+    /// sys fields will be found in the update vector or inserted entry
+    KEEP_SYS_FLAG,
+
+    /// btr_cur_pessimistic_update() must keep cursor position when moving
+    /// columns to big_rec
+    KEEP_POS_FLAG,
+
+    /// the caller is creating the index or wants to bypass the
+    /// index->info.online creation log
+    CREATE_FLAG,
+
+    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
+    /// will take care of updating IBUF_BITMAP_FREE
+    KEEP_IBUF_BITMAP,
+}
+
+impl RedoRecForRecordUpdateInPlace {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let b0 = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let pos = util::u32_compressed(ptr, buf.clone());
+        ptr += pos.0;
+
+        let roll_ptr = util::u56_val(&buf, ptr);
+        ptr += 7;
+
+        // let trx_id = util::u64_compressed(ptr, buf.clone());
+        // ptr += trx_id.0;
+
+        Self {
+            mode_flags: Self::parse_mode_flags(b0),
+            mode_flags_byte: b0,
+            trx_id_pos: pos.1,
+            roll_ptr: RollPtr::new(roll_ptr),
+            trx_id: 0,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+
+    /// do no undo logging
+    const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
+
+    /// do no record lock checking
+    const BTR_NO_LOCKING_FLAG: u8 = 2;
+
+    /// sys fields will be found in the update vector or inserted entry
+    const BTR_KEEP_SYS_FLAG: u8 = 4;
+
+    /// btr_cur_pessimistic_update() must keep cursor position when moving
+    /// columns to big_rec
+    const BTR_KEEP_POS_FLAG: u8 = 8;
+
+    /// the caller is creating the index or wants to bypass the
+    /// index->info.online creation log
+    const BTR_CREATE_FLAG: u8 = 16;
+
+    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
+    /// will take care of updating IBUF_BITMAP_FREE
+    const BTR_KEEP_IBUF_BITMAP: u8 = 32;
+
+    /// parse mode flags
+    pub fn parse_mode_flags(b: u8) -> Vec<BtrModeFlags> {
+        let mut flags = vec![];
+        if (b & Self::BTR_NO_UNDO_LOG_FLAG) > 0 {
+            flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
+        }
+        if (b & Self::BTR_NO_LOCKING_FLAG) > 0 {
+            flags.push(BtrModeFlags::NO_LOCKING_FLAG);
+        }
+        if (b & Self::BTR_KEEP_SYS_FLAG) > 0 {
+            flags.push(BtrModeFlags::KEEP_SYS_FLAG);
+        }
+        if (b & Self::BTR_KEEP_POS_FLAG) > 0 {
+            flags.push(BtrModeFlags::KEEP_POS_FLAG);
+        }
+        if (b & Self::BTR_CREATE_FLAG) > 0 {
+            flags.push(BtrModeFlags::CREATE_FLAG);
+        }
+        if (b & Self::BTR_KEEP_IBUF_BITMAP) > 0 {
+            flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
+        }
+        flags
     }
 }

@@ -353,10 +353,9 @@ impl DatafileFactory {
                                     ColumnTypes::VARCHAR
                                     | ColumnTypes::VAR_STRING
                                     | ColumnTypes::STRING => {
-                                        let barr = b.to_vec();
-                                        let text = std::str::from_utf8(&barr)
+                                        let text = String::from_utf8(b.to_vec())
                                             .unwrap_or_else(|_| panic!("字符串格式错误: {:?}", &d));
-                                        DataValue::Str(text.into())
+                                        DataValue::Str(text)
                                     }
                                     ColumnTypes::ENUM => DataValue::Enum(unpack_enum_val(b)),
                                     _ => {

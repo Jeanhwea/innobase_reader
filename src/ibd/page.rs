@@ -77,11 +77,15 @@ pub const DICT_SPACE_ID: u32 = 0xFFFFFFFE;
 pub const INNODB_TEMP_SPACE_ID: u32 = 0xFFFFFFFD;
 pub const TEMP_SPACE_ID_MAX: u32 = UNDO_SPACE_ID_MIN - 1;
 pub const TEMP_SPACE_ID_MIN: u32 = UNDO_SPACE_ID_MIN - 400000;
+pub const TRX_SYS_SPACE_ID: u32 = 0;
 
 /// Tablespace ID
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum SpaceId {
+    /// TRX_SYS_SPACE, Space id of the transaction system page (the system tablespace),
+    SystemSpace,
+
     /// s_log_space_id, The first ID of the redo log pseudo-tablespace
     RedoSpace,
 
@@ -116,6 +120,7 @@ pub enum SpaceId {
 impl From<u32> for SpaceId {
     fn from(value: u32) -> SpaceId {
         match value {
+            TRX_SYS_SPACE_ID => Self::SystemSpace,
             INVALID_SPACE_ID => Self::Invalid,
             1 => Self::DdDictSpace,
             2 => Self::DdSysSpace,
@@ -1572,16 +1577,16 @@ pub struct LogInfo {
     pub log_offset: u64,
 
     /// (100 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
+    #[derivative(Debug(format_with = "util::fmt_str"))]
     pub log_name: String,
 }
 
 impl LogInfo {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let name = buf.clone().slice(addr + 12..addr + 112);
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
-            log_name: String::from_utf8(name.to_vec()).unwrap_or("".to_string()),
+            log_name: util::str_val(&buf, addr + 12, 100),
             buf: buf.clone(),
             addr,
         }
@@ -1606,19 +1611,19 @@ pub struct DoubleWriteBufferInfo {
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub a_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub a_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub a_blk2_page_no: PageNumber,
 
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub b_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub b_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub b_blk2_page_no: PageNumber,
 
     /// (4 bytes) magic number
