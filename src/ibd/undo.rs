@@ -259,6 +259,7 @@ pub struct RollPtr {
     pub value: u64,
 
     /// (1 bit) insert flag
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
     pub insert: bool,
 
     /// (7 bits) rollback segment id

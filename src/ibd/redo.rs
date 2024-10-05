@@ -302,6 +302,7 @@ impl LogRecord {
         );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
+        info!("{:?}", &hdr);
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
@@ -764,11 +765,11 @@ impl RedoRecForRecordUpdateInPlace {
         ptr += pos.0;
 
         let roll_ptr = util::u56_val(&buf, ptr);
-        info!("roll_ptr={:#x}", roll_ptr);
+        info!("{:?}", RollPtr::new(roll_ptr));
         ptr += DATA_ROLL_PTR_LEN;
 
         info!(
-            "RedoRecForRecordUpdateInPlace::new() addr={}, peek={:?}",
+            ">>>>>>>>>> addr={}, peek={:?}",
             ptr,
             buf.slice(ptr..ptr + 16).to_vec()
         );
