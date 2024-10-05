@@ -7,7 +7,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, UndoPageHeader, UndoPageTypes, PAGE_SIZE};
+use super::page::{FlstNode, PageNumber, UndoPageHeader, UndoPageTypes, PAGE_SIZE};
 use crate::{ibd::dict, util};
 
 /// XID data size
@@ -265,7 +265,8 @@ pub struct RollPtr {
     pub rseg_id: u8,
 
     /// (4 bytes) page number
-    pub page_no: usize,
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
+    pub page_no: PageNumber,
 
     /// (2 bytes) page offset
     pub boffset: u16,
@@ -277,7 +278,7 @@ impl RollPtr {
             value,
             insert: ((value >> 55) & 0x1) > 0,
             rseg_id: ((value >> 48) & 0x7f) as u8,
-            page_no: ((value >> 16) & 0xffffffff) as usize,
+            page_no: (((value >> 16) & 0xffffffff) as u32).into(),
             boffset: (value & 0xffff) as u16,
         }
     }

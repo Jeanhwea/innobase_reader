@@ -8,7 +8,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
-use crate::util;
+use crate::{ibd::undo::RollPtr, util};
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
@@ -687,7 +687,8 @@ impl RedoRecForFileDelete {
     }
 }
 
-/// log record payload for update record in-place, see btr_cur_parse_update_in_place(...)
+/// log record payload for update record in-place, see
+/// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RedoRecForRecordUpdateInPlace {
@@ -698,13 +699,123 @@ pub struct RedoRecForRecordUpdateInPlace {
     /// block data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub mode_flags: Vec<BtrModeFlags>,
+
+    #[derivative(Debug = "ignore")]
+    pub mode_flags_byte: u8,
+
+    /// (1-5 bytes) TRX_ID position in record
+    pub trx_id_pos: u32,
+
+    /// (7 bytes) rollback pointer
+    pub roll_ptr: RollPtr,
+
+    /// (5-9 bytes) transaction ID
+    pub trx_id: u64,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum BtrModeFlags {
+    /// do no undo logging
+    NO_UNDO_LOG_FLAG,
+
+    /// do no record lock checking
+    NO_LOCKING_FLAG,
+
+    /// sys fields will be found in the update vector or inserted entry
+    KEEP_SYS_FLAG,
+
+    /// btr_cur_pessimistic_update() must keep cursor position when moving
+    /// columns to big_rec
+    KEEP_POS_FLAG,
+
+    /// the caller is creating the index or wants to bypass the
+    /// index->info.online creation log
+    CREATE_FLAG,
+
+    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
+    /// will take care of updating IBUF_BITMAP_FREE
+    KEEP_IBUF_BITMAP,
 }
 
 impl RedoRecForRecordUpdateInPlace {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let b0 = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let pos = util::u32_compressed(ptr, buf.clone());
+        ptr += pos.0;
+
+        let roll_ptr = util::u56_val_2(&buf, ptr);
+        ptr += 7;
+
+        // let trx_id = util::u64_compressed(ptr, buf.clone());
+        // ptr += trx_id.0;
+
         Self {
+            mode_flags: Self::parse_mode_flags(b0),
+            mode_flags_byte: b0,
+            trx_id_pos: pos.1,
+            roll_ptr: RollPtr::new(roll_ptr),
+            trx_id: 0,
+            total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
+    }
+
+    /// do no undo logging
+    const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
+
+    /// do no record lock checking
+    const BTR_NO_LOCKING_FLAG: u8 = 2;
+
+    /// sys fields will be found in the update vector or inserted entry
+    const BTR_KEEP_SYS_FLAG: u8 = 4;
+
+    /// btr_cur_pessimistic_update() must keep cursor position when moving
+    /// columns to big_rec
+    const BTR_KEEP_POS_FLAG: u8 = 8;
+
+    /// the caller is creating the index or wants to bypass the
+    /// index->info.online creation log
+    const BTR_CREATE_FLAG: u8 = 16;
+
+    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
+    /// will take care of updating IBUF_BITMAP_FREE
+    const BTR_KEEP_IBUF_BITMAP: u8 = 3;
+
+    /// parse mode flags
+    pub fn parse_mode_flags(b: u8) -> Vec<BtrModeFlags> {
+        let mut flags = vec![];
+        if (b & Self::BTR_NO_UNDO_LOG_FLAG) > 0 {
+            flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
+        }
+        if (b & Self::BTR_NO_LOCKING_FLAG) > 0 {
+            flags.push(BtrModeFlags::NO_LOCKING_FLAG);
+        }
+        if (b & Self::BTR_KEEP_SYS_FLAG) > 0 {
+            flags.push(BtrModeFlags::KEEP_SYS_FLAG);
+        }
+        if (b & Self::BTR_KEEP_POS_FLAG) > 0 {
+            flags.push(BtrModeFlags::KEEP_POS_FLAG);
+        }
+        if (b & Self::BTR_CREATE_FLAG) > 0 {
+            flags.push(BtrModeFlags::CREATE_FLAG);
+        }
+        if (b & Self::BTR_KEEP_IBUF_BITMAP) > 0 {
+            flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
+        }
+        flags
     }
 }
