@@ -312,6 +312,9 @@ impl LogRecord {
                 buf.clone(),
                 &hdr,
             )),
+            LogRecordTypes::MLOG_FILE_DELETE => RedoRecordPayloads::DeleteFile(
+                RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
             _ => RedoRecordPayloads::Nothing,
         };
 
@@ -608,6 +611,7 @@ impl LogRecordHeader {
 #[derivative(Debug)]
 pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
+    DeleteFile(RedoRecForFileDelete),
     Nothing,
 }
 
@@ -637,12 +641,34 @@ impl RedoRecForNByte {
             LogRecordTypes::MLOG_1BYTE => util::u8_val(&buf, addr + 2).into(),
             LogRecordTypes::MLOG_2BYTES => util::u16_val(&buf, addr + 2).into(),
             LogRecordTypes::MLOG_4BYTES => util::u32_val(&buf, addr + 2).into(),
-            LogRecordTypes::MLOG_8BYTES => util::u64_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_8BYTES => util::u64_val(&buf, addr + 2),
             _ => panic!("未知的 MLOG_nBYTES 类型"),
         };
         Self {
             page_offset: offset,
             value,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for file delete, see fil_tablespace_redo_delete(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForFileDelete {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+}
+
+impl RedoRecForFileDelete {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        Self {
             buf: buf.clone(),
             addr,
         }

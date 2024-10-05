@@ -77,11 +77,15 @@ pub const DICT_SPACE_ID: u32 = 0xFFFFFFFE;
 pub const INNODB_TEMP_SPACE_ID: u32 = 0xFFFFFFFD;
 pub const TEMP_SPACE_ID_MAX: u32 = UNDO_SPACE_ID_MIN - 1;
 pub const TEMP_SPACE_ID_MIN: u32 = UNDO_SPACE_ID_MIN - 400000;
+pub const TRX_SYS_SPACE_ID: u32 = 0;
 
 /// Tablespace ID
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum SpaceId {
+    /// TRX_SYS_SPACE, Space id of the transaction system page (the system tablespace),
+    SystemSpace,
+
     /// s_log_space_id, The first ID of the redo log pseudo-tablespace
     RedoSpace,
 
@@ -116,6 +120,7 @@ pub enum SpaceId {
 impl From<u32> for SpaceId {
     fn from(value: u32) -> SpaceId {
         match value {
+            TRX_SYS_SPACE_ID => Self::SystemSpace,
             INVALID_SPACE_ID => Self::Invalid,
             1 => Self::DdDictSpace,
             2 => Self::DdSysSpace,
