@@ -756,7 +756,7 @@ impl RedoRecForRecordUpdateInPlace {
         let pos = util::u32_compressed(ptr, buf.clone());
         ptr += pos.0;
 
-        let roll_ptr = util::u56_val_2(&buf, ptr);
+        let roll_ptr = util::u56_val(&buf, ptr);
         ptr += 7;
 
         // let trx_id = util::u64_compressed(ptr, buf.clone());
