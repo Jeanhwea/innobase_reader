@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, PAGE_SIZE};
+use super::page::{FlstNode, UndoPageHeader, UndoPageTypes, PAGE_SIZE};
 use crate::{ibd::dict, util};
 
 /// XID data size
@@ -33,7 +34,7 @@ pub struct UndoLog {
 }
 
 impl UndoLog {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, page_hdr: &UndoPageHeader) -> Self {
         let log_hdr = UndoLogHeader::new(addr, buf.clone());
 
         let mut rec_addr = log_hdr.log_start as usize;
@@ -43,7 +44,7 @@ impl UndoLog {
                 break;
             }
 
-            let rec = UndoRecord::new(rec_addr, buf.clone());
+            let rec = UndoRecord::new(rec_addr, buf.clone(), page_hdr);
             rec_addr = rec.undo_rec_hdr.next_addr();
             let type_info = rec.undo_rec_hdr.type_info.clone();
             rec_list.push(rec);
@@ -302,18 +303,21 @@ pub struct UndoRecord {
 }
 
 impl UndoRecord {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, page_hdr: &UndoPageHeader) -> Self {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
+        info!("hdr = {:?}", &hdr);
 
         let payload = match hdr.type_info {
             UndoTypes::ZERO_VAL => UndoRecordPayloads::Nothing,
-            UndoTypes::INSERT_REC => {
-                UndoRecordPayloads::Insert(UndoRecForInsert::new(addr + 3, buf.clone()))
-            }
-            UndoTypes::UPD_EXIST_REC | UndoTypes::UPD_DEL_REC | UndoTypes::DEL_MARK_REC => {
-                UndoRecordPayloads::Update(UndoRecForUpdate::new(addr + 3, buf.clone()))
-            }
-            _ => todo!("未实现的 UndoRecord 类型: {:?}", hdr.type_info),
+            _ => match page_hdr.page_type {
+                UndoPageTypes::TRX_UNDO_INSERT => {
+                    UndoRecordPayloads::Insert(UndoRecForInsert::new(addr + 3, buf.clone()))
+                }
+                UndoPageTypes::TRX_UNDO_UPDATE => {
+                    UndoRecordPayloads::Update(UndoRecForUpdate::new(addr + 3, buf.clone()))
+                }
+                UndoPageTypes::UNDEF => UndoRecordPayloads::Nothing,
+            },
         };
 
         Self {
@@ -501,6 +505,7 @@ pub enum UndoRecordPayloads {
     Nothing,
 }
 
+/// see trx_undo_page_report_insert(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecForInsert {
@@ -551,6 +556,7 @@ impl UndoRecForInsert {
     }
 }
 
+/// see trx_undo_page_report_modify(..)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecForUpdate {
@@ -678,16 +684,15 @@ impl UndoRecKeyField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = util::u32_compressed(ptr, buf.clone());
-        let length = v01.1 as usize;
-        ptr += v01.0;
+        let length = util::u32_compressed(ptr, buf.clone());
+        ptr += length.0;
 
-        let content = buf.slice(ptr..ptr + length);
-        ptr += length;
+        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        ptr += length.1 as usize;
 
         Self {
             sequence: seq,
-            length,
+            length: length.1 as usize,
             content,
             total_bytes: ptr - addr,
             buf: buf.clone(),
@@ -728,21 +733,19 @@ impl UndoRecUpdatedField {
     pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
         let mut ptr = addr;
 
-        let v01 = util::u32_compressed(ptr, buf.clone());
-        let field_num = v01.1;
-        ptr += v01.0;
+        let field_no = util::u32_compressed(ptr, buf.clone());
+        ptr += field_no.0;
 
-        let v02 = util::u32_compressed(ptr, buf.clone());
-        let length = v02.1 as usize;
-        ptr += v02.0;
+        let length = util::u32_compressed(ptr, buf.clone());
+        ptr += length.0;
 
-        let content = buf.slice(ptr..ptr + length);
-        ptr += length;
+        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        ptr += length.1 as usize;
 
         Self {
             sequence: seq,
-            field_number: field_num,
-            length,
+            field_number: field_no.1,
+            length: length.1 as usize,
             content,
             total_bytes: ptr - addr,
             buf: buf.clone(),
