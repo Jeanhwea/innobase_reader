@@ -1611,19 +1611,19 @@ pub struct DoubleWriteBufferInfo {
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub a_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub a_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub a_blk2_page_no: PageNumber,
 
     /// (4 bytes) TRX_SYS_MYSQL_LOG_MAGIC_N_FLD
     pub b_magic_number: u32,
     /// (4 bytes) Block 1 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub b_blk1_page_no: PageNumber,
     /// (4 bytes) Block 2 start page number
-    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    #[derivative(Debug(format_with = "util::fmt_enum_3"))]
     pub b_blk2_page_no: PageNumber,
 
     /// (4 bytes) magic number

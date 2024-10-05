@@ -268,7 +268,7 @@ pub fn str_val(buf: &[u8], addr: usize, len: usize) -> String {
         .take_while(|i| buf[*i] != 0)
         .map(|i| buf[i])
         .collect();
-    String::from_utf8(bytes).unwrap_or("".to_string())
+    String::from_utf8(bytes).unwrap_or("???".to_string())
 }
 
 // https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
