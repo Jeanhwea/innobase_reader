@@ -288,12 +288,16 @@ pub struct LogRecord {
 
     /// log record header
     pub log_rec_hdr: LogRecordHeader,
+
+    /// log record payload
+    pub redo_rec_data: RedoRecordPayloads,
 }
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         Self {
             log_rec_hdr: LogRecordHeader::new(addr, buf.clone()),
+            redo_rec_data: RedoRecordPayloads::Nothing,
             buf: buf.clone(),
             addr,
         }
@@ -567,4 +571,11 @@ impl LogRecordHeader {
             addr,
         }
     }
+}
+
+/// redo record payload
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub enum RedoRecordPayloads {
+    Nothing,
 }
