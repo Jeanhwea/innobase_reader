@@ -311,6 +311,9 @@ impl LogRecord {
             LogRecordTypes::MLOG_FILE_DELETE => RedoRecordPayloads::DeleteFile(
                 RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
+                RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
             _ => RedoRecordPayloads::Nothing,
         };
 
@@ -609,6 +612,7 @@ impl LogRecordHeader {
 pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
     DeleteFile(RedoRecForFileDelete),
+    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     Nothing,
 }
 
@@ -677,6 +681,28 @@ impl RedoRecForFileDelete {
         Self {
             length: len,
             file_name: util::str_val(&buf, addr + 2, len as usize),
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for update record in-place, see btr_cur_parse_update_in_place(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordUpdateInPlace {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+}
+
+impl RedoRecForRecordUpdateInPlace {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        Self {
             buf: buf.clone(),
             addr,
         }
