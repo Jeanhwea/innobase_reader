@@ -910,9 +910,10 @@ pub enum BtrModeFlags {
 
 impl RedoRecForRecordUpdateInPlace {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        let index = RedoLogIndexInfo::new(addr, buf.clone());
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
 
-        let mut ptr = addr + index.total_bytes;
         let b0 = util::u8_val(&buf, ptr);
         ptr += 1;
 
