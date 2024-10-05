@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, UndoPageTypes, PAGE_SIZE};
-use crate::util;
+use super::page::{FlstNode, PAGE_SIZE};
+use crate::{ibd::dict, util};
 
 /// XID data size
 pub const XIDDATASIZE: usize = 128;
@@ -34,7 +33,7 @@ pub struct UndoLog {
 }
 
 impl UndoLog {
-    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let log_hdr = UndoLogHeader::new(addr, buf.clone());
 
         let mut rec_addr = log_hdr.log_start as usize;
@@ -44,7 +43,7 @@ impl UndoLog {
                 break;
             }
 
-            let rec = UndoRecord::new(rec_addr, buf.clone(), upt.clone());
+            let rec = UndoRecord::new(rec_addr, buf.clone());
             rec_addr = rec.undo_rec_hdr.next_addr();
             let type_info = rec.undo_rec_hdr.type_info.clone();
             rec_list.push(rec);
@@ -299,22 +298,27 @@ pub struct UndoRecord {
     pub undo_rec_hdr: UndoRecordHeader,
 
     /// undo record payload
-    pub undo_rec_body: Option<UndoRecordPayload>,
+    pub undo_rec_data: UndoRecordPayloads,
 }
 
 impl UndoRecord {
-    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
 
-        let payload = if !matches!(hdr.type_info, UndoTypes::ZERO_VAL) {
-            Some(UndoRecordPayload::new(addr + 3, buf.clone(), upt, &hdr))
-        } else {
-            None
+        let payload = match hdr.type_info {
+            UndoTypes::ZERO_VAL => UndoRecordPayloads::Nothing,
+            UndoTypes::INSERT_REC => {
+                UndoRecordPayloads::Insert(UndoRecForInsert::new(addr + 3, buf.clone()))
+            }
+            UndoTypes::UPD_EXIST_REC | UndoTypes::UPD_DEL_REC | UndoTypes::DEL_MARK_REC => {
+                UndoRecordPayloads::Update(UndoRecForUpdate::new(addr + 3, buf.clone()))
+            }
+            _ => todo!("未实现的 UndoRecord 类型: {:?}", hdr.type_info),
         };
 
         Self {
             undo_rec_hdr: hdr,
-            undo_rec_body: payload,
+            undo_rec_data: payload,
             buf: buf.clone(),
             addr,
         }
@@ -491,7 +495,65 @@ pub enum UndoExtraFlags {
 /// undo record payload
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct UndoRecordPayload {
+pub enum UndoRecordPayloads {
+    Insert(UndoRecForInsert),
+    Update(UndoRecForUpdate),
+    Nothing,
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecForInsert {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (1..11 bytes) undo number, in much compressed form
+    pub undo_no: u64,
+
+    /// (1..11 bytes) table id, in much compressed form
+    pub table_id: u64,
+
+    /// key fields
+    pub key_fields: Vec<UndoRecKeyField>,
+}
+
+impl UndoRecForInsert {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut ptr = addr;
+
+        let undo_no = util::u64_much_compressed(ptr, buf.clone());
+        ptr += undo_no.0;
+
+        let table_id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += table_id.0;
+
+        // key fields
+        let mut key_fields = vec![];
+        let n_unique_key = dict::get_n_unique_key(table_id.1);
+        for i in 0..n_unique_key {
+            let key = UndoRecKeyField::new(ptr, buf.clone(), i);
+            ptr += key.total_bytes;
+            key_fields.push(key);
+        }
+
+        Self {
+            undo_no: undo_no.1,
+            table_id: table_id.1,
+            key_fields,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct UndoRecForUpdate {
     /// page address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -528,96 +590,58 @@ pub struct UndoRecordPayload {
     pub upd_fields: Vec<UndoRecUpdatedField>,
 }
 
-impl UndoRecordPayload {
-    pub fn new(addr: usize, buf: Arc<Bytes>, upt: UndoPageTypes, hdr: &UndoRecordHeader) -> Self {
-        info!("{:?}", hdr);
+impl UndoRecForUpdate {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
         let mut ptr = addr;
 
-        // common fields
-        let undo_no;
-        let table_id;
+        // info!("peek={:?}", buf.slice(ptr..ptr + 20).to_vec());
+        let new1byte = util::u8_val(&buf, ptr);
+        ptr += 1;
 
-        // only for update record type
-        let mut new1byte = 0;
-        let mut info_bits = 0;
-        let mut trx_id = 0;
-        let mut roll = 0;
+        let undo_no = util::u64_much_compressed(ptr, buf.clone());
+        ptr += undo_no.0;
 
-        match hdr.type_info {
-            UndoTypes::INSERT_REC => {
-                let v01 = util::u64_much_compressed(ptr, buf.clone());
-                ptr += v01.0;
-                undo_no = v01.1;
+        let table_id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += table_id.0;
 
-                let v02 = util::u64_much_compressed(ptr, buf.clone());
-                ptr += v02.0;
-                table_id = v02.1;
-            }
-            UndoTypes::UPD_EXIST_REC | UndoTypes::DEL_MARK_REC | UndoTypes::UPD_DEL_REC => {
-                info!("peek={:?}", buf.slice(ptr..ptr + 20).to_vec());
-                new1byte = util::u8_val(&buf, ptr);
-                ptr += 1;
+        let info_bits = util::u8_val(&buf, ptr);
+        ptr += 1;
 
-                let v01 = util::u64_much_compressed(ptr, buf.clone());
-                info!("v01={:?}", &v01);
-                ptr += v01.0;
-                undo_no = v01.1;
+        let trx_id = util::u64_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
 
-                let v02 = util::u64_much_compressed(ptr, buf.clone());
-                info!("v02={:?}", &v02);
-                ptr += v02.0;
-                table_id = v02.1;
-
-                info_bits = util::u8_val(&buf, ptr);
-                ptr += 1;
-
-                let v03 = util::u64_compressed(ptr, buf.clone());
-                info!("v03={:?}", &v03);
-                ptr += v03.0;
-                trx_id = v03.1;
-
-                let v04 = util::u64_compressed(ptr, buf.clone());
-                info!("v04={:?}", &v04);
-                ptr += v04.0;
-                roll = v04.1;
-            }
-            _ => todo!("未识别的 UndoRecord.type_info = {:?}", hdr.type_info),
-        }
+        let roll_ptr = util::u64_compressed(ptr, buf.clone());
+        ptr += roll_ptr.0;
 
         // key fields
         let mut key_fields = vec![];
-        // TODO: get the number of unique keys
-        let n_unique_key = 1;
+        let n_unique_key = dict::get_n_unique_key(table_id.1);
         for i in 0..n_unique_key {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
             key_fields.push(key);
         }
 
-        let mut upd_count = 0;
+        let upd_count = util::u32_compressed(ptr, buf.clone());
+        ptr += upd_count.0;
+
+        // updated fields
         let mut upd_fields = vec![];
-        if !matches!(upt, UndoPageTypes::TRX_UNDO_INSERT) {
-            // update count
-            let upd = util::u32_compressed(ptr, buf.clone());
-            ptr += upd.0;
-            upd_count = upd.1;
-            // updated fields
-            for i in 0..(upd.1 as usize) {
-                let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
-                ptr += fld.total_bytes;
-                upd_fields.push(fld);
-            }
+        for i in 0..(upd_count.1 as usize) {
+            let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
+            ptr += fld.total_bytes;
+            upd_fields.push(fld);
         }
 
         Self {
             new1byte,
-            undo_no,
-            table_id,
+            undo_no: undo_no.1,
+            table_id: table_id.1,
             info_bits,
-            trx_id,
-            roll_ptr: RollPtr::new(roll),
+            trx_id: trx_id.1,
+            roll_ptr: RollPtr::new(roll_ptr.1),
             key_fields,
-            upd_count,
+            upd_count: upd_count.1,
             upd_fields,
             buf: buf.clone(),
             addr,
