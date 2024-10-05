@@ -723,47 +723,76 @@ pub struct RedoLogIndexInfo {
     /// see index_flags
     pub index_flags_byte: u8,
 
+    /// (2 bytes) number of index fields
+    pub n: u16,
+    /// (2 bytes) n_uniq for index
+    pub n_uniq: u16,
+    /// (2 bytes) number of column before first instant add was done.
+    pub inst_cols: u16,
+
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
 impl RedoLogIndexInfo {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let mut ptr = addr;
-        let version = util::u8_val(&buf, ptr);
-        ptr += 1;
-
-        let flag = util::u8_val(&buf, ptr);
-        ptr += 1;
-
-        Self {
-            index_log_version: version,
-            index_flags: Self::parse_index_flags(flag),
-            index_flags_byte: flag,
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-
     const COMPACT_FLAG: u8 = 0x01;
     const VERSION_FLAG: u8 = 0x02;
     const INSTANT_FLAG: u8 = 0x04;
 
-    /// parse index flags
-    pub fn parse_index_flags(b: u8) -> Vec<IndexInfoFlags> {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut ptr = addr;
+
+        // parse index log version
+        let version = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        // parse index flags
+        let b = util::u8_val(&buf, ptr);
+        ptr += 1;
+        let is_compact = (b & Self::COMPACT_FLAG) > 0;
+        let is_version = (b & Self::VERSION_FLAG) > 0;
+        let is_instant = (b & Self::INSTANT_FLAG) > 0;
         let mut flags = vec![];
-        if (b & Self::COMPACT_FLAG) > 0 {
+        if is_compact {
             flags.push(IndexInfoFlags::COMPACT);
         }
-        if (b & Self::VERSION_FLAG) > 0 {
+        if is_version {
             flags.push(IndexInfoFlags::VERSION);
         }
-        if (b & Self::INSTANT_FLAG) > 0 {
+        if is_instant {
             flags.push(IndexInfoFlags::INSTANT);
         }
-        flags
+
+        // parse n, n_uniq, inst_cols
+        let mut n = 1;
+        let mut n_uniq = 1;
+        let mut inst_cols = 0;
+        if is_version || is_compact {
+            n = util::u16_val(&buf, ptr);
+            ptr += 2;
+            if is_compact {
+                if is_instant {
+                    inst_cols = util::u16_val(&buf, ptr);
+                    ptr += 2;
+                }
+                n_uniq = util::u16_val(&buf, ptr);
+                ptr += 2;
+                assert!(n_uniq <= n);
+            }
+        }
+
+        Self {
+            index_log_version: version,
+            index_flags: flags,
+            index_flags_byte: b,
+            n,
+            n_uniq,
+            inst_cols,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
     }
 }
 
