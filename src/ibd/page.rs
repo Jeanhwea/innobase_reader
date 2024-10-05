@@ -1833,7 +1833,7 @@ impl BasePageBody for UndoLogPageBody {
                 Some(UndoLog::new(
                     seg_hdr.undo_last_log as usize,
                     buf.clone(),
-                    page_hdr.page_type.clone(),
+                    &page_hdr,
                 ))
             } else {
                 None
