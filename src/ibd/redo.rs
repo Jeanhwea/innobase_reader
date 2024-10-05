@@ -559,6 +559,7 @@ pub struct LogRecordHeader {
     pub page_no: PageNumber,
 
     /// total bytes
+    #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 

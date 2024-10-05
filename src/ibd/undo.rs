@@ -677,6 +677,7 @@ pub struct UndoRecKeyField {
     pub content: Bytes,
 
     /// total bytes
+    #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
@@ -726,6 +727,7 @@ pub struct UndoRecUpdatedField {
     pub content: Bytes,
 
     /// total bytes
+    #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
