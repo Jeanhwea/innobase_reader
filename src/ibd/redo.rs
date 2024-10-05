@@ -9,7 +9,10 @@ use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
 use crate::{
-    ibd::{record::DATA_ROLL_PTR_LEN, undo::RollPtr},
+    ibd::{
+        record::{DATA_ROLL_PTR_LEN, DATA_TRX_ID_LEN},
+        undo::RollPtr,
+    },
     util,
 };
 
@@ -274,7 +277,7 @@ impl LogBlock {
     }
 }
 
-/// log record
+/// log record, see recv_parse_log_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogRecord {
@@ -691,6 +694,40 @@ impl RedoRecForFileDelete {
     }
 }
 
+/// redo log index info, see mlog_parse_index(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoLogIndexInfo {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (1 byte) index log version
+    pub index_log_version: u8,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoLogIndexInfo {
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut ptr = addr;
+        let version = util::u8_val(&buf, ptr);
+        ptr += 1;
+        Self {
+            index_log_version: version,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// log record payload for update record in-place, see
 /// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
@@ -703,6 +740,9 @@ pub struct RedoRecForRecordUpdateInPlace {
     /// block data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
 
     /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
@@ -756,23 +796,18 @@ pub enum BtrModeFlags {
 
 impl RedoRecForRecordUpdateInPlace {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(addr, buf.clone());
+
+        let mut ptr = addr + index.total_bytes;
         let b0 = util::u8_val(&buf, ptr);
         ptr += 1;
 
         let pos = util::u32_compressed(ptr, buf.clone());
-        info!("pos={:?}", pos);
         ptr += pos.0;
 
         let roll_ptr = util::u56_val(&buf, ptr);
-        info!("{:?}", RollPtr::new(roll_ptr));
         ptr += DATA_ROLL_PTR_LEN;
 
-        info!(
-            ">>>>>>>>>> addr={}, peek={:?}",
-            ptr,
-            buf.slice(ptr..ptr + 16).to_vec()
-        );
         let trx_id = util::u64_compressed(ptr, buf.clone());
         ptr += trx_id.0;
 
@@ -780,11 +815,12 @@ impl RedoRecForRecordUpdateInPlace {
         ptr += 2;
 
         Self {
+            index_info: index,
             mode_flags: Self::parse_mode_flags(b0),
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
-            trx_id: trx_id.1,
+            trx_id: trx_id,
             rec_offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
