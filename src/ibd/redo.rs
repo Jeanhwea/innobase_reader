@@ -8,7 +8,10 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
-use crate::{ibd::undo::RollPtr, util};
+use crate::{
+    ibd::{record::DATA_ROLL_PTR_LEN, undo::RollPtr},
+    util,
+};
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
@@ -716,6 +719,9 @@ pub struct RedoRecForRecordUpdateInPlace {
     /// (5-9 bytes) transaction ID
     pub trx_id: u64,
 
+    /// (2 bytes) rec_offset
+    pub rec_offset: u16,
+
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
@@ -754,20 +760,31 @@ impl RedoRecForRecordUpdateInPlace {
         ptr += 1;
 
         let pos = util::u32_compressed(ptr, buf.clone());
+        info!("pos={:?}", pos);
         ptr += pos.0;
 
         let roll_ptr = util::u56_val(&buf, ptr);
-        ptr += 7;
+        info!("roll_ptr={:#x}", roll_ptr);
+        ptr += DATA_ROLL_PTR_LEN;
 
-        // let trx_id = util::u64_compressed(ptr, buf.clone());
-        // ptr += trx_id.0;
+        info!(
+            "RedoRecForRecordUpdateInPlace::new() addr={}, peek={:?}",
+            ptr,
+            buf.slice(ptr..ptr + 16).to_vec()
+        );
+        let trx_id = util::u64_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
 
         Self {
             mode_flags: Self::parse_mode_flags(b0),
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
-            trx_id: 0,
+            trx_id: trx_id.1,
+            rec_offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
