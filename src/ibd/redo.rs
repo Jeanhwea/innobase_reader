@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
+use log::info;
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -234,7 +235,7 @@ pub struct LogBlock {
     /// OS_FILE_LOG_BLOCK_SIZE, and then divided by the LOG_BLOCK_MAX_NO.
     pub epoch_no: u32,
 
-    /// log record
+    /// redo log record
     pub log_record: Option<LogRecord>,
 
     /// (4 bytes) last checksum
@@ -295,9 +296,26 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let hdr = LogRecordHeader::new(addr, buf.clone());
+        info!(
+            "LogRecord: addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let payload = match hdr.log_rec_type {
+            LogRecordTypes::MLOG_1BYTE
+            | LogRecordTypes::MLOG_2BYTES
+            | LogRecordTypes::MLOG_4BYTES
+            | LogRecordTypes::MLOG_8BYTES => RedoRecordPayloads::NByte(RedoRecForNByte::new(
+                addr + hdr.total_bytes,
+                buf.clone(),
+                &hdr,
+            )),
+            _ => RedoRecordPayloads::Nothing,
+        };
         Self {
-            log_rec_hdr: LogRecordHeader::new(addr, buf.clone()),
-            redo_rec_data: RedoRecordPayloads::Nothing,
+            log_rec_hdr: hdr,
+            redo_rec_data: payload,
             buf: buf.clone(),
             addr,
         }
@@ -583,9 +601,48 @@ impl LogRecordHeader {
     }
 }
 
-/// redo record payload
+/// redo record payload, see recv_parse_or_apply_log_rec_body(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum RedoRecordPayloads {
+    NByte(RedoRecForNByte),
     Nothing,
+}
+
+/// log record payload for nByte, see mlog_parse_nbytes(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForNByte {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) page offset
+    pub page_offset: u16,
+
+    /// (1..4 bytes) value
+    pub value: u64,
+}
+
+impl RedoRecForNByte {
+    pub fn new(addr: usize, buf: Arc<Bytes>, hdr: &LogRecordHeader) -> Self {
+        let offset = util::u16_val(&buf, addr);
+        let value = match hdr.log_rec_type {
+            LogRecordTypes::MLOG_1BYTE => util::u8_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_2BYTES => util::u16_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_4BYTES => util::u32_val(&buf, addr + 2).into(),
+            LogRecordTypes::MLOG_8BYTES => util::u64_val(&buf, addr + 2).into(),
+            _ => panic!("未知的 MLOG_nBYTES 类型"),
+        };
+        Self {
+            page_offset: offset,
+            value,
+            buf: buf.clone(),
+            addr,
+        }
+    }
 }
