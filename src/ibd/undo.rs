@@ -259,6 +259,7 @@ pub struct RollPtr {
     pub value: u64,
 
     /// (1 bit) insert flag
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
     pub insert: bool,
 
     /// (7 bits) rollback segment id
@@ -591,7 +592,7 @@ pub struct UndoRecForUpdate {
     pub key_fields: Vec<UndoRecKeyField>,
 
     /// (1-5 bytes) updated field count
-    pub upd_count: u32,
+    pub n_fields: u32,
 
     /// updated fields
     pub upd_fields: Vec<UndoRecUpdatedField>,
@@ -629,12 +630,12 @@ impl UndoRecForUpdate {
             key_fields.push(key);
         }
 
-        let upd_count = util::u32_compressed(ptr, buf.clone());
-        ptr += upd_count.0;
+        let n_updated = util::u32_compressed(ptr, buf.clone());
+        ptr += n_updated.0;
 
         // updated fields
         let mut upd_fields = vec![];
-        for i in 0..(upd_count.1 as usize) {
+        for i in 0..(n_updated.1 as usize) {
             let fld = UndoRecUpdatedField::new(ptr, buf.clone(), i);
             ptr += fld.total_bytes;
             upd_fields.push(fld);
@@ -648,7 +649,7 @@ impl UndoRecForUpdate {
             trx_id: trx_id.1,
             roll_ptr: RollPtr::new(roll_ptr.1),
             key_fields,
-            upd_count: upd_count.1,
+            n_fields: n_updated.1,
             upd_fields,
             buf: buf.clone(),
             addr,

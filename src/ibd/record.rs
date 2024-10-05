@@ -27,6 +27,11 @@ use crate::{
 pub const REC_N_FIELDS_ONE_BYTE_MAX: u8 = 0x7f;
 pub const REC_NODE_PTR_SIZE: usize = 4;
 
+// system record constants, see data0type.h
+pub const DATA_ROW_ID_LEN: usize = 6;
+pub const DATA_TRX_ID_LEN: usize = 6;
+pub const DATA_ROLL_PTR_LEN: usize = 7;
+
 /// Record Status, rec.h:152
 #[repr(u8)]
 #[derive(Debug, Display, Default, Eq, PartialEq, Clone)]

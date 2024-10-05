@@ -8,7 +8,10 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
-use crate::{ibd::undo::RollPtr, util};
+use crate::{
+    ibd::{record::DATA_ROLL_PTR_LEN, undo::RollPtr},
+    util,
+};
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
@@ -271,7 +274,7 @@ impl LogBlock {
     }
 }
 
-/// log record
+/// log record, see recv_parse_log_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct LogRecord {
@@ -292,13 +295,14 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        info!(
-            "LogRecord: addr={}, peek={:?}",
-            addr,
-            buf.slice(addr..addr + 16).to_vec()
-        );
+        // info!(
+        //     "LogRecord: addr={}, peek={:?}",
+        //     addr,
+        //     buf.slice(addr..addr + 16).to_vec()
+        // );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
+        info!("{:?}", &hdr);
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
@@ -687,11 +691,38 @@ impl RedoRecForFileDelete {
     }
 }
 
-/// log record payload for update record in-place, see
-/// btr_cur_parse_update_in_place(...)
+/// index flags
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexInfoFlags {
+    COMPACT,
+    VERSION,
+    INSTANT,
+}
+
+/// index field nullable
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexFieldNullable {
+    Null,
+    NotNull,
+}
+
+/// index field fixed
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexFieldFixed {
+    Fixed,
+    NotFixed,
+}
+
+/// redo log index info, see mlog_parse_index(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForRecordUpdateInPlace {
+pub struct RedoLogIndexInfo {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -700,25 +731,169 @@ pub struct RedoRecForRecordUpdateInPlace {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
-    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    /// (1 byte) index log version
+    pub index_log_version: u8,
+
+    /// (1 byte) index flags
     #[derivative(Debug(format_with = "util::fmt_oneline"))]
-    pub mode_flags: Vec<BtrModeFlags>,
+    pub index_flags: Vec<IndexInfoFlags>,
 
-    #[derivative(Debug = "ignore")]
-    pub mode_flags_byte: u8,
+    /// see index_flags
+    pub index_flags_byte: u8,
 
-    /// (1-5 bytes) TRX_ID position in record
-    pub trx_id_pos: u32,
+    /// (2 bytes) number of index fields
+    pub n: u16,
+    /// (2 bytes) n_uniq for index
+    pub n_uniq: u16,
+    /// (2 bytes) number of column before first instant add was done.
+    pub inst_cols: u16,
 
-    /// (7 bytes) rollback pointer
-    pub roll_ptr: RollPtr,
-
-    /// (5-9 bytes) transaction ID
-    pub trx_id: u64,
+    /// (2*n bytes) index fields info
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub index_fields: Vec<(u16, IndexFieldNullable, IndexFieldFixed)>,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
+}
+
+impl RedoLogIndexInfo {
+    const COMPACT_FLAG: u8 = 0x01;
+    const VERSION_FLAG: u8 = 0x02;
+    const INSTANT_FLAG: u8 = 0x04;
+
+    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+        let mut ptr = addr;
+
+        // parse index log version
+        let version = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        // parse index flags
+        let b = util::u8_val(&buf, ptr);
+        ptr += 1;
+        let is_compact = (b & Self::COMPACT_FLAG) > 0;
+        let is_version = (b & Self::VERSION_FLAG) > 0;
+        let is_instant = (b & Self::INSTANT_FLAG) > 0;
+        let mut flags = vec![];
+        if is_compact {
+            flags.push(IndexInfoFlags::COMPACT);
+        }
+        if is_version {
+            flags.push(IndexInfoFlags::VERSION);
+        }
+        if is_instant {
+            flags.push(IndexInfoFlags::INSTANT);
+        }
+
+        // parse n, n_uniq, inst_cols
+        let mut n = 1;
+        let mut n_uniq = 1;
+        let mut inst_cols = 0;
+        if is_version || is_compact {
+            n = util::u16_val(&buf, ptr);
+            ptr += 2;
+            if is_compact {
+                if is_instant {
+                    inst_cols = util::u16_val(&buf, ptr);
+                    ptr += 2;
+                }
+                n_uniq = util::u16_val(&buf, ptr);
+                ptr += 2;
+                assert!(n_uniq <= n);
+            }
+        }
+
+        // parse index field
+        let mut index_fields = vec![];
+        for _ in 0..n {
+            let data = util::u16_val(&buf, ptr);
+            ptr += 2;
+
+            // The high-order bit of data is the NOT NULL flag;
+            // the rest is 0 or 0x7fff for variable-length fields,
+            // and 1..0x7ffe for fixed-length fields.
+            let fixed = if (((data as u32) + 1) & 0x7fff) > 1 {
+                IndexFieldFixed::Fixed
+            } else {
+                IndexFieldFixed::NotFixed
+            };
+            let nullable = if (data & 0x8000) > 0 {
+                IndexFieldNullable::Null
+            } else {
+                IndexFieldNullable::NotNull
+            };
+            let length = data & 0x7fff;
+            index_fields.push((length, nullable, fixed));
+        }
+
+        Self {
+            index_log_version: version,
+            index_flags: flags,
+            index_flags_byte: b,
+            n,
+            n_uniq,
+            inst_cols,
+            index_fields,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// redo record updated fields
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecUpdatedField {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// sequence number
+    pub sequence: usize,
+
+    /// (1-5 bytes) field number
+    pub field_number: u32,
+
+    /// (1-5 bytes) key length
+    pub length: usize,
+
+    /// (??? bytes) key content, see length for total size
+    pub content: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecUpdatedField {
+    pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
+        let mut ptr = addr;
+
+        let field_no = util::u32_compressed(ptr, buf.clone());
+        ptr += field_no.0;
+
+        let length = util::u32_compressed(ptr, buf.clone());
+        ptr += length.0;
+
+        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        ptr += length.1 as usize;
+
+        Self {
+            sequence: seq,
+            field_number: field_no.1,
+            length: length.1 as usize,
+            content,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
 }
 
 #[repr(u8)]
@@ -747,9 +922,61 @@ pub enum BtrModeFlags {
     KEEP_IBUF_BITMAP,
 }
 
+/// log record payload for update record in-place, see
+/// btr_cur_parse_update_in_place(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordUpdateInPlace {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub mode_flags: Vec<BtrModeFlags>,
+
+    #[derivative(Debug = "ignore")]
+    pub mode_flags_byte: u8,
+
+    /// (1-5 bytes) TRX_ID position in record
+    pub trx_id_pos: u32,
+
+    /// (7 bytes) rollback pointer
+    pub roll_ptr: RollPtr,
+
+    /// (5-9 bytes) transaction ID
+    pub trx_id: u64,
+
+    /// (2 bytes) rec_offset
+    pub rec_offset: u16,
+
+    /// (1 byte) info bits
+    pub info_bits: u8,
+
+    /// (1-5 bytes) number of field
+    pub n_fields: u32,
+
+    /// updated fields
+    pub upd_fields: Vec<RedoRecUpdatedField>,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
 impl RedoRecForRecordUpdateInPlace {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
         let b0 = util::u8_val(&buf, ptr);
         ptr += 1;
 
@@ -757,17 +984,39 @@ impl RedoRecForRecordUpdateInPlace {
         ptr += pos.0;
 
         let roll_ptr = util::u56_val(&buf, ptr);
-        ptr += 7;
+        ptr += DATA_ROLL_PTR_LEN;
 
-        // let trx_id = util::u64_compressed(ptr, buf.clone());
-        // ptr += trx_id.0;
+        let trx_id = util::u64_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        let info_bits = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let n_fields = util::u32_compressed(ptr, buf.clone());
+        ptr += n_fields.0;
+
+        // updated fields
+        let mut upd_fields = vec![];
+        for i in 0..(n_fields.1 as usize) {
+            let fld = RedoRecUpdatedField::new(ptr, buf.clone(), i);
+            ptr += fld.total_bytes;
+            upd_fields.push(fld);
+        }
 
         Self {
+            index_info: index,
             mode_flags: Self::parse_mode_flags(b0),
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
-            trx_id: 0,
+            trx_id: trx_id.1,
+            rec_offset,
+            info_bits,
+            n_fields: n_fields.1,
+            upd_fields,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
