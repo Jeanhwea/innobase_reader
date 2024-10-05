@@ -296,12 +296,13 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        let hdr = LogRecordHeader::new(addr, buf.clone());
         info!(
             "LogRecord: addr={}, peek={:?}",
             addr,
             buf.slice(addr..addr + 16).to_vec()
         );
+
+        let hdr = LogRecordHeader::new(addr, buf.clone());
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
@@ -313,6 +314,7 @@ impl LogRecord {
             )),
             _ => RedoRecordPayloads::Nothing,
         };
+
         Self {
             log_rec_hdr: hdr,
             redo_rec_data: payload,
