@@ -842,6 +842,86 @@ impl RedoLogIndexInfo {
     }
 }
 
+/// redo record updated fields
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecUpdatedField {
+    /// page address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// page data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// sequence number
+    pub sequence: usize,
+
+    /// (1-5 bytes) field number
+    pub field_number: u32,
+
+    /// (1-5 bytes) key length
+    pub length: usize,
+
+    /// (??? bytes) key content, see length for total size
+    pub content: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecUpdatedField {
+    pub fn new(addr: usize, buf: Arc<Bytes>, seq: usize) -> Self {
+        let mut ptr = addr;
+
+        let field_no = util::u32_compressed(ptr, buf.clone());
+        ptr += field_no.0;
+
+        let length = util::u32_compressed(ptr, buf.clone());
+        ptr += length.0;
+
+        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        ptr += length.1 as usize;
+
+        Self {
+            sequence: seq,
+            field_number: field_no.1,
+            length: length.1 as usize,
+            content,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum BtrModeFlags {
+    /// do no undo logging
+    NO_UNDO_LOG_FLAG,
+
+    /// do no record lock checking
+    NO_LOCKING_FLAG,
+
+    /// sys fields will be found in the update vector or inserted entry
+    KEEP_SYS_FLAG,
+
+    /// btr_cur_pessimistic_update() must keep cursor position when moving
+    /// columns to big_rec
+    KEEP_POS_FLAG,
+
+    /// the caller is creating the index or wants to bypass the
+    /// index->info.online creation log
+    CREATE_FLAG,
+
+    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
+    /// will take care of updating IBUF_BITMAP_FREE
+    KEEP_IBUF_BITMAP,
+}
+
 /// log record payload for update record in-place, see
 /// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
@@ -877,35 +957,18 @@ pub struct RedoRecForRecordUpdateInPlace {
     /// (2 bytes) rec_offset
     pub rec_offset: u16,
 
+    /// (1 byte) info bits
+    pub info_bits: u8,
+
+    /// (1-5 bytes) number of field
+    pub n_fields: u32,
+
+    /// updated fields
+    pub upd_fields: Vec<RedoRecUpdatedField>,
+
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
-}
-
-#[repr(u8)]
-#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
-#[derive(Deserialize_repr, Serialize_repr, EnumString)]
-pub enum BtrModeFlags {
-    /// do no undo logging
-    NO_UNDO_LOG_FLAG,
-
-    /// do no record lock checking
-    NO_LOCKING_FLAG,
-
-    /// sys fields will be found in the update vector or inserted entry
-    KEEP_SYS_FLAG,
-
-    /// btr_cur_pessimistic_update() must keep cursor position when moving
-    /// columns to big_rec
-    KEEP_POS_FLAG,
-
-    /// the caller is creating the index or wants to bypass the
-    /// index->info.online creation log
-    CREATE_FLAG,
-
-    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
-    /// will take care of updating IBUF_BITMAP_FREE
-    KEEP_IBUF_BITMAP,
 }
 
 impl RedoRecForRecordUpdateInPlace {
@@ -929,6 +992,20 @@ impl RedoRecForRecordUpdateInPlace {
         let rec_offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
+        let info_bits = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let n_fields = util::u32_compressed(ptr, buf.clone());
+        ptr += n_fields.0;
+
+        // updated fields
+        let mut upd_fields = vec![];
+        for i in 0..(n_fields.1 as usize) {
+            let fld = RedoRecUpdatedField::new(ptr, buf.clone(), i);
+            ptr += fld.total_bytes;
+            upd_fields.push(fld);
+        }
+
         Self {
             index_info: index,
             mode_flags: Self::parse_mode_flags(b0),
@@ -937,6 +1014,9 @@ impl RedoRecForRecordUpdateInPlace {
             roll_ptr: RollPtr::new(roll_ptr),
             trx_id: trx_id.1,
             rec_offset,
+            info_bits,
+            n_fields: n_fields.1,
+            upd_fields,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
