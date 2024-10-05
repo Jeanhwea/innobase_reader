@@ -9,10 +9,7 @@ use strum::{Display, EnumString};
 
 use super::page::{PageNumber, SpaceId};
 use crate::{
-    ibd::{
-        record::{DATA_ROLL_PTR_LEN, DATA_TRX_ID_LEN},
-        undo::RollPtr,
-    },
+    ibd::{record::DATA_ROLL_PTR_LEN, undo::RollPtr},
     util,
 };
 
@@ -694,6 +691,16 @@ impl RedoRecForFileDelete {
     }
 }
 
+/// index flags
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString)]
+pub enum IndexInfoFlags {
+    COMPACT,
+    VERSION,
+    INSTANT,
+}
+
 /// redo log index info, see mlog_parse_index(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -709,6 +716,13 @@ pub struct RedoLogIndexInfo {
     /// (1 byte) index log version
     pub index_log_version: u8,
 
+    /// (1 byte) index flags
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub index_flags: Vec<IndexInfoFlags>,
+
+    /// see index_flags
+    pub index_flags_byte: u8,
+
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
@@ -719,12 +733,37 @@ impl RedoLogIndexInfo {
         let mut ptr = addr;
         let version = util::u8_val(&buf, ptr);
         ptr += 1;
+
+        let flag = util::u8_val(&buf, ptr);
+        ptr += 1;
+
         Self {
             index_log_version: version,
+            index_flags: Self::parse_index_flags(flag),
+            index_flags_byte: flag,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
         }
+    }
+
+    const COMPACT_FLAG: u8 = 0x01;
+    const VERSION_FLAG: u8 = 0x02;
+    const INSTANT_FLAG: u8 = 0x04;
+
+    /// parse index flags
+    pub fn parse_index_flags(b: u8) -> Vec<IndexInfoFlags> {
+        let mut flags = vec![];
+        if (b & Self::COMPACT_FLAG) > 0 {
+            flags.push(IndexInfoFlags::COMPACT);
+        }
+        if (b & Self::VERSION_FLAG) > 0 {
+            flags.push(IndexInfoFlags::VERSION);
+        }
+        if (b & Self::INSTANT_FLAG) > 0 {
+            flags.push(IndexInfoFlags::INSTANT);
+        }
+        flags
     }
 }
 
@@ -820,7 +859,7 @@ impl RedoRecForRecordUpdateInPlace {
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
-            trx_id: trx_id,
+            trx_id: trx_id.1,
             rec_offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
