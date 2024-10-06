@@ -442,7 +442,7 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
         assert!(val > 0x1FFFFF);
     } else if val < 0xF8 {
         /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
-        assert!(val == 0xF0);
+        assert_eq!(val, 0xF0);
         val = mach_read_from_4(addr + 1, buf.clone());
         /* this can treat not-extended format also. */
         assert!(val > 0xFFFFFFF);
@@ -455,7 +455,7 @@ pub fn mach_read_compressed(addr: usize, buf: Arc<Bytes>) -> u32 {
         assert!(val < 0xFFFFFC00);
     } else {
         /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
-        assert!(val == 0xFE);
+        assert_eq!(val, 0xFE);
         val = mach_read_from_3(addr + 1, buf.clone()) | 0xFF000000;
         assert!(val < 0xFFFE0000);
     }

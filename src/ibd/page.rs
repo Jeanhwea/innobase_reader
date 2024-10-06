@@ -599,9 +599,9 @@ impl FileSpaceFlags {
     pub fn new(flags: u32) -> Self {
         Self {
             post_antelope: (flags & 0x1) > 0,
-            zip_ssize: ((flags >> 1) & 0xf),
+            zip_ssize: (flags >> 1) & 0xf,
             atomic_blobs: ((flags >> 5) & 1) > 0,
-            page_ssize: ((flags >> 6) & 0xf),
+            page_ssize: (flags >> 6) & 0xf,
             data_dir: ((flags >> 10) & 1) > 0,
             shared: ((flags >> 11) & 1) > 0,
             temporary: ((flags >> 12) & 1) > 0,
@@ -1338,7 +1338,7 @@ pub struct IndexHeader {
     /// (2 bytes) number of user records on the page
     pub page_n_recs: u16,
 
-    /// (8 bytes) highest id of a trx which may have modified a record on the
+    /// (8 bytes) the highest id of a trx which may have modified a record on the
     /// page; trx_id_t; defined only in secondary indexes and in the insert
     /// buffer tree
     pub page_max_trx_id: u64,
@@ -1928,11 +1928,11 @@ pub enum UndoPageStates {
     /// all undo data in it is removed
     TRX_UNDO_TO_PURGE = 4,
 
-    /// contains an undo log of an prepared transaction for a server version
+    /// contains an undo log of a prepared transaction for a server version
     /// older than 8.0.29
     TRX_UNDO_PREPARED_80028 = 5,
 
-    /// contains an undo log of an prepared transaction
+    /// contains an undo log of a prepared transaction
     TRX_UNDO_PREPARED = 6,
 
     /// contains an undo log of a prepared transaction that has been processed
