@@ -321,7 +321,6 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
                 RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
-
             _ => RedoRecordPayloads::Nothing,
         };
 
