@@ -295,11 +295,11 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        // info!(
-        //     "LogRecord: addr={}, peek={:?}",
-        //     addr,
-        //     buf.slice(addr..addr + 16).to_vec()
-        // );
+        debug!(
+            "LogRecord: addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
         info!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
