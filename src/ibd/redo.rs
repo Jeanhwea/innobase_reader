@@ -811,7 +811,7 @@ impl RedoLogIndexInfo {
             }
         }
         info!(
-            "flags={:?} ,n={}, n_uniq={}, inst_cols={}",
+            "flags={:?}, n={}, n_uniq={}, inst_cols={}",
             flags, n, n_uniq, inst_cols
         );
         assert!(n_uniq <= n);
