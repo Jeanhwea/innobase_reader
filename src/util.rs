@@ -146,7 +146,6 @@ pub fn fmt_str(d: &String, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::
     write!(f, "{}", format!("{:?}", d).yellow())
 }
 
-
 pub fn fmt_bytes_vec(d: &Bytes, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
     write!(f, "{}", format!("{:?}", d.to_vec()).blue())
 }

@@ -324,6 +324,9 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
                 RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_REC_CLUST_DELETE_MARK => RedoRecordPayloads::RecClusterDeleteMark(
+                RedoRecForRecordClusterDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
             _ => RedoRecordPayloads::Nothing,
         };
 
@@ -622,9 +625,10 @@ impl LogRecordHeader {
 pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
     DeleteFile(RedoRecForFileDelete),
-    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecInsert(RedoRecForRecordInsert),
     RecDelete(RedoRecForRecordDelete),
+    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
+    RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     Nothing,
 }
 
@@ -1090,6 +1094,37 @@ pub enum BtrModeFlags {
     KEEP_IBUF_BITMAP,
 }
 
+const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
+const BTR_NO_LOCKING_FLAG: u8 = 2;
+const BTR_KEEP_SYS_FLAG: u8 = 4;
+const BTR_KEEP_POS_FLAG: u8 = 8;
+const BTR_CREATE_FLAG: u8 = 16;
+const BTR_KEEP_IBUF_BITMAP: u8 = 32;
+
+/// parse mode flags
+pub fn parse_mode_flags(flags: u8) -> Vec<BtrModeFlags> {
+    let mut parsed_flags = vec![];
+    if (flags & BTR_NO_UNDO_LOG_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
+    }
+    if (flags & BTR_NO_LOCKING_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::NO_LOCKING_FLAG);
+    }
+    if (flags & BTR_KEEP_SYS_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_SYS_FLAG);
+    }
+    if (flags & BTR_KEEP_POS_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_POS_FLAG);
+    }
+    if (flags & BTR_CREATE_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::CREATE_FLAG);
+    }
+    if (flags & BTR_KEEP_IBUF_BITMAP) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
+    }
+    parsed_flags
+}
+
 /// log record payload for update record in-place, see
 /// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
@@ -1117,6 +1152,7 @@ pub struct RedoRecForRecordUpdateInPlace {
     pub trx_id_pos: u32,
 
     /// (7 bytes) rollback pointer
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub roll_ptr: RollPtr,
 
     /// (5-9 bytes) transaction ID
@@ -1176,7 +1212,7 @@ impl RedoRecForRecordUpdateInPlace {
 
         Self {
             index_info: index,
-            mode_flags: Self::parse_mode_flags(b0),
+            mode_flags: parse_mode_flags(b0),
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
@@ -1190,49 +1226,88 @@ impl RedoRecForRecordUpdateInPlace {
             addr,
         }
     }
+}
 
-    /// do no undo logging
-    const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
+/// log record payload for delete marking or unmarking of a clustered index
+/// record, see btr_cur_parse_del_mark_set_clust_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordClusterDeleteMark {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
 
-    /// do no record lock checking
-    const BTR_NO_LOCKING_FLAG: u8 = 2;
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
 
-    /// sys fields will be found in the update vector or inserted entry
-    const BTR_KEEP_SYS_FLAG: u8 = 4;
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
 
-    /// btr_cur_pessimistic_update() must keep cursor position when moving
-    /// columns to big_rec
-    const BTR_KEEP_POS_FLAG: u8 = 8;
+    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub mode_flags: Vec<BtrModeFlags>,
 
-    /// the caller is creating the index or wants to bypass the
-    /// index->info.online creation log
-    const BTR_CREATE_FLAG: u8 = 16;
+    #[derivative(Debug = "ignore")]
+    pub mode_flags_byte: u8,
 
-    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
-    /// will take care of updating IBUF_BITMAP_FREE
-    const BTR_KEEP_IBUF_BITMAP: u8 = 32;
+    /// (1 byte) value
+    pub value: u8,
 
-    /// parse mode flags
-    pub fn parse_mode_flags(b: u8) -> Vec<BtrModeFlags> {
-        let mut flags = vec![];
-        if (b & Self::BTR_NO_UNDO_LOG_FLAG) > 0 {
-            flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
+    /// (1-5 bytes) TRX_ID position in record
+    pub trx_id_pos: u32,
+
+    /// (7 bytes) rollback pointer
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub roll_ptr: RollPtr,
+
+    /// (5-9 bytes) transaction ID
+    pub trx_id: u64,
+
+    /// (2 bytes) rec_offset
+    pub rec_offset: u16,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordClusterDeleteMark {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        let b0 = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let val = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let pos = util::u32_compressed(ptr, buf.clone());
+        ptr += pos.0;
+
+        let roll_ptr = util::u56_val(&buf, ptr);
+        ptr += DATA_ROLL_PTR_LEN;
+
+        let trx_id = util::u64_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        Self {
+            index_info: index,
+            mode_flags: parse_mode_flags(b0),
+            mode_flags_byte: b0,
+            value: val,
+            trx_id_pos: pos.1,
+            roll_ptr: RollPtr::new(roll_ptr),
+            trx_id: trx_id.1,
+            rec_offset,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
         }
-        if (b & Self::BTR_NO_LOCKING_FLAG) > 0 {
-            flags.push(BtrModeFlags::NO_LOCKING_FLAG);
-        }
-        if (b & Self::BTR_KEEP_SYS_FLAG) > 0 {
-            flags.push(BtrModeFlags::KEEP_SYS_FLAG);
-        }
-        if (b & Self::BTR_KEEP_POS_FLAG) > 0 {
-            flags.push(BtrModeFlags::KEEP_POS_FLAG);
-        }
-        if (b & Self::BTR_CREATE_FLAG) > 0 {
-            flags.push(BtrModeFlags::CREATE_FLAG);
-        }
-        if (b & Self::BTR_KEEP_IBUF_BITMAP) > 0 {
-            flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
-        }
-        flags
     }
 }
