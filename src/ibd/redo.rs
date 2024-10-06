@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::info;
+use log::{debug, info};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -808,9 +808,13 @@ impl RedoLogIndexInfo {
                 }
                 n_uniq = util::u16_val(&buf, ptr);
                 ptr += 2;
-                assert!(n_uniq <= n);
             }
         }
+        info!(
+            "flags={:?} ,n={}, n_uniq={}, inst_cols={}",
+            flags, n, n_uniq, inst_cols
+        );
+        assert!(n_uniq <= n);
 
         // parse index field
         let mut index_fields = vec![];
@@ -1202,6 +1206,8 @@ impl RedoRecForRecordDelete {
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
         ptr += index.total_bytes;
+
+        debug!("index = {:?}", &index);
 
         let rec_offset = util::u16_val(&buf, ptr);
         ptr += 2;
