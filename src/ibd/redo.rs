@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::{debug, info};
+use log::{debug, info, warn};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -810,10 +810,18 @@ impl RedoLogIndexInfo {
                 ptr += 2;
             }
         }
-        info!(
-            "flags={:?}, n={}, n_uniq={}, inst_cols={}",
-            flags, n, n_uniq, inst_cols
-        );
+
+        // it will meet bad date that n_uniq > n, just skip parse index_info
+        if n_uniq > n {
+            warn!(
+                "flags={:?}, n={}, n_uniq={}, inst_cols={}",
+                flags, n, n_uniq, inst_cols
+            );
+            n_uniq = 0;
+            n = 0;
+            ptr = addr;
+        }
+
         assert!(n_uniq <= n);
 
         // parse index field
