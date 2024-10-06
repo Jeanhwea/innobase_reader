@@ -315,14 +315,14 @@ impl LogRecord {
             LogRecordTypes::MLOG_FILE_DELETE => RedoRecordPayloads::DeleteFile(
                 RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
-            LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
-                RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
-            ),
             LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
                 RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_DELETE => RedoRecordPayloads::RecDelete(
                 RedoRecForRecordDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
+                RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             _ => RedoRecordPayloads::Nothing,
         };
@@ -862,6 +862,153 @@ impl RedoLogIndexInfo {
     }
 }
 
+/// log record payload for insert record, see page_cur_parse_insert_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordInsert {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// (compressed) length of mismatch_index, lowest bit is end_seg_flag
+    pub end_seg_len: u32,
+
+    /// end_seg_flag = (end_seg_len & 0x1)
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
+    pub end_seg_flag: bool,
+
+    /// data_len = (end_seg_len >> 1)
+    pub data_len: usize,
+
+    /// (1 byte)
+    pub info_and_status_bits: u8,
+
+    /// (compressed) length of record header
+    pub origin_offset: u32,
+
+    /// (compressed) the inserted index record end segment which differs from the
+    /// cursor record
+    pub mismatch_index: u32,
+
+    /// (??? bytes) insert content data
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
+    pub data: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordInsert {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        let end_seg_len = util::u32_compressed(ptr, buf.clone());
+        ptr += end_seg_len.0;
+
+        let data_len = (end_seg_len.1 >> 1) as usize;
+        let end_seg_flag = (end_seg_len.1 & 0x1) > 0;
+
+        let mut info_bits = 0;
+        let mut origin_offset = 0;
+        let mut mismatch_index = 0;
+        if end_seg_flag {
+            info_bits = util::u8_val(&buf, ptr);
+            ptr += 1;
+
+            let tmp_origin_offset = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_origin_offset.0;
+            origin_offset = tmp_origin_offset.1;
+
+            let tmp_mismatch_index = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_mismatch_index.0;
+            mismatch_index = tmp_mismatch_index.1;
+        }
+
+        let data = buf.slice(ptr..ptr + data_len);
+        ptr += data_len;
+
+        Self {
+            index_info: index,
+            rec_offset,
+            end_seg_len: end_seg_len.1,
+            end_seg_flag,
+            data_len,
+            origin_offset,
+            mismatch_index,
+            info_and_status_bits: info_bits,
+            data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for delete record, see page_cur_parse_delete_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordDelete {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordDelete {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "RedoRecForRecordDelete::new() addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 8).to_vec()
+        );
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        debug!("index = {:?}", &index);
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        Self {
+            index_info: index,
+            rec_offset,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// redo record updated fields
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1087,152 +1234,5 @@ impl RedoRecForRecordUpdateInPlace {
             flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
         }
         flags
-    }
-}
-
-/// log record payload for insert record, see page_cur_parse_insert_rec(...)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RedoRecForRecordInsert {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// redo log index info
-    pub index_info: RedoLogIndexInfo,
-
-    /// (2 bytes) offset
-    pub rec_offset: u16,
-
-    /// (compressed) length of mismatch_index, lowest bit is end_seg_flag
-    pub end_seg_len: u32,
-
-    /// end_seg_flag = (end_seg_len & 0x1)
-    #[derivative(Debug(format_with = "util::fmt_bool"))]
-    pub end_seg_flag: bool,
-
-    /// data_len = (end_seg_len >> 1)
-    pub data_len: usize,
-
-    /// (1 byte)
-    pub info_and_status_bits: u8,
-
-    /// (compressed) length of record header
-    pub origin_offset: u32,
-
-    /// (compressed) the inserted index record end segment which differs from the
-    /// cursor record
-    pub mismatch_index: u32,
-
-    /// (??? bytes) insert content data
-    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
-    pub data: Bytes,
-
-    /// total bytes
-    #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
-}
-
-impl RedoRecForRecordInsert {
-    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        let mut ptr = addr;
-        let index = RedoLogIndexInfo::new(ptr, buf.clone());
-        ptr += index.total_bytes;
-
-        let rec_offset = util::u16_val(&buf, ptr);
-        ptr += 2;
-
-        let end_seg_len = util::u32_compressed(ptr, buf.clone());
-        ptr += end_seg_len.0;
-
-        let data_len = (end_seg_len.1 >> 1) as usize;
-        let end_seg_flag = (end_seg_len.1 & 0x1) > 0;
-
-        let mut info_bits = 0;
-        let mut origin_offset = 0;
-        let mut mismatch_index = 0;
-        if end_seg_flag {
-            info_bits = util::u8_val(&buf, ptr);
-            ptr += 1;
-
-            let tmp_origin_offset = util::u32_compressed(ptr, buf.clone());
-            ptr += tmp_origin_offset.0;
-            origin_offset = tmp_origin_offset.1;
-
-            let tmp_mismatch_index = util::u32_compressed(ptr, buf.clone());
-            ptr += tmp_mismatch_index.0;
-            mismatch_index = tmp_mismatch_index.1;
-        }
-
-        let data = buf.slice(ptr..ptr + data_len);
-        ptr += data_len;
-
-        Self {
-            index_info: index,
-            rec_offset,
-            end_seg_len: end_seg_len.1,
-            end_seg_flag,
-            data_len,
-            origin_offset,
-            mismatch_index,
-            info_and_status_bits: info_bits,
-            data,
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// log record payload for delete record, see page_cur_parse_delete_rec(...)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RedoRecForRecordDelete {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// redo log index info
-    pub index_info: RedoLogIndexInfo,
-
-    /// (2 bytes) offset
-    pub rec_offset: u16,
-
-    /// total bytes
-    #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
-}
-
-impl RedoRecForRecordDelete {
-    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
-            "RedoRecForRecordDelete::new() addr={}, peek={:?}",
-            addr,
-            buf.slice(addr..addr + 8).to_vec()
-        );
-        let mut ptr = addr;
-        let index = RedoLogIndexInfo::new(ptr, buf.clone());
-        ptr += index.total_bytes;
-
-        debug!("index = {:?}", &index);
-
-        let rec_offset = util::u16_val(&buf, ptr);
-        ptr += 2;
-
-        Self {
-            index_info: index,
-            rec_offset,
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
     }
 }
