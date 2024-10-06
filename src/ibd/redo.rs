@@ -302,7 +302,7 @@ impl LogRecord {
         // );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
-        info!("{:?}", &hdr);
+        info!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
