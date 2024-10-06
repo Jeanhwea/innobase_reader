@@ -1092,8 +1092,15 @@ pub struct RedoRecForRecordInsert {
     /// (2 bytes) offset
     pub rec_offset: u16,
 
-    /// (compressd) length of mismatch_index, lowest bit is info flag
+    /// (compressd) length of mismatch_index, lowest bit is end_seg_flag
     pub end_seg_len: u32,
+
+    /// end_seg_flag = (end_seg_len & 0x1)
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
+    pub end_seg_flag: bool,
+
+    /// data_len = (end_seg_len >> 1)
+    pub data_len: usize,
 
     /// (1 bytes)
     pub info_and_status_bits: u8,
@@ -1125,16 +1132,25 @@ impl RedoRecForRecordInsert {
         let end_seg_len = util::u32_compressed(ptr, buf.clone());
         ptr += end_seg_len.0;
 
-        let info_bits = util::u8_val(&buf, ptr);
-        ptr += 1;
-
-        let origin_offset = util::u32_compressed(ptr, buf.clone());
-        ptr += origin_offset.0;
-
-        let mismatch_index = util::u32_compressed(ptr, buf.clone());
-        ptr += mismatch_index.0;
-
         let data_len = (end_seg_len.1 >> 1) as usize;
+        let end_seg_flag = (end_seg_len.1 & 0x1) > 0;
+
+        let mut info_bits = 0;
+        let mut origin_offset = 0;
+        let mut mismatch_index = 0;
+        if end_seg_flag {
+            info_bits = util::u8_val(&buf, ptr);
+            ptr += 1;
+
+            let tmp_origin_offset = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_origin_offset.0;
+            origin_offset = tmp_origin_offset.1;
+
+            let tmp_mismatch_index = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_mismatch_index.0;
+            mismatch_index = tmp_mismatch_index.1;
+        }
+
         let data = buf.slice(ptr..ptr + data_len);
         ptr += data_len;
 
@@ -1142,8 +1158,10 @@ impl RedoRecForRecordInsert {
             index_info: index,
             rec_offset,
             end_seg_len: end_seg_len.1,
-            origin_offset: origin_offset.1,
-            mismatch_index: mismatch_index.1,
+            end_seg_flag,
+            data_len,
+            origin_offset,
+            mismatch_index,
             info_and_status_bits: info_bits,
             data,
             total_bytes: ptr - addr,
