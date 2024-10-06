@@ -1128,6 +1128,7 @@ pub struct RedoRecForRecordInsert {
     pub mismatch_index: u32,
 
     /// (??? bytes) data
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
     pub data: Bytes,
 
     /// total bytes
