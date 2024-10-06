@@ -884,6 +884,7 @@ pub struct RedoRecUpdatedField {
     pub length: usize,
 
     /// (??? bytes) key content, see length for total size
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
     pub content: Bytes,
 
     /// total bytes
@@ -1127,7 +1128,7 @@ pub struct RedoRecForRecordInsert {
     /// cursor record
     pub mismatch_index: u32,
 
-    /// (??? bytes) data
+    /// (??? bytes) insert content data
     #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
     pub data: Bytes,
 
