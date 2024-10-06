@@ -1073,7 +1073,7 @@ impl RedoRecForRecordUpdateInPlace {
     }
 }
 
-/// log record payload for update record in-place, see page_cur_parse_insert_rec(...)
+/// log record payload for insert record, see page_cur_parse_insert_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RedoRecForRecordInsert {
