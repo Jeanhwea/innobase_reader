@@ -1091,7 +1091,7 @@ pub struct RedoRecForRecordInsert {
     /// (2 bytes) offset
     pub rec_offset: u16,
 
-    /// (compressd) length of mismatch_index, lowest bit is end_seg_flag
+    /// (compressed) length of mismatch_index, lowest bit is end_seg_flag
     pub end_seg_len: u32,
 
     /// end_seg_flag = (end_seg_len & 0x1)
@@ -1101,13 +1101,13 @@ pub struct RedoRecForRecordInsert {
     /// data_len = (end_seg_len >> 1)
     pub data_len: usize,
 
-    /// (1 bytes)
+    /// (1 byte)
     pub info_and_status_bits: u8,
 
-    /// (compressd) length of record header
+    /// (compressed) length of record header
     pub origin_offset: u32,
 
-    /// (compressd) the inserted index record end segment which differs from the
+    /// (compressed) the inserted index record end segment which differs from the
     /// cursor record
     pub mismatch_index: u32,
 
