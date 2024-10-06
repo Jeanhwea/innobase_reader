@@ -328,7 +328,7 @@ impl LogRecord {
                 RedoRecForRecordClusterDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
-                RedoRecordPayloads::NoBody
+                RedoRecordPayloads::Empty
             }
             _ => RedoRecordPayloads::Unknown,
         };
@@ -632,7 +632,7 @@ pub enum RedoRecordPayloads {
     RecDelete(RedoRecForRecordDelete),
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
-    NoBody,
+    Empty,
     Unknown,
 }
 
