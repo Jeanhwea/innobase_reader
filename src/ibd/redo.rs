@@ -318,6 +318,10 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
                 RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
+                RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+
             _ => RedoRecordPayloads::Nothing,
         };
 
@@ -617,6 +621,7 @@ pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
     DeleteFile(RedoRecForFileDelete),
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
+    RecInsert(RedoRecForRecordInsert),
     Nothing,
 }
 
@@ -1066,5 +1071,84 @@ impl RedoRecForRecordUpdateInPlace {
             flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
         }
         flags
+    }
+}
+
+/// log record payload for update record in-place, see page_cur_parse_insert_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordInsert {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// (compressd) length of mismatch_index, lowest bit is info flag
+    pub end_seg_len: u32,
+
+    /// (1 bytes)
+    pub info_and_status_bits: u8,
+
+    /// (compressd) length of record header
+    pub origin_offset: u32,
+
+    /// (compressd) the inserted index record end segment which differs from the
+    /// cursor record
+    pub mismatch_index: u32,
+
+    /// (??? bytes) data
+    pub data: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordInsert {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        let end_seg_len = util::u32_compressed(ptr, buf.clone());
+        ptr += end_seg_len.0;
+
+        let info_bits = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let origin_offset = util::u32_compressed(ptr, buf.clone());
+        ptr += origin_offset.0;
+
+        let mismatch_index = util::u32_compressed(ptr, buf.clone());
+        ptr += mismatch_index.0;
+
+        let data_len = (end_seg_len.1 >> 1) as usize;
+        let data = buf.slice(ptr..ptr + data_len);
+        ptr += data_len;
+
+        Self {
+            index_info: index,
+            rec_offset,
+            end_seg_len: end_seg_len.1,
+            origin_offset: origin_offset.1,
+            mismatch_index: mismatch_index.1,
+            info_and_status_bits: info_bits,
+            data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
     }
 }
