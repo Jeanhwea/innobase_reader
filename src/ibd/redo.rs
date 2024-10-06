@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::info;
+use log::{debug, info, warn};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -295,11 +295,11 @@ pub struct LogRecord {
 
 impl LogRecord {
     pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
-        // info!(
-        //     "LogRecord: addr={}, peek={:?}",
-        //     addr,
-        //     buf.slice(addr..addr + 16).to_vec()
-        // );
+        debug!(
+            "LogRecord: addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
         info!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
@@ -315,11 +315,17 @@ impl LogRecord {
             LogRecordTypes::MLOG_FILE_DELETE => RedoRecordPayloads::DeleteFile(
                 RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
+                RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_REC_DELETE => RedoRecordPayloads::RecDelete(
+                RedoRecForRecordDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
             LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
                 RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
-            LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
-                RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            LogRecordTypes::MLOG_REC_CLUST_DELETE_MARK => RedoRecordPayloads::RecClusterDeleteMark(
+                RedoRecForRecordClusterDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             _ => RedoRecordPayloads::Nothing,
         };
@@ -619,8 +625,10 @@ impl LogRecordHeader {
 pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
     DeleteFile(RedoRecForFileDelete),
-    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecInsert(RedoRecForRecordInsert),
+    RecDelete(RedoRecForRecordDelete),
+    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
+    RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     Nothing,
 }
 
@@ -804,9 +812,21 @@ impl RedoLogIndexInfo {
                 }
                 n_uniq = util::u16_val(&buf, ptr);
                 ptr += 2;
-                assert!(n_uniq <= n);
             }
         }
+
+        // it will meet bad date that n_uniq > n, just skip parse index_info
+        if n_uniq > n {
+            warn!(
+                "flags={:?}, n={}, n_uniq={}, inst_cols={}",
+                flags, n, n_uniq, inst_cols
+            );
+            n_uniq = 0;
+            n = 0;
+            ptr = addr;
+        }
+
+        assert!(n_uniq <= n);
 
         // parse index field
         let mut index_fields = vec![];
@@ -846,6 +866,153 @@ impl RedoLogIndexInfo {
     }
 }
 
+/// log record payload for insert record, see page_cur_parse_insert_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordInsert {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// (compressed) length of mismatch_index, lowest bit is end_seg_flag
+    pub end_seg_len: u32,
+
+    /// end_seg_flag = (end_seg_len & 0x1)
+    #[derivative(Debug(format_with = "util::fmt_bool"))]
+    pub end_seg_flag: bool,
+
+    /// data_len = (end_seg_len >> 1)
+    pub data_len: usize,
+
+    /// (1 byte)
+    pub info_and_status_bits: u8,
+
+    /// (compressed) length of record header
+    pub origin_offset: u32,
+
+    /// (compressed) the inserted index record end segment which differs from the
+    /// cursor record
+    pub mismatch_index: u32,
+
+    /// (??? bytes) insert content data
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
+    pub data: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordInsert {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        let end_seg_len = util::u32_compressed(ptr, buf.clone());
+        ptr += end_seg_len.0;
+
+        let data_len = (end_seg_len.1 >> 1) as usize;
+        let end_seg_flag = (end_seg_len.1 & 0x1) > 0;
+
+        let mut info_bits = 0;
+        let mut origin_offset = 0;
+        let mut mismatch_index = 0;
+        if end_seg_flag {
+            info_bits = util::u8_val(&buf, ptr);
+            ptr += 1;
+
+            let tmp_origin_offset = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_origin_offset.0;
+            origin_offset = tmp_origin_offset.1;
+
+            let tmp_mismatch_index = util::u32_compressed(ptr, buf.clone());
+            ptr += tmp_mismatch_index.0;
+            mismatch_index = tmp_mismatch_index.1;
+        }
+
+        let data = buf.slice(ptr..ptr + data_len);
+        ptr += data_len;
+
+        Self {
+            index_info: index,
+            rec_offset,
+            end_seg_len: end_seg_len.1,
+            end_seg_flag,
+            data_len,
+            origin_offset,
+            mismatch_index,
+            info_and_status_bits: info_bits,
+            data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for delete record, see page_cur_parse_delete_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordDelete {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordDelete {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "RedoRecForRecordDelete::new() addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 8).to_vec()
+        );
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        debug!("index = {:?}", &index);
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        Self {
+            index_info: index,
+            rec_offset,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// redo record updated fields
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -862,13 +1029,14 @@ pub struct RedoRecUpdatedField {
     pub sequence: usize,
 
     /// (1-5 bytes) field number
-    pub field_number: u32,
+    pub field_no: u32,
 
     /// (1-5 bytes) key length
-    pub length: usize,
+    pub field_len: usize,
 
-    /// (??? bytes) key content, see length for total size
-    pub content: Bytes,
+    /// (field_len bytes) data, see length for total size
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
+    pub field_data: Bytes,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -885,14 +1053,14 @@ impl RedoRecUpdatedField {
         let length = util::u32_compressed(ptr, buf.clone());
         ptr += length.0;
 
-        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        let data = buf.slice(ptr..ptr + (length.1 as usize));
         ptr += length.1 as usize;
 
         Self {
             sequence: seq,
-            field_number: field_no.1,
-            length: length.1 as usize,
-            content,
+            field_no: field_no.1,
+            field_len: length.1 as usize,
+            field_data: data,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
@@ -926,6 +1094,37 @@ pub enum BtrModeFlags {
     KEEP_IBUF_BITMAP,
 }
 
+const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
+const BTR_NO_LOCKING_FLAG: u8 = 2;
+const BTR_KEEP_SYS_FLAG: u8 = 4;
+const BTR_KEEP_POS_FLAG: u8 = 8;
+const BTR_CREATE_FLAG: u8 = 16;
+const BTR_KEEP_IBUF_BITMAP: u8 = 32;
+
+/// parse mode flags
+pub fn parse_mode_flags(flags: u8) -> Vec<BtrModeFlags> {
+    let mut parsed_flags = vec![];
+    if (flags & BTR_NO_UNDO_LOG_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
+    }
+    if (flags & BTR_NO_LOCKING_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::NO_LOCKING_FLAG);
+    }
+    if (flags & BTR_KEEP_SYS_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_SYS_FLAG);
+    }
+    if (flags & BTR_KEEP_POS_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_POS_FLAG);
+    }
+    if (flags & BTR_CREATE_FLAG) > 0 {
+        parsed_flags.push(BtrModeFlags::CREATE_FLAG);
+    }
+    if (flags & BTR_KEEP_IBUF_BITMAP) > 0 {
+        parsed_flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
+    }
+    parsed_flags
+}
+
 /// log record payload for update record in-place, see
 /// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
@@ -953,6 +1152,7 @@ pub struct RedoRecForRecordUpdateInPlace {
     pub trx_id_pos: u32,
 
     /// (7 bytes) rollback pointer
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
     pub roll_ptr: RollPtr,
 
     /// (5-9 bytes) transaction ID
@@ -1012,7 +1212,7 @@ impl RedoRecForRecordUpdateInPlace {
 
         Self {
             index_info: index,
-            mode_flags: Self::parse_mode_flags(b0),
+            mode_flags: parse_mode_flags(b0),
             mode_flags_byte: b0,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
@@ -1026,57 +1226,13 @@ impl RedoRecForRecordUpdateInPlace {
             addr,
         }
     }
-
-    /// do no undo logging
-    const BTR_NO_UNDO_LOG_FLAG: u8 = 1;
-
-    /// do no record lock checking
-    const BTR_NO_LOCKING_FLAG: u8 = 2;
-
-    /// sys fields will be found in the update vector or inserted entry
-    const BTR_KEEP_SYS_FLAG: u8 = 4;
-
-    /// btr_cur_pessimistic_update() must keep cursor position when moving
-    /// columns to big_rec
-    const BTR_KEEP_POS_FLAG: u8 = 8;
-
-    /// the caller is creating the index or wants to bypass the
-    /// index->info.online creation log
-    const BTR_CREATE_FLAG: u8 = 16;
-
-    /// the caller of btr_cur_optimistic_update() or btr_cur_update_in_place()
-    /// will take care of updating IBUF_BITMAP_FREE
-    const BTR_KEEP_IBUF_BITMAP: u8 = 32;
-
-    /// parse mode flags
-    pub fn parse_mode_flags(b: u8) -> Vec<BtrModeFlags> {
-        let mut flags = vec![];
-        if (b & Self::BTR_NO_UNDO_LOG_FLAG) > 0 {
-            flags.push(BtrModeFlags::NO_UNDO_LOG_FLAG);
-        }
-        if (b & Self::BTR_NO_LOCKING_FLAG) > 0 {
-            flags.push(BtrModeFlags::NO_LOCKING_FLAG);
-        }
-        if (b & Self::BTR_KEEP_SYS_FLAG) > 0 {
-            flags.push(BtrModeFlags::KEEP_SYS_FLAG);
-        }
-        if (b & Self::BTR_KEEP_POS_FLAG) > 0 {
-            flags.push(BtrModeFlags::KEEP_POS_FLAG);
-        }
-        if (b & Self::BTR_CREATE_FLAG) > 0 {
-            flags.push(BtrModeFlags::CREATE_FLAG);
-        }
-        if (b & Self::BTR_KEEP_IBUF_BITMAP) > 0 {
-            flags.push(BtrModeFlags::KEEP_IBUF_BITMAP);
-        }
-        flags
-    }
 }
 
-/// log record payload for update record in-place, see page_cur_parse_insert_rec(...)
+/// log record payload for delete marking or unmarking of a clustered index
+/// record, see btr_cur_parse_del_mark_set_clust_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForRecordInsert {
+pub struct RedoRecForRecordClusterDeleteMark {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1088,81 +1244,67 @@ pub struct RedoRecForRecordInsert {
     /// redo log index info
     pub index_info: RedoLogIndexInfo,
 
-    /// (2 bytes) offset
+    /// (1 byte) flags, Mode flags for btr_cur operations; these can be ORed
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub mode_flags: Vec<BtrModeFlags>,
+
+    #[derivative(Debug = "ignore")]
+    pub mode_flags_byte: u8,
+
+    /// (1 byte) value
+    pub value: u8,
+
+    /// (1-5 bytes) TRX_ID position in record
+    pub trx_id_pos: u32,
+
+    /// (7 bytes) rollback pointer
+    #[derivative(Debug(format_with = "util::fmt_oneline"))]
+    pub roll_ptr: RollPtr,
+
+    /// (5-9 bytes) transaction ID
+    pub trx_id: u64,
+
+    /// (2 bytes) rec_offset
     pub rec_offset: u16,
-
-    /// (compressd) length of mismatch_index, lowest bit is end_seg_flag
-    pub end_seg_len: u32,
-
-    /// end_seg_flag = (end_seg_len & 0x1)
-    #[derivative(Debug(format_with = "util::fmt_bool"))]
-    pub end_seg_flag: bool,
-
-    /// data_len = (end_seg_len >> 1)
-    pub data_len: usize,
-
-    /// (1 bytes)
-    pub info_and_status_bits: u8,
-
-    /// (compressd) length of record header
-    pub origin_offset: u32,
-
-    /// (compressd) the inserted index record end segment which differs from the
-    /// cursor record
-    pub mismatch_index: u32,
-
-    /// (??? bytes) data
-    pub data: Bytes,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
     pub total_bytes: usize,
 }
 
-impl RedoRecForRecordInsert {
+impl RedoRecForRecordClusterDeleteMark {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
         ptr += index.total_bytes;
 
+        let b0 = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let val = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let pos = util::u32_compressed(ptr, buf.clone());
+        ptr += pos.0;
+
+        let roll_ptr = util::u56_val(&buf, ptr);
+        ptr += DATA_ROLL_PTR_LEN;
+
+        let trx_id = util::u64_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
         let rec_offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
-        let end_seg_len = util::u32_compressed(ptr, buf.clone());
-        ptr += end_seg_len.0;
-
-        let data_len = (end_seg_len.1 >> 1) as usize;
-        let end_seg_flag = (end_seg_len.1 & 0x1) > 0;
-
-        let mut info_bits = 0;
-        let mut origin_offset = 0;
-        let mut mismatch_index = 0;
-        if end_seg_flag {
-            info_bits = util::u8_val(&buf, ptr);
-            ptr += 1;
-
-            let tmp_origin_offset = util::u32_compressed(ptr, buf.clone());
-            ptr += tmp_origin_offset.0;
-            origin_offset = tmp_origin_offset.1;
-
-            let tmp_mismatch_index = util::u32_compressed(ptr, buf.clone());
-            ptr += tmp_mismatch_index.0;
-            mismatch_index = tmp_mismatch_index.1;
-        }
-
-        let data = buf.slice(ptr..ptr + data_len);
-        ptr += data_len;
-
         Self {
             index_info: index,
+            mode_flags: parse_mode_flags(b0),
+            mode_flags_byte: b0,
+            value: val,
+            trx_id_pos: pos.1,
+            roll_ptr: RollPtr::new(roll_ptr),
+            trx_id: trx_id.1,
             rec_offset,
-            end_seg_len: end_seg_len.1,
-            end_seg_flag,
-            data_len,
-            origin_offset,
-            mismatch_index,
-            info_and_status_bits: info_bits,
-            data,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,

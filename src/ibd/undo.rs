@@ -673,10 +673,10 @@ pub struct UndoRecKeyField {
     pub sequence: usize,
 
     /// (1-5 bytes) key length
-    pub length: usize,
+    pub key_len: usize,
 
-    /// (??? bytes) key content, see length for total size
-    pub content: Bytes,
+    /// (key_len bytes) key data, see length for total size
+    pub key_data: Bytes,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -690,13 +690,13 @@ impl UndoRecKeyField {
         let length = util::u32_compressed(ptr, buf.clone());
         ptr += length.0;
 
-        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        let data = buf.slice(ptr..ptr + (length.1 as usize));
         ptr += length.1 as usize;
 
         Self {
             sequence: seq,
-            length: length.1 as usize,
-            content,
+            key_len: length.1 as usize,
+            key_data: data,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
@@ -720,13 +720,13 @@ pub struct UndoRecUpdatedField {
     pub sequence: usize,
 
     /// (1-5 bytes) field number
-    pub field_number: u32,
+    pub field_no: u32,
 
-    /// (1-5 bytes) key length
-    pub length: usize,
+    /// (1-5 bytes) field length
+    pub field_len: usize,
 
-    /// (??? bytes) key content, see length for total size
-    pub content: Bytes,
+    /// (field_len bytes) field data, see length for total size
+    pub field_data: Bytes,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -743,14 +743,14 @@ impl UndoRecUpdatedField {
         let length = util::u32_compressed(ptr, buf.clone());
         ptr += length.0;
 
-        let content = buf.slice(ptr..ptr + (length.1 as usize));
+        let data = buf.slice(ptr..ptr + (length.1 as usize));
         ptr += length.1 as usize;
 
         Self {
             sequence: seq,
-            field_number: field_no.1,
-            length: length.1 as usize,
-            content,
+            field_no: field_no.1,
+            field_len: length.1 as usize,
+            field_data: data,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
