@@ -321,6 +321,9 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
                 RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_REC_DELETE => RedoRecordPayloads::RecDelete(
+                RedoRecForRecordDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
             _ => RedoRecordPayloads::Nothing,
         };
 
@@ -621,6 +624,7 @@ pub enum RedoRecordPayloads {
     DeleteFile(RedoRecForFileDelete),
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecInsert(RedoRecForRecordInsert),
+    RecDelete(RedoRecForRecordDelete),
     Nothing,
 }
 
@@ -1163,6 +1167,48 @@ impl RedoRecForRecordInsert {
             mismatch_index,
             info_and_status_bits: info_bits,
             data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for delete record, see page_cur_parse_delete_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForRecordDelete {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// redo log index info
+    pub index_info: RedoLogIndexInfo,
+
+    /// (2 bytes) offset
+    pub rec_offset: u16,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForRecordDelete {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+        let index = RedoLogIndexInfo::new(ptr, buf.clone());
+        ptr += index.total_bytes;
+
+        let rec_offset = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        Self {
+            index_info: index,
+            rec_offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
