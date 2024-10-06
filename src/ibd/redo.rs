@@ -1203,6 +1203,11 @@ pub struct RedoRecForRecordDelete {
 
 impl RedoRecForRecordDelete {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "RedoRecForRecordDelete::new() addr={}, peek={:?}",
+            addr,
+            buf.slice(addr..addr + 8).to_vec()
+        );
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
         ptr += index.total_bytes;
