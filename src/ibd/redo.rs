@@ -217,7 +217,7 @@ pub struct LogBlock {
     /// (2 bytes) first record offset, see LOG_BLOCK_FIRST_REC_GROUP, An archive
     /// recovery can start parsing the log records starting from this offset in
     /// this log block, if value is not 0.
-    pub first_rec_group: u16,
+    pub first_rec_offset: u16,
 
     /// (4 bytes) checkpoint number, see LOG_BLOCK_EPOCH_NO. Offset to epoch_no
     /// stored in this log block. The epoch_no is computed as the number of
@@ -264,7 +264,7 @@ impl LogBlock {
             hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
             flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
             data_len: util::u16_val(&buf, addr + 4),
-            first_rec_group: first_rec_offset,
+            first_rec_offset,
             epoch_no: util::u32_val(&buf, addr + 8),
             log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
@@ -329,6 +329,23 @@ impl LogRecord {
             ),
             LogRecordTypes::MLOG_REC_SEC_DELETE_MARK => RedoRecordPayloads::RecSecIndexDeleteMark(
                 RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
+                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
+                    addr + hdr.total_bytes,
+                    buf.clone(),
+                    &hdr,
+                ))
+            }
+            LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
+                RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
+                    addr + hdr.total_bytes,
+                    buf.clone(),
+                    &hdr,
+                ))
+            }
+            LogRecordTypes::MLOG_UNDO_INSERT => RedoRecordPayloads::UndoInsert(
+                RedoRecForUndoInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
@@ -636,6 +653,9 @@ pub enum RedoRecordPayloads {
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
+    PageCreate(RedoRecForPageCreate),
+    UndoPageHeader(RedoRecForUndoPageHeader),
+    UndoInsert(RedoRecForUndoInsert),
     Empty,
     Unknown,
 }
@@ -997,7 +1017,7 @@ pub struct RedoRecForRecordDelete {
 
 impl RedoRecForRecordDelete {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        debug!(
             "RedoRecForRecordDelete::new() addr={}, peek={:?}",
             addr,
             buf.slice(addr..addr + 8).to_vec()
@@ -1357,6 +1377,133 @@ impl RedoRecForRecordSecIndexDeleteMark {
         Self {
             value,
             offset,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for parsing a redo log record of creating a page, see
+/// page_parse_create(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForPageCreate {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForPageCreate {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let ptr = addr;
+
+        Self {
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for parsing the redo log entry of an undo log page header
+/// create or reuse, see trx_undo_parse_page_header(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForUndoPageHeader {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (much compressed) transaction ID
+    pub trx_id: u64,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForUndoPageHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let mut ptr = addr;
+
+        let trx_id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
+        Self {
+            trx_id: trx_id.1,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for parsing a redo log record of adding an undo log
+/// record, see trx_undo_parse_add_undo_rec(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForUndoInsert {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (2 bytes) data length
+    pub data_len: u16,
+
+    /// (data_len bytes) insert content data
+    #[derivative(Debug(format_with = "util::fmt_bytes_vec"))]
+    pub data: Bytes,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForUndoInsert {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let mut ptr = addr;
+
+        let data_len = util::u16_val(&buf, ptr);
+        ptr += 2;
+
+        let data = buf.slice(ptr..ptr + (data_len as usize));
+        ptr += data_len as usize;
+
+        Self {
+            data_len,
+            data,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
