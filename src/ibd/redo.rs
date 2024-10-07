@@ -330,15 +330,15 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_SEC_DELETE_MARK => RedoRecordPayloads::RecSecIndexDeleteMark(
                 RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
-            LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
-                RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
+            LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
+                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
                     addr + hdr.total_bytes,
                     buf.clone(),
                     &hdr,
                 ))
             }
-            LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
-                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
+            LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
+                RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
                     addr + hdr.total_bytes,
                     buf.clone(),
                     &hdr,
@@ -650,8 +650,8 @@ pub enum RedoRecordPayloads {
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
-    UndoPageHeader(RedoRecForUndoPageHeader),
     PageCreate(RedoRecForPageCreate),
+    UndoPageHeader(RedoRecForUndoPageHeader),
     Empty,
     Unknown,
 }
@@ -1380,6 +1380,41 @@ impl RedoRecForRecordSecIndexDeleteMark {
     }
 }
 
+/// log record payload for parsing a redo log record of creating a page, see
+/// page_parse_create(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForPageCreate {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForPageCreate {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let ptr = addr;
+
+        Self {
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
 /// log record payload for parsing the redo log entry of an undo log page header
 /// create or reuse, see trx_undo_parse_page_header(...)
 #[derive(Clone, Derivative)]
@@ -1415,41 +1450,6 @@ impl RedoRecForUndoPageHeader {
 
         Self {
             trx_id: trx_id.1,
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// log record payload for parsing a redo log record of creating a page, see
-/// page_parse_create(...)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RedoRecForPageCreate {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// total bytes
-    #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
-}
-
-impl RedoRecForPageCreate {
-    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
-            "peek: addr={}, buf={:?}",
-            addr,
-            buf.slice(addr..addr + 16).to_vec()
-        );
-        let ptr = addr;
-
-        Self {
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
