@@ -217,7 +217,7 @@ pub struct LogBlock {
     /// (2 bytes) first record offset, see LOG_BLOCK_FIRST_REC_GROUP, An archive
     /// recovery can start parsing the log records starting from this offset in
     /// this log block, if value is not 0.
-    pub first_rec_group: u16,
+    pub first_rec_offset: u16,
 
     /// (4 bytes) checkpoint number, see LOG_BLOCK_EPOCH_NO. Offset to epoch_no
     /// stored in this log block. The epoch_no is computed as the number of
@@ -264,7 +264,7 @@ impl LogBlock {
             hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
             flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
             data_len: util::u16_val(&buf, addr + 4),
-            first_rec_group: first_rec_offset,
+            first_rec_offset,
             epoch_no: util::u32_val(&buf, addr + 8),
             log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
@@ -1005,7 +1005,7 @@ pub struct RedoRecForRecordDelete {
 
 impl RedoRecForRecordDelete {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        debug!(
             "RedoRecForRecordDelete::new() addr={}, peek={:?}",
             addr,
             buf.slice(addr..addr + 8).to_vec()
