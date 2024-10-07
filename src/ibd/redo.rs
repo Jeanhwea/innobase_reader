@@ -890,7 +890,7 @@ pub struct RedoRecForRecordInsert {
     pub index_info: RedoLogIndexInfo,
 
     /// (2 bytes) offset
-    pub rec_offset: u16,
+    pub offset: u16,
 
     /// (compressed) length of mismatch_index, lowest bit is end_seg_flag
     pub end_seg_len: u32,
@@ -927,7 +927,7 @@ impl RedoRecForRecordInsert {
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
         ptr += index.total_bytes;
 
-        let rec_offset = util::u16_val(&buf, ptr);
+        let offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
         let end_seg_len = util::u32_compressed(ptr, buf.clone());
@@ -957,7 +957,7 @@ impl RedoRecForRecordInsert {
 
         Self {
             index_info: index,
-            rec_offset,
+            offset,
             end_seg_len: end_seg_len.1,
             end_seg_flag,
             data_len,
@@ -988,7 +988,7 @@ pub struct RedoRecForRecordDelete {
     pub index_info: RedoLogIndexInfo,
 
     /// (2 bytes) offset
-    pub rec_offset: u16,
+    pub offset: u16,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -1008,12 +1008,12 @@ impl RedoRecForRecordDelete {
 
         debug!("index = {:?}", &index);
 
-        let rec_offset = util::u16_val(&buf, ptr);
+        let offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
         Self {
             index_info: index,
-            rec_offset,
+            offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
@@ -1166,8 +1166,8 @@ pub struct RedoRecForRecordUpdateInPlace {
     /// (5-9 bytes) transaction ID
     pub trx_id: u64,
 
-    /// (2 bytes) rec_offset
-    pub rec_offset: u16,
+    /// (2 bytes) offset
+    pub offset: u16,
 
     /// (1 byte) info bits
     pub info_bits: u8,
@@ -1201,7 +1201,7 @@ impl RedoRecForRecordUpdateInPlace {
         let trx_id = util::u64_compressed(ptr, buf.clone());
         ptr += trx_id.0;
 
-        let rec_offset = util::u16_val(&buf, ptr);
+        let offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
         let info_bits = util::u8_val(&buf, ptr);
@@ -1225,7 +1225,7 @@ impl RedoRecForRecordUpdateInPlace {
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
             trx_id: trx_id.1,
-            rec_offset,
+            offset,
             info_bits,
             n_fields: n_fields.1,
             upd_fields,
@@ -1272,8 +1272,8 @@ pub struct RedoRecForRecordClusterDeleteMark {
     /// (5-9 bytes) transaction ID
     pub trx_id: u64,
 
-    /// (2 bytes) rec_offset
-    pub rec_offset: u16,
+    /// (2 bytes) offset
+    pub offset: u16,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -1289,7 +1289,7 @@ impl RedoRecForRecordClusterDeleteMark {
         let b0 = util::u8_val(&buf, ptr);
         ptr += 1;
 
-        let val = util::u8_val(&buf, ptr);
+        let value = util::u8_val(&buf, ptr);
         ptr += 1;
 
         let pos = util::u32_compressed(ptr, buf.clone());
@@ -1301,18 +1301,18 @@ impl RedoRecForRecordClusterDeleteMark {
         let trx_id = util::u64_compressed(ptr, buf.clone());
         ptr += trx_id.0;
 
-        let rec_offset = util::u16_val(&buf, ptr);
+        let offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
         Self {
             index_info: index,
             mode_flags: parse_mode_flags(b0),
             mode_flags_byte: b0,
-            value: val,
+            value,
             trx_id_pos: pos.1,
             roll_ptr: RollPtr::new(roll_ptr),
             trx_id: trx_id.1,
-            rec_offset,
+            offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
@@ -1336,8 +1336,8 @@ pub struct RedoRecForRecordSecIndexDeleteMark {
     /// (1 byte) value
     pub value: u8,
 
-    /// (2 bytes) rec_offset
-    pub rec_offset: u16,
+    /// (2 bytes) offset
+    pub offset: u16,
 
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -1348,15 +1348,15 @@ impl RedoRecForRecordSecIndexDeleteMark {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
 
-        let val = util::u8_val(&buf, ptr);
+        let value = util::u8_val(&buf, ptr);
         ptr += 1;
 
-        let rec_offset = util::u16_val(&buf, ptr);
+        let offset = util::u16_val(&buf, ptr);
         ptr += 2;
 
         Self {
-            value: val,
-            rec_offset,
+            value,
+            offset,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
