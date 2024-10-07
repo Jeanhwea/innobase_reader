@@ -337,6 +337,13 @@ impl LogRecord {
                     &hdr,
                 ))
             }
+            LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
+                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
+                    addr + hdr.total_bytes,
+                    buf.clone(),
+                    &hdr,
+                ))
+            }
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
             }
@@ -644,6 +651,7 @@ pub enum RedoRecordPayloads {
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
     UndoPageHeader(RedoRecForUndoPageHeader),
+    PageCreate(RedoRecForPageCreate),
     Empty,
     Unknown,
 }
@@ -1395,6 +1403,11 @@ pub struct RedoRecForUndoPageHeader {
 
 impl RedoRecForUndoPageHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
         let mut ptr = addr;
 
         let trx_id = util::u64_much_compressed(ptr, buf.clone());
@@ -1402,6 +1415,41 @@ impl RedoRecForUndoPageHeader {
 
         Self {
             trx_id: trx_id.1,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for parsing a redo log record of creating a page, see
+/// page_parse_create(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForPageCreate {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForPageCreate {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        info!(
+            "peek: addr={}, buf={:?}",
+            addr,
+            buf.slice(addr..addr + 16).to_vec()
+        );
+        let ptr = addr;
+
+        Self {
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
