@@ -330,6 +330,13 @@ impl LogRecord {
             LogRecordTypes::MLOG_REC_SEC_DELETE_MARK => RedoRecordPayloads::RecSecIndexDeleteMark(
                 RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
+            LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
+                RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
+                    addr + hdr.total_bytes,
+                    buf.clone(),
+                    &hdr,
+                ))
+            }
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
             }
@@ -636,6 +643,7 @@ pub enum RedoRecordPayloads {
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
+    UndoPageHeader(RedoRecForUndoPageHeader),
     Empty,
     Unknown,
 }
@@ -1357,6 +1365,43 @@ impl RedoRecForRecordSecIndexDeleteMark {
         Self {
             value,
             offset,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for parsing the redo log entry of an undo log page header
+/// create or reuse, see trx_undo_parse_page_header(...)
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForUndoPageHeader {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (much compressed) transaction ID
+    pub trx_id: u64,
+
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForUndoPageHeader {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+
+        let trx_id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += trx_id.0;
+
+        Self {
+            trx_id: trx_id.1,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
