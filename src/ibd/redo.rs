@@ -316,19 +316,19 @@ impl LogRecord {
                 RedoRecForFileDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_INSERT => RedoRecordPayloads::RecInsert(
-                RedoRecForInsertRecord::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+                RedoRecForRecordInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_DELETE => RedoRecordPayloads::RecDelete(
-                RedoRecForDeleteRecord::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+                RedoRecForRecordDelete::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_UPDATE_IN_PLACE => RedoRecordPayloads::RecUpdateInPlace(
-                RedoRecForUpdateRecordInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+                RedoRecForRecordUpdateInPlace::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_CLUST_DELETE_MARK => RedoRecordPayloads::RecClusterDeleteMark(
-                RedoRecForClusterRecordDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+                RedoRecForRecordClusterDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_REC_SEC_DELETE_MARK => RedoRecordPayloads::RecSecIndexDeleteMark(
-                RedoRecForSecIndexRecordDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+                RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
@@ -631,11 +631,11 @@ impl LogRecordHeader {
 pub enum RedoRecordPayloads {
     NByte(RedoRecForNByte),
     DeleteFile(RedoRecForFileDelete),
-    RecInsert(RedoRecForInsertRecord),
-    RecDelete(RedoRecForDeleteRecord),
-    RecUpdateInPlace(RedoRecForUpdateRecordInPlace),
-    RecClusterDeleteMark(RedoRecForClusterRecordDeleteMark),
-    RecSecIndexDeleteMark(RedoRecForSecIndexRecordDeleteMark),
+    RecInsert(RedoRecForRecordInsert),
+    RecDelete(RedoRecForRecordDelete),
+    RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
+    RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
+    RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
     Empty,
     Unknown,
 }
@@ -877,7 +877,7 @@ impl RedoLogIndexInfo {
 /// log record payload for insert record, see page_cur_parse_insert_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForInsertRecord {
+pub struct RedoRecForRecordInsert {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -921,7 +921,7 @@ pub struct RedoRecForInsertRecord {
     pub total_bytes: usize,
 }
 
-impl RedoRecForInsertRecord {
+impl RedoRecForRecordInsert {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
@@ -975,7 +975,7 @@ impl RedoRecForInsertRecord {
 /// log record payload for delete record, see page_cur_parse_delete_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForDeleteRecord {
+pub struct RedoRecForRecordDelete {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -995,7 +995,7 @@ pub struct RedoRecForDeleteRecord {
     pub total_bytes: usize,
 }
 
-impl RedoRecForDeleteRecord {
+impl RedoRecForRecordDelete {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         info!(
             "RedoRecForRecordDelete::new() addr={}, peek={:?}",
@@ -1137,7 +1137,7 @@ pub fn parse_mode_flags(flags: u8) -> Vec<BtrModeFlags> {
 /// btr_cur_parse_update_in_place(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForUpdateRecordInPlace {
+pub struct RedoRecForRecordUpdateInPlace {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1183,7 +1183,7 @@ pub struct RedoRecForUpdateRecordInPlace {
     pub total_bytes: usize,
 }
 
-impl RedoRecForUpdateRecordInPlace {
+impl RedoRecForRecordUpdateInPlace {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
@@ -1240,7 +1240,7 @@ impl RedoRecForUpdateRecordInPlace {
 /// btr_cur_parse_del_mark_set_clust_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForClusterRecordDeleteMark {
+pub struct RedoRecForRecordClusterDeleteMark {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1280,7 +1280,7 @@ pub struct RedoRecForClusterRecordDeleteMark {
     pub total_bytes: usize,
 }
 
-impl RedoRecForClusterRecordDeleteMark {
+impl RedoRecForRecordClusterDeleteMark {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
         let index = RedoLogIndexInfo::new(ptr, buf.clone());
@@ -1324,7 +1324,7 @@ impl RedoRecForClusterRecordDeleteMark {
 /// btr_cur_parse_del_mark_set_sec_rec(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct RedoRecForSecIndexRecordDeleteMark {
+pub struct RedoRecForRecordSecIndexDeleteMark {
     /// block address
     #[derivative(Debug(format_with = "util::fmt_addr"))]
     pub addr: usize,
@@ -1344,7 +1344,7 @@ pub struct RedoRecForSecIndexRecordDeleteMark {
     pub total_bytes: usize,
 }
 
-impl RedoRecForSecIndexRecordDeleteMark {
+impl RedoRecForRecordSecIndexDeleteMark {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
         let mut ptr = addr;
 
