@@ -819,7 +819,7 @@ impl RedoLogIndexInfo {
             }
         }
 
-        // it will meet bad date that n_uniq > n, just skip parse index_info
+        // BadCase: that n_uniq > n, just skip parse index_info
         if n_uniq > n {
             warn!(
                 "flags={:?}, n={}, n_uniq={}, inst_cols={}",
