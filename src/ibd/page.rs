@@ -25,7 +25,8 @@ use crate::{
 };
 
 // page
-pub const PAGE_SIZE: usize = 16 * 1024;
+/// universal page size, 16k
+pub const UNIV_PAGE_SIZE: usize = 16 * 1024;
 
 // system space page number
 
@@ -75,18 +76,18 @@ pub const RECORD_HEADER_SIZE: usize = 5;
 pub const TRX_SYS_N_RSEGS: usize = 128;
 
 // The offset of the MySQL binlog offset info in the trx system header
-pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 1000;
+pub const TRX_SYS_MYSQL_LOG_INFO: usize = UNIV_PAGE_SIZE - 1000;
 pub const TRX_SYS_MYSQL_LOG_NAME_LEN: usize = 512;
 
 /// The offset of the doublewrite buffer header on the trx system header page
-pub const TRX_SYS_DOUBLEWRITE: usize = PAGE_SIZE - 200;
+pub const TRX_SYS_DOUBLEWRITE: usize = UNIV_PAGE_SIZE - 200;
 // magic number
 pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
 pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
 
 // Rollback segment header
 pub const TRX_RSEG_SLOT_SIZE: usize = 4;
-pub const TRX_RSEG_N_SLOTS: usize = PAGE_SIZE / 16;
+pub const TRX_RSEG_N_SLOTS: usize = UNIV_PAGE_SIZE / 16;
 
 // space constants, see dict0dict.h, s_log_space_id, s_dict_space_id, ...
 pub const INVALID_SPACE_ID: u32 = 0xFFFFFFFF;

@@ -16,7 +16,7 @@ use crate::{
             BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
             IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
             SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
-            FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
+            FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, UNIV_PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
             XDES_PAGE_COUNT,
         },
         record::DataValue,
@@ -197,7 +197,7 @@ impl App {
             }
             let fil_hdr = fact.read_fil_hdr(page_no)?;
             let page_type = &fil_hdr.page_type;
-            let offset = page_no * PAGE_SIZE;
+            let offset = page_no * UNIV_PAGE_SIZE;
             println!(
                 "page_no={}, page_type={}, space_id={}, lsn={}, offset=0x{:0x?}({})",
                 &page_no.to_string().magenta(),

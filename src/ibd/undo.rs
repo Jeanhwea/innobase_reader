@@ -7,7 +7,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, PageNumber, UndoPageHeader, UndoPageTypes, PAGE_SIZE};
+use super::page::{FlstNode, PageNumber, UndoPageHeader, UndoPageTypes, UNIV_PAGE_SIZE};
 use crate::{ibd::dict, util};
 
 /// XID data size
@@ -40,7 +40,7 @@ impl UndoLog {
         let mut rec_addr = log_hdr.log_start as usize;
         let mut rec_list = vec![];
         loop {
-            if rec_addr == 0 || rec_addr > PAGE_SIZE {
+            if rec_addr == 0 || rec_addr > UNIV_PAGE_SIZE {
                 break;
             }
 
