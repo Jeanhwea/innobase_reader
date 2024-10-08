@@ -379,7 +379,7 @@ impl LogRecord {
 
 /// types of a redo log record
 #[repr(u8)]
-#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Debug, Display, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum LogRecordTypes {
     /// if the mtr contains only one log record for one page, i.e.,

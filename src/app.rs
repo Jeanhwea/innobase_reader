@@ -1,6 +1,6 @@
 use std::{
     cmp::min,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -838,15 +838,13 @@ impl App {
         let buf = fact.file_buffer()?;
         let log_file = LogFile::new(0, buf);
 
-        let mut stats: BTreeMap<LogRecordTypes, u32> = BTreeMap::new();
-        let mut unknown: BTreeMap<LogRecordTypes, bool> = BTreeMap::new();
+        let mut stats = BTreeMap::new();
+        let mut unknown = HashSet::new();
         for blk in &log_file.log_block_list {
             if let Blocks::Block(block) = blk {
                 let rec_type = if let Some(rec) = &block.log_record {
                     if matches!(rec.redo_rec_data, RedoRecordPayloads::Unknown) {
-                        *unknown
-                            .entry(rec.log_rec_hdr.log_rec_type.clone())
-                            .or_insert(true) = true;
+                        unknown.insert(rec.log_rec_hdr.log_rec_type.clone());
                     }
                     rec.log_rec_hdr.log_rec_type.clone()
                 } else {
@@ -858,11 +856,10 @@ impl App {
 
         println!("RedoRecordTypes Statistics:");
         for entry in &stats {
-            let known = !unknown.contains_key(entry.0);
             println!(
                 "{:>28} {}> {}",
                 entry.0.to_string().yellow(),
-                if known {
+                if !unknown.contains(entry.0) {
                     "=".to_string().green()
                 } else {
                     "=".to_string().red()
@@ -872,10 +869,7 @@ impl App {
         }
 
         if !unknown.is_empty() {
-            warn!(
-                "Unknown type: {}",
-                &format!("{:?}", unknown.keys()).yellow()
-            );
+            warn!("Unknown type: {}", &format!("{:?}", &unknown).yellow());
         }
 
         Ok(())
