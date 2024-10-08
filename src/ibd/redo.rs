@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::{debug, info, warn};
+use log::{debug, trace, warn};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -52,15 +52,15 @@ impl LogFile {
             if ptr >= buf.len() {
                 break;
             }
-            blocks.push(LogBlock::new(ptr, buf.clone()).into());
+            blocks.push(LogBlock::new(ptr, buf.clone(), ptr / OS_FILE_LOG_BLOCK_SIZE).into());
             ptr += OS_FILE_LOG_BLOCK_SIZE;
         }
 
         Self {
-            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
-            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
+            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone(), 0)),
+            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone(), 1).into(),
             block_2: Blocks::Unused,
-            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone()).into(),
+            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone(), 3).into(),
             log_block_list: blocks,
             buf: buf.clone(),
             addr,
@@ -109,6 +109,9 @@ pub struct LogFileHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// block number, nth block in redo log file
+    pub block_no: usize,
+
     /// (4 bytes) log group id, Log file header format identifier (32-bit
     /// unsigned big-endian integer). This used to be called LOG_GROUP_ID and
     /// always written as 0, because InnoDB never supported more than one copy
@@ -139,8 +142,9 @@ pub struct LogFileHeader {
 }
 
 impl LogFileHeader {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         Self {
+            block_no,
             log_group_id: util::u32_val(&buf, addr),
             log_uuid: util::u32_val(&buf, addr + 4),
             start_lsn: util::u64_val(&buf, addr + 8),
@@ -164,6 +168,9 @@ pub struct LogCheckpoint {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// block number, nth block in redo log file
+    pub block_no: usize,
+
     /// (8 bytes) checkpoint number
     pub checkpoint_no: u64,
 
@@ -177,8 +184,9 @@ pub struct LogCheckpoint {
 }
 
 impl LogCheckpoint {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         Self {
+            block_no,
             checkpoint_no: util::u64_val(&buf, addr),
             checkpoint_lsn: util::u64_val(&buf, addr + 8),
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
@@ -199,6 +207,9 @@ pub struct LogBlock {
     /// block data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// block number, nth block in redo log file
+    pub block_no: usize,
 
     /// (4 bytes) log block number, see LOG_BLOCK_HDR_NO, Offset to hdr_no,
     /// which is a log block number and must be > 0. It is allowed to wrap
@@ -247,7 +258,7 @@ impl LogBlock {
     /// versions this bit was used to mark first block in a write.
     const LOG_BLOCK_FLUSH_BIT_MASK: u32 = 0x80000000;
 
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         let b0 = util::u32_val(&buf, addr);
 
         let first_rec_offset = util::u16_val(&buf, addr + 6);
@@ -261,6 +272,7 @@ impl LogBlock {
         };
 
         Self {
+            block_no,
             hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
             flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
             data_len: util::u16_val(&buf, addr + 4),
@@ -302,7 +314,7 @@ impl LogRecord {
         );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
-        info!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
+        trace!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
@@ -331,12 +343,12 @@ impl LogRecord {
                 RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
-                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
-                    addr + hdr.total_bytes,
-                    buf.clone(),
-                    &hdr,
-                ))
+                RedoRecordPayloads::Empty
             }
+            LogRecordTypes::MLOG_INIT_FILE_PAGE | LogRecordTypes::MLOG_INIT_FILE_PAGE2 => {
+                RedoRecordPayloads::Empty
+            }
+            LogRecordTypes::MLOG_UNDO_ERASE_END => RedoRecordPayloads::Empty,
             LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
                 RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
                     addr + hdr.total_bytes,
@@ -346,6 +358,9 @@ impl LogRecord {
             }
             LogRecordTypes::MLOG_UNDO_INSERT => RedoRecordPayloads::UndoInsert(
                 RedoRecForUndoInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_TABLE_DYNAMIC_META => RedoRecordPayloads::TableMeta(
+                RedoRecForTableDynamicMeta::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
@@ -364,7 +379,7 @@ impl LogRecord {
 
 /// types of a redo log record
 #[repr(u8)]
-#[derive(Debug, Display, Default, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Debug, Display, Default, Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
 pub enum LogRecordTypes {
     /// if the mtr contains only one log record for one page, i.e.,
@@ -619,7 +634,9 @@ impl LogRecordHeader {
         let mut page_no = 0;
         if !matches!(
             log_rec_type,
-            LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END
+            LogRecordTypes::MLOG_DUMMY_RECORD
+                | LogRecordTypes::MLOG_MULTI_REC_END
+                | LogRecordTypes::MLOG_TABLE_DYNAMIC_META
         ) {
             let space = util::u32_compressed(ptr, buf.clone());
             ptr += space.0;
@@ -653,9 +670,9 @@ pub enum RedoRecordPayloads {
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
-    PageCreate(RedoRecForPageCreate),
     UndoPageHeader(RedoRecForUndoPageHeader),
     UndoInsert(RedoRecForUndoInsert),
+    TableMeta(RedoRecForTableDynamicMeta),
     Empty,
     Unknown,
 }
@@ -1384,41 +1401,6 @@ impl RedoRecForRecordSecIndexDeleteMark {
     }
 }
 
-/// log record payload for parsing a redo log record of creating a page, see
-/// page_parse_create(...)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RedoRecForPageCreate {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// total bytes
-    #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
-}
-
-impl RedoRecForPageCreate {
-    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
-            "peek: addr={}, buf={:?}",
-            addr,
-            buf.slice(addr..addr + 16).to_vec()
-        );
-        let ptr = addr;
-
-        Self {
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
 /// log record payload for parsing the redo log entry of an undo log page header
 /// create or reuse, see trx_undo_parse_page_header(...)
 #[derive(Clone, Derivative)]
@@ -1442,7 +1424,7 @@ pub struct RedoRecForUndoPageHeader {
 
 impl RedoRecForUndoPageHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        trace!(
             "peek: addr={}, buf={:?}",
             addr,
             buf.slice(addr..addr + 16).to_vec()
@@ -1488,7 +1470,7 @@ pub struct RedoRecForUndoInsert {
 
 impl RedoRecForUndoInsert {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        trace!(
             "peek: addr={}, buf={:?}",
             addr,
             buf.slice(addr..addr + 16).to_vec()
@@ -1504,6 +1486,85 @@ impl RedoRecForUndoInsert {
         Self {
             data_len,
             data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// Persistent dynamic metadata type, there should be 1 to 1 relationship
+/// between the metadata and the type. Please keep them in order so that we can
+/// iterate over it
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum PersistentTypes {
+    /// The smallest type, which should be 1 less than the first true type
+    #[default]
+    PM_SMALLEST_TYPE = 0,
+
+    /// Persistent Metadata type for corrupted indexes
+    PM_INDEX_CORRUPTED = 1,
+
+    /// Persistent Metadata type for autoinc counter
+    PM_TABLE_AUTO_INC = 2,
+
+    /// The biggest type, which should be 1 bigger than the last true type
+    PM_BIGGEST_TYPE = 3,
+}
+
+/// log record payload for log for some persistent dynamic metadata change, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForTableDynamicMeta {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (much compressed) table id, see mlog_parse_initial_dict_log_record(...)
+    pub table_id: u64,
+
+    /// (much compressed) version
+    pub version: u64,
+
+    /// (1 byte) persistent_type, see MetadataRecover::parseMetadataLog(...)
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
+    pub persistent_type: PersistentTypes,
+
+    // MetadataRecover::parseMetadataLog()
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForTableDynamicMeta {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+
+        let id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += 2;
+
+        let version = util::u64_much_compressed(ptr, buf.clone());
+        ptr += 2;
+
+        let b = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let persistent_type: PersistentTypes = b.into();
+
+        // TODO: will parse metadata in those funciton, see dict0dict.cc
+        //   1. CorruptedIndexPersister::read(...)
+        //   2. AutoIncPersister::read(...)
+
+        Self {
+            table_id: id.1,
+            version: version.1,
+            persistent_type,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,

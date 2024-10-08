@@ -1,13 +1,13 @@
 use std::{
     cmp::min,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use anyhow::{Error, Result};
 use colored::Colorize;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 
 use crate::{
     factory::DatafileFactory,
@@ -19,7 +19,7 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::{Blocks, LogFile, LogRecordTypes},
+        redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
     },
     util::{colored_extent_number, colored_page_number},
     Commands,
@@ -111,15 +111,19 @@ impl App {
                     }
                 },
             },
-            Commands::Redo { block_no } => match block_no {
-                Some(block_no) => {
-                    self.do_view_block(block_no)?;
-                }
+            Commands::Redo {
+                block_no,
+                dump_log_type,
+            } => match dump_log_type {
+                Some(log_type) => self.do_dump_log_records(log_type)?,
                 None => {
-                    self.do_view_log_file()?;
+                    match block_no {
+                        Some(block_no) => self.do_view_block(block_no)?,
+                        None => self.do_view_log_file()?,
+                    };
                 }
             },
-        }
+        };
 
         Ok(())
     }
@@ -167,7 +171,7 @@ impl App {
 
     /// page type statistic
     fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
-        let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
+        let mut stats = BTreeMap::new();
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
             *stats.entry(hdr.page_type).or_insert(0) += 1;
@@ -785,6 +789,30 @@ impl App {
         Ok(())
     }
 
+    fn do_dump_log_records(&self, log_rec_type: LogRecordTypes) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let buf = fact.file_buffer()?;
+        let log_file = LogFile::new(0, buf);
+
+        for blk in &log_file.log_block_list {
+            if let Blocks::Block(block) = blk {
+                let rec_type = if let Some(rec) = &block.log_record {
+                    rec.log_rec_hdr.log_rec_type.clone()
+                } else {
+                    LogRecordTypes::UNDEF
+                };
+                if rec_type != log_rec_type {
+                    continue;
+                }
+                if let Some(rec) = &block.log_record {
+                    println!("{:>6} => {:?}", block.block_no, &rec.log_rec_hdr);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn do_view_block(&self, block_no: usize) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         let block = fact.read_block(block_no)?;
@@ -810,36 +838,38 @@ impl App {
         let buf = fact.file_buffer()?;
         let log_file = LogFile::new(0, buf);
 
-        let mut stats: BTreeMap<LogRecordTypes, u32> = BTreeMap::new();
-        for (i, blk) in log_file.log_block_list.iter().enumerate() {
-            let block_no = i + 4;
+        let mut stats = BTreeMap::new();
+        let mut unknown = HashSet::new();
+        for blk in &log_file.log_block_list {
             if let Blocks::Block(block) = blk {
                 let rec_type = if let Some(rec) = &block.log_record {
+                    if matches!(rec.redo_rec_data, RedoRecordPayloads::Unknown) {
+                        unknown.insert(rec.log_rec_hdr.log_rec_type.clone());
+                    }
                     rec.log_rec_hdr.log_rec_type.clone()
                 } else {
                     LogRecordTypes::UNDEF
                 };
-                *stats.entry(rec_type.clone()).or_insert(0) += 1;
-                let type_count = stats[&rec_type];
-                if type_count < 3 {
-                    if let Some(rec) = &block.log_record {
-                        println!(
-                            "{:>5} => {:?}",
-                            block_no.to_string().green(),
-                            rec.log_rec_hdr
-                        );
-                    }
-                }
+                *stats.entry(rec_type).or_insert(0) += 1;
             }
         }
 
         println!("RedoRecordTypes Statistics:");
         for entry in &stats {
             println!(
-                "{:>28} => {}",
+                "{:>28} {}> {}",
                 entry.0.to_string().yellow(),
+                if !unknown.contains(entry.0) {
+                    "=".to_string().green()
+                } else {
+                    "=".to_string().red()
+                },
                 entry.1.to_string().blue()
             );
+        }
+
+        if !unknown.is_empty() {
+            warn!("Unknown type: {}", &format!("{:?}", &unknown).yellow());
         }
 
         Ok(())

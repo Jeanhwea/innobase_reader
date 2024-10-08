@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use ibd::redo::LogRecordTypes;
 use log::info;
 
 mod app;
@@ -103,6 +104,11 @@ enum Commands {
     Redo {
         /// The block number, starts from 0.
         block_no: Option<usize>,
+
+        /// Dump given log_type redo blocks, log_type like MLOG_xxx, MLOG_1BYTE,
+        /// MLOG_REC_INSERT ...
+        #[arg(short, long)]
+        dump_log_type: Option<LogRecordTypes>,
     },
 }
 
