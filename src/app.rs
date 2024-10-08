@@ -19,7 +19,7 @@ use crate::{
             PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
-        redo::{Blocks, LogFile, LogRecordTypes},
+        redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
     },
     util::{colored_extent_number, colored_page_number},
     Commands,
@@ -839,9 +839,15 @@ impl App {
         let log_file = LogFile::new(0, buf);
 
         let mut stats: BTreeMap<LogRecordTypes, u32> = BTreeMap::new();
+        let mut unknown: BTreeMap<LogRecordTypes, bool> = BTreeMap::new();
         for blk in &log_file.log_block_list {
             if let Blocks::Block(block) = blk {
                 let rec_type = if let Some(rec) = &block.log_record {
+                    if matches!(rec.redo_rec_data, RedoRecordPayloads::Unknown) {
+                        *unknown
+                            .entry(rec.log_rec_hdr.log_rec_type.clone())
+                            .or_insert(true) = true;
+                    }
                     rec.log_rec_hdr.log_rec_type.clone()
                 } else {
                     LogRecordTypes::UNDEF
@@ -852,12 +858,25 @@ impl App {
 
         println!("RedoRecordTypes Statistics:");
         for entry in &stats {
+            let known = !unknown.contains_key(&entry.0);
             println!(
-                "{:>28} => {}",
+                "{:>28} {}> {}",
                 entry.0.to_string().yellow(),
+                if known {
+                    "=".to_string().green()
+                } else {
+                    "=".to_string().red()
+                },
                 entry.1.to_string().blue()
             );
         }
+
+        // if unknown.len() > 0 {
+        //     warn!(
+        //         "Unknown type: {}",
+        //         &format!("{:?}", unknown.keys()).yellow()
+        //     );
+        // }
 
         Ok(())
     }
