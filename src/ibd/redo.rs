@@ -20,6 +20,9 @@ pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
 pub const LOG_BLOCK_MAX_NO: usize = 0x3FFFFFFF + 1;
 
 pub fn log_block_guess_lsn(hdr_no: u32, epoch_no: u32) -> u64 {
+    if epoch_no == 0 || hdr_no == 0 {
+        return 0;
+    }
     let e = epoch_no as u64 - 1;
     let h = hdr_no as u64 - 1;
     (e * (LOG_BLOCK_MAX_NO as u64) + h) * (OS_FILE_LOG_BLOCK_SIZE as u64)
