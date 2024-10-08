@@ -871,7 +871,7 @@ impl App {
             );
         }
 
-        if unknown.len() > 0 {
+        if !unknown.is_empty() {
             warn!(
                 "Unknown type: {}",
                 &format!("{:?}", unknown.keys()).yellow()
