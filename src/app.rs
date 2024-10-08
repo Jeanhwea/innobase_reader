@@ -858,7 +858,7 @@ impl App {
 
         println!("RedoRecordTypes Statistics:");
         for entry in &stats {
-            let known = !unknown.contains_key(&entry.0);
+            let known = !unknown.contains_key(entry.0);
             println!(
                 "{:>28} {}> {}",
                 entry.0.to_string().yellow(),
