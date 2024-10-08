@@ -27,6 +27,22 @@ use crate::{
 // page
 pub const PAGE_SIZE: usize = 16 * 1024;
 
+// system space page number
+
+/// The following pages exist in the system tablespace (space 0).
+/// insert buffer header page, in tablespace 0
+pub const FSP_IBUF_HEADER_PAGE_NO: usize = 3;
+/// insert buffer B-tree root page in tablespace 0;
+/// The ibuf tree root page number in tablespace 0; its fseg inode is on the page
+/// number FSP_FIRST_INODE_PAGE_NO
+pub const FSP_IBUF_TREE_ROOT_PAGE_NO: usize = 4;
+/// transaction system header, in tablespace 0
+pub const FSP_TRX_SYS_PAGE_NO: usize = 5;
+/// first rollback segment page, in tablespace 0
+pub const FSP_FIRST_RSEG_PAGE_NO: usize = 6;
+/// data dictionary header page, in tablespace 0
+pub const FSP_DICT_HDR_PAGE_NO: usize = 7;
+
 // file
 pub const FIL_HEADER_SIZE: usize = 38;
 pub const FIL_TRAILER_SIZE: usize = 8;
@@ -59,7 +75,8 @@ pub const RECORD_HEADER_SIZE: usize = 5;
 pub const TRX_SYS_N_RSEGS: usize = 128;
 pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
 pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
-pub const TRX_SYS_DBLWR_LOG_INFO: usize = PAGE_SIZE - 200;
+/// The offset of the doublewrite buffer header on the trx system header page
+pub const TRX_SYS_DOUBLEWRITE: usize = PAGE_SIZE - 200;
 // magic number
 pub const TRX_SYS_DOUBLEWRITE_MAGIC_N: u32 = 536853855;
 pub const TRX_SYS_DOUBLEWRITE_SPACE_ID_STORED_N: u32 = 1783657386;
@@ -1517,7 +1534,7 @@ impl BasePageBody for TrxSysPageBody {
             rseg_slots: slots,
             log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
             log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
-            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DBLWR_LOG_INFO, buf.clone()),
+            dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DOUBLEWRITE, buf.clone()),
             buf: buf.clone(),
             addr,
         }
