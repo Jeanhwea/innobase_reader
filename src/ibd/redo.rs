@@ -345,6 +345,9 @@ impl LogRecord {
             LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
                 RedoRecordPayloads::Empty
             }
+            LogRecordTypes::MLOG_INIT_FILE_PAGE | LogRecordTypes::MLOG_INIT_FILE_PAGE2 => {
+                RedoRecordPayloads::Empty
+            }
             LogRecordTypes::MLOG_UNDO_ERASE_END => RedoRecordPayloads::Empty,
             LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
                 RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
@@ -355,6 +358,9 @@ impl LogRecord {
             }
             LogRecordTypes::MLOG_UNDO_INSERT => RedoRecordPayloads::UndoInsert(
                 RedoRecForUndoInsert::new(addr + hdr.total_bytes, buf.clone(), &hdr),
+            ),
+            LogRecordTypes::MLOG_TABLE_DYNAMIC_META => RedoRecordPayloads::TableMeta(
+                RedoRecForTableDynamicMeta::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END => {
                 RedoRecordPayloads::Empty
@@ -628,7 +634,9 @@ impl LogRecordHeader {
         let mut page_no = 0;
         if !matches!(
             log_rec_type,
-            LogRecordTypes::MLOG_DUMMY_RECORD | LogRecordTypes::MLOG_MULTI_REC_END
+            LogRecordTypes::MLOG_DUMMY_RECORD
+                | LogRecordTypes::MLOG_MULTI_REC_END
+                | LogRecordTypes::MLOG_TABLE_DYNAMIC_META
         ) {
             let space = util::u32_compressed(ptr, buf.clone());
             ptr += space.0;
@@ -664,6 +672,7 @@ pub enum RedoRecordPayloads {
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
     UndoPageHeader(RedoRecForUndoPageHeader),
     UndoInsert(RedoRecForUndoInsert),
+    TableMeta(RedoRecForTableDynamicMeta),
     Empty,
     Unknown,
 }
@@ -1477,6 +1486,50 @@ impl RedoRecForUndoInsert {
         Self {
             data_len,
             data,
+            total_bytes: ptr - addr,
+            buf: buf.clone(),
+            addr,
+        }
+    }
+}
+
+/// log record payload for log for some persistent dynamic metadata change, see
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct RedoRecForTableDynamicMeta {
+    /// block address
+    #[derivative(Debug(format_with = "util::fmt_addr"))]
+    pub addr: usize,
+
+    /// block data buffer
+    #[derivative(Debug = "ignore")]
+    pub buf: Arc<Bytes>,
+
+    /// (much compressed) table id, see mlog_parse_initial_dict_log_record(...)
+    pub table_id: u64,
+
+    /// (much compressed) version
+    pub version: u64,
+
+    // MetadataRecover::parseMetadataLog()
+    /// total bytes
+    #[derivative(Debug = "ignore")]
+    pub total_bytes: usize,
+}
+
+impl RedoRecForTableDynamicMeta {
+    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
+        let mut ptr = addr;
+
+        let id = util::u64_much_compressed(ptr, buf.clone());
+        ptr += 2;
+
+        let version = util::u64_much_compressed(ptr, buf.clone());
+        ptr += 2;
+
+        Self {
+            table_id: id.1,
+            version: version.1,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
