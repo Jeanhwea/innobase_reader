@@ -16,7 +16,8 @@ use crate::{
             BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
             IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
             SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
-            PAGE_SIZE, XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
+            FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
+            XDES_PAGE_COUNT,
         },
         record::DataValue,
         redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
@@ -619,6 +620,7 @@ impl App {
                 println!("{:#?}", sdi_page);
             }
             PageTypes::TRX_SYS => {
+                assert_eq!(page_no, FSP_TRX_SYS_PAGE_NO);
                 let trx_sys_page: BasePage<TrxSysPageBody> = fact.read_page(page_no)?;
                 println!("{:#?}", trx_sys_page);
             }
@@ -634,6 +636,10 @@ impl App {
                 let fil_hdr = fact.read_fil_hdr(page_no)?;
                 match fil_hdr.space_id {
                     SpaceId::UndoSpace(_) => {
+                        let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
+                        println!("{:#?}", rsa_hdr_page);
+                    }
+                    SpaceId::SystemSpace if page_no == FSP_FIRST_RSEG_PAGE_NO => {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
