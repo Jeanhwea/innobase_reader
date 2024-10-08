@@ -171,7 +171,7 @@ impl App {
 
     /// page type statistic
     fn do_info_page_stat(&self, fact: &mut DatafileFactory) -> Result<()> {
-        let mut stats: BTreeMap<PageTypes, u32> = BTreeMap::new();
+        let mut stats = BTreeMap::new();
         for page_no in 0..fact.page_count() {
             let hdr = fact.read_fil_hdr(page_no)?;
             *stats.entry(hdr.page_type).or_insert(0) += 1;
