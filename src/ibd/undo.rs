@@ -251,8 +251,7 @@ impl XaTrxInfo {
 }
 
 /// parsed rollback pointer
-#[derive(Eq, PartialEq)]
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub struct RollPtr {
     #[derivative(Debug(format_with = "util::fmt_hex56"))]

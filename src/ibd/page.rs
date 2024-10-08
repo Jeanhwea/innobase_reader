@@ -101,8 +101,7 @@ pub const TEMP_SPACE_ID_MIN: u32 = UNDO_SPACE_ID_MIN - 400000;
 pub const TRX_SYS_SPACE_ID: u32 = 0;
 
 /// Tablespace ID
-#[derive(Eq, PartialEq)]
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub enum SpaceId {
     /// TRX_SYS_SPACE, Space id of the transaction system page (the system tablespace),
