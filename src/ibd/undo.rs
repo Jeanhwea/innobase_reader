@@ -251,6 +251,7 @@ impl XaTrxInfo {
 }
 
 /// parsed rollback pointer
+#[derive(Eq, PartialEq)]
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RollPtr {

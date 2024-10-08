@@ -698,6 +698,7 @@ pub struct RecordLayout {
     pub total_size: usize,
 }
 
+#[derive(Eq, PartialEq)]
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum DataValue {
