@@ -871,12 +871,12 @@ impl App {
             );
         }
 
-        // if unknown.len() > 0 {
-        //     warn!(
-        //         "Unknown type: {}",
-        //         &format!("{:?}", unknown.keys()).yellow()
-        //     );
-        // }
+        if unknown.len() > 0 {
+            warn!(
+                "Unknown type: {}",
+                &format!("{:?}", unknown.keys()).yellow()
+            );
+        }
 
         Ok(())
     }
