@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -343,12 +343,9 @@ impl LogRecord {
                 RedoRecForRecordSecIndexDeleteMark::new(addr + hdr.total_bytes, buf.clone(), &hdr),
             ),
             LogRecordTypes::MLOG_PAGE_CREATE | LogRecordTypes::MLOG_COMP_PAGE_CREATE => {
-                RedoRecordPayloads::PageCreate(RedoRecForPageCreate::new(
-                    addr + hdr.total_bytes,
-                    buf.clone(),
-                    &hdr,
-                ))
+                RedoRecordPayloads::Empty
             }
+            LogRecordTypes::MLOG_UNDO_ERASE_END => RedoRecordPayloads::Empty,
             LogRecordTypes::MLOG_UNDO_HDR_CREATE | LogRecordTypes::MLOG_UNDO_HDR_REUSE => {
                 RedoRecordPayloads::UndoPageHeader(RedoRecForUndoPageHeader::new(
                     addr + hdr.total_bytes,
@@ -665,7 +662,6 @@ pub enum RedoRecordPayloads {
     RecUpdateInPlace(RedoRecForRecordUpdateInPlace),
     RecClusterDeleteMark(RedoRecForRecordClusterDeleteMark),
     RecSecIndexDeleteMark(RedoRecForRecordSecIndexDeleteMark),
-    PageCreate(RedoRecForPageCreate),
     UndoPageHeader(RedoRecForUndoPageHeader),
     UndoInsert(RedoRecForUndoInsert),
     Empty,
@@ -1389,41 +1385,6 @@ impl RedoRecForRecordSecIndexDeleteMark {
         Self {
             value,
             offset,
-            total_bytes: ptr - addr,
-            buf: buf.clone(),
-            addr,
-        }
-    }
-}
-
-/// log record payload for parsing a redo log record of creating a page, see
-/// page_parse_create(...)
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct RedoRecForPageCreate {
-    /// block address
-    #[derivative(Debug(format_with = "util::fmt_addr"))]
-    pub addr: usize,
-
-    /// block data buffer
-    #[derivative(Debug = "ignore")]
-    pub buf: Arc<Bytes>,
-
-    /// total bytes
-    #[derivative(Debug = "ignore")]
-    pub total_bytes: usize,
-}
-
-impl RedoRecForPageCreate {
-    pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
-            "peek: addr={}, buf={:?}",
-            addr,
-            buf.slice(addr..addr + 16).to_vec()
-        );
-        let ptr = addr;
-
-        Self {
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
