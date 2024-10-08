@@ -20,8 +20,9 @@ pub const LOG_BLOCK_HDR_SIZE: usize = 12;
 pub const LOG_BLOCK_MAX_NO: usize = 0x3FFFFFFF + 1;
 
 pub fn log_block_guess_lsn(hdr_no: u32, epoch_no: u32) -> u64 {
-    ((epoch_no as u64 - 1) * (LOG_BLOCK_MAX_NO as u64) + (hdr_no as u64 - 1))
-        * (OS_FILE_LOG_BLOCK_SIZE as u64)
+    let e = epoch_no as u64 - 1;
+    let h = hdr_no as u64 - 1;
+    (e * (LOG_BLOCK_MAX_NO as u64) + h) * (OS_FILE_LOG_BLOCK_SIZE as u64)
 }
 
 pub fn log_block_convert_lsn_to_hdr_no(lsn: u64) -> u32 {
@@ -263,7 +264,7 @@ pub struct LogBlock {
 
     /// guessed LSN
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
-    pub lsn_guessed: u64,
+    pub guessed_lsn: u64,
 
     /// redo log record
     pub log_record: Option<LogRecord>,
@@ -301,7 +302,7 @@ impl LogBlock {
             data_len: util::u16_val(&buf, addr + 4),
             first_rec_offset,
             epoch_no,
-            lsn_guessed: log_block_guess_lsn(hdr_no, epoch_no),
+            guessed_lsn: log_block_guess_lsn(hdr_no, epoch_no),
             log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
