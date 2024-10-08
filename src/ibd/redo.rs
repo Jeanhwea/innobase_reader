@@ -1532,7 +1532,7 @@ pub struct RedoRecForTableDynamicMeta {
     /// (much compressed) version
     pub version: u64,
 
-    /// (1 byte) persistent_type
+    /// (1 byte) persistent_type, see MetadataRecover::parseMetadataLog(...)
     #[derivative(Debug(format_with = "util::fmt_enum"))]
     pub persistent_type: PersistentTypes,
 
