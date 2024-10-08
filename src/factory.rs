@@ -15,7 +15,7 @@ use crate::{
         page::{
             BasePage, BasePageBody, FilePageHeader, FileSpaceHeaderPageBody, INodeEntry,
             INodePageBody, IndexHeader, IndexPageBody, SdiPageBody, XDesEntry, XDesPageBody,
-            FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, PAGE_SIZE,
+            FIL_HEADER_SIZE, INDEX_HEADER_SIZE, PAGE_NONE, UNIV_PAGE_SIZE,
         },
         record::{DataValue, ResultSet},
         redo::{Blocks, LogBlock, LogCheckpoint, LogFileHeader, OS_FILE_LOG_BLOCK_SIZE},
@@ -101,7 +101,7 @@ impl DatafileFactory {
 
     /// count the page
     pub fn page_count(&self) -> usize {
-        self.file_size / PAGE_SIZE
+        self.file_size / UNIV_PAGE_SIZE
     }
 
     /// get page buffer
@@ -110,10 +110,10 @@ impl DatafileFactory {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
         }
 
-        let offset = (page_no * PAGE_SIZE) as u64;
+        let offset = (page_no * UNIV_PAGE_SIZE) as u64;
         self.file_handler.seek(SeekFrom::Start(offset))?;
 
-        let mut buffer = vec![0; PAGE_SIZE];
+        let mut buffer = vec![0; UNIV_PAGE_SIZE];
         self.file_handler.read_exact(&mut buffer)?;
         Ok(Arc::new(Bytes::from(buffer)))
     }
@@ -124,7 +124,7 @@ impl DatafileFactory {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
         }
 
-        let offset = (page_no * PAGE_SIZE) as u64;
+        let offset = (page_no * UNIV_PAGE_SIZE) as u64;
         self.file_handler.seek(SeekFrom::Start(offset))?;
 
         let mut buffer = vec![0; FIL_HEADER_SIZE];
@@ -137,7 +137,7 @@ impl DatafileFactory {
             return Err(Error::msg(format!("页码范围溢出: page_no={}", page_no)));
         }
 
-        let offset = (page_no * PAGE_SIZE + FIL_HEADER_SIZE) as u64;
+        let offset = (page_no * UNIV_PAGE_SIZE + FIL_HEADER_SIZE) as u64;
         self.file_handler.seek(SeekFrom::Start(offset))?;
 
         let mut buffer = vec![0; INDEX_HEADER_SIZE];

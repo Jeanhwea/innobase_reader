@@ -698,7 +698,8 @@ pub struct RecordLayout {
     pub total_size: usize,
 }
 
-#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum DataValue {
     RowId(#[derivative(Debug(format_with = "util::fmt_hex48"))] u64),
