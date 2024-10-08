@@ -73,8 +73,11 @@ pub const RECORD_HEADER_SIZE: usize = 5;
 
 // TRX_SYS transaction system page
 pub const TRX_SYS_N_RSEGS: usize = 128;
-pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 2000;
-pub const TRX_SYS_BINLOG_LOG_INFO: usize = PAGE_SIZE - 1000;
+
+// The offset of the MySQL binlog offset info in the trx system header
+pub const TRX_SYS_MYSQL_LOG_INFO: usize = PAGE_SIZE - 1000;
+pub const TRX_SYS_MYSQL_LOG_NAME_LEN: usize = 512;
+
 /// The offset of the doublewrite buffer header on the trx system header page
 pub const TRX_SYS_DOUBLEWRITE: usize = PAGE_SIZE - 200;
 // magic number
@@ -1511,13 +1514,12 @@ pub struct TrxSysPageBody {
     /// (10 bytes) segment header
     pub fseg_hdr: FSegHeader,
 
-    /// (10 bytes) the array of rollback segment specification slots
+    /// (8 * 128 bytes) the array of rollback segment specification slots
     pub rseg_slots: Vec<RSegInfo>,
 
-    /// (112 bytes) Master log info
+    /// (524 bytes) log info for binlog
     pub log_info_0: LogInfo,
-    /// (112 bytes) binlog log info
-    pub log_info_1: LogInfo,
+
     /// (112 bytes) double write log info
     pub dbw_info: DoubleWriteBufferInfo,
 }
@@ -1533,7 +1535,6 @@ impl BasePageBody for TrxSysPageBody {
             fseg_hdr: FSegHeader::new(addr + 8, buf.clone()),
             rseg_slots: slots,
             log_info_0: LogInfo::new(TRX_SYS_MYSQL_LOG_INFO, buf.clone()),
-            log_info_1: LogInfo::new(TRX_SYS_BINLOG_LOG_INFO, buf.clone()),
             dbw_info: DoubleWriteBufferInfo::new(TRX_SYS_DOUBLEWRITE, buf.clone()),
             buf: buf.clone(),
             addr,
@@ -1593,7 +1594,7 @@ pub struct LogInfo {
     #[derivative(Debug(format_with = "util::fmt_hex64"))]
     pub log_offset: u64,
 
-    /// (100 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
+    /// (512 bytes) MySQL log file name, TRX_SYS_MYSQL_LOG_NAME
     #[derivative(Debug(format_with = "util::fmt_str"))]
     pub log_name: String,
 }
@@ -1603,7 +1604,7 @@ impl LogInfo {
         Self {
             magic_number: util::u32_val(&buf, addr),
             log_offset: util::u64_val(&buf, addr + 4),
-            log_name: util::str_val(&buf, addr + 12, 100),
+            log_name: util::str_val(&buf, addr + 12, TRX_SYS_MYSQL_LOG_NAME_LEN),
             buf: buf.clone(),
             addr,
         }
