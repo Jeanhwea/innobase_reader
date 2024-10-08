@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use derivative::Derivative;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
@@ -302,7 +302,7 @@ impl LogRecord {
         );
 
         let hdr = LogRecordHeader::new(addr, buf.clone());
-        info!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
+        trace!("{:>4} => {:?}", hdr.addr / OS_FILE_LOG_BLOCK_SIZE, &hdr);
         let payload = match hdr.log_rec_type {
             LogRecordTypes::MLOG_1BYTE
             | LogRecordTypes::MLOG_2BYTES
@@ -1442,7 +1442,7 @@ pub struct RedoRecForUndoPageHeader {
 
 impl RedoRecForUndoPageHeader {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        trace!(
             "peek: addr={}, buf={:?}",
             addr,
             buf.slice(addr..addr + 16).to_vec()
@@ -1488,7 +1488,7 @@ pub struct RedoRecForUndoInsert {
 
 impl RedoRecForUndoInsert {
     pub fn new(addr: usize, buf: Arc<Bytes>, _hdr: &LogRecordHeader) -> Self {
-        info!(
+        trace!(
             "peek: addr={}, buf={:?}",
             addr,
             buf.slice(addr..addr + 16).to_vec()

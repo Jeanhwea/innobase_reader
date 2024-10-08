@@ -111,15 +111,19 @@ impl App {
                     }
                 },
             },
-            Commands::Redo { block_no } => match block_no {
-                Some(block_no) => {
-                    self.do_view_block(block_no)?;
-                }
+            Commands::Redo {
+                block_no,
+                dump_log_type,
+            } => match dump_log_type {
+                Some(log_type) => self.do_dump_log_records(log_type)?,
                 None => {
-                    self.do_view_log_file()?;
+                    match block_no {
+                        Some(block_no) => self.do_view_block(block_no)?,
+                        None => self.do_view_log_file()?,
+                    };
                 }
             },
-        }
+        };
 
         Ok(())
     }
@@ -785,6 +789,35 @@ impl App {
         Ok(())
     }
 
+    fn do_dump_log_records(&self, log_rec_type: LogRecordTypes) -> Result<(), Error> {
+        let mut fact = DatafileFactory::from_file(self.input.clone())?;
+        let buf = fact.file_buffer()?;
+        let log_file = LogFile::new(0, buf);
+
+        for (i, blk) in log_file.log_block_list.iter().enumerate() {
+            let block_no = i + 4;
+            if let Blocks::Block(block) = blk {
+                let rec_type = if let Some(rec) = &block.log_record {
+                    rec.log_rec_hdr.log_rec_type.clone()
+                } else {
+                    LogRecordTypes::UNDEF
+                };
+                if rec_type == log_rec_type {
+                    continue;
+                }
+                if let Some(rec) = &block.log_record {
+                    println!(
+                        "{:>5} => {:?}",
+                        block_no.to_string().green(),
+                        rec.log_rec_hdr
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn do_view_block(&self, block_no: usize) -> Result<(), Error> {
         let mut fact = DatafileFactory::from_file(self.input.clone())?;
         let block = fact.read_block(block_no)?;
@@ -811,25 +844,14 @@ impl App {
         let log_file = LogFile::new(0, buf);
 
         let mut stats: BTreeMap<LogRecordTypes, u32> = BTreeMap::new();
-        for (i, blk) in log_file.log_block_list.iter().enumerate() {
-            let block_no = i + 4;
+        for blk in &log_file.log_block_list {
             if let Blocks::Block(block) = blk {
                 let rec_type = if let Some(rec) = &block.log_record {
                     rec.log_rec_hdr.log_rec_type.clone()
                 } else {
                     LogRecordTypes::UNDEF
                 };
-                *stats.entry(rec_type.clone()).or_insert(0) += 1;
-                let type_count = stats[&rec_type];
-                if type_count < 3 {
-                    if let Some(rec) = &block.log_record {
-                        println!(
-                            "{:>5} => {:?}",
-                            block_no.to_string().green(),
-                            rec.log_rec_hdr
-                        );
-                    }
-                }
+                *stats.entry(rec_type).or_insert(0) += 1;
             }
         }
 
