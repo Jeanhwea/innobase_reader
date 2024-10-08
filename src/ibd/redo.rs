@@ -15,6 +15,22 @@ use crate::{
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
+pub const LOG_BLOCK_HDR_SIZE: usize = 12;
+// Maximum allowed block's number (stored in hdr_no) increased by 1.
+pub const LOG_BLOCK_MAX_NO: usize = 0x3FFFFFFF + 1;
+
+pub fn log_block_guess_lsn(hdr_no: u32, epoch_no: u32) -> u64 {
+    ((epoch_no as u64 - 1) * (LOG_BLOCK_MAX_NO as u64) + (hdr_no as u64 - 1))
+        * (OS_FILE_LOG_BLOCK_SIZE as u64)
+}
+
+pub fn log_block_convert_lsn_to_hdr_no(lsn: u64) -> u32 {
+    1 + ((lsn / (OS_FILE_LOG_BLOCK_SIZE as u64) % (LOG_BLOCK_MAX_NO as u64)) as u32)
+}
+
+pub fn log_block_convert_lsn_to_epoch_no(lsn: u64) -> u32 {
+    1 + ((lsn / (OS_FILE_LOG_BLOCK_SIZE as u64) / (LOG_BLOCK_MAX_NO as u64)) as u32)
+}
 
 /// log file, see log0constants.h
 #[derive(Clone, Derivative)]
@@ -245,6 +261,10 @@ pub struct LogBlock {
     /// OS_FILE_LOG_BLOCK_SIZE, and then divided by the LOG_BLOCK_MAX_NO.
     pub epoch_no: u32,
 
+    /// guessed LSN
+    #[derivative(Debug(format_with = "util::fmt_hex64"))]
+    pub lsn_guessed: u64,
+
     /// redo log record
     pub log_record: Option<LogRecord>,
 
@@ -271,13 +291,17 @@ impl LogBlock {
             None
         };
 
+        let hdr_no = b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK);
+        let epoch_no = util::u32_val(&buf, addr + 8);
+
         Self {
             block_no,
-            hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
+            hdr_no,
             flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
             data_len: util::u16_val(&buf, addr + 4),
             first_rec_offset,
-            epoch_no: util::u32_val(&buf, addr + 8),
+            epoch_no,
+            lsn_guessed: log_block_guess_lsn(hdr_no, epoch_no),
             log_record: rec,
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
             buf: buf.clone(),
