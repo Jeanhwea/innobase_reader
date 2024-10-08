@@ -148,6 +148,7 @@ impl From<u32> for SpaceId {
             3 => Self::DdTempSpace,
             REDO_LOG_SPACE_ID => Self::RedoSpace,
             val @ (UNDO_SPACE_ID_MIN..=UNDO_SPACE_ID_MAX) => {
+                // see undo::id2num(space_id)
                 Self::UndoSpace(UNDO_SPACE_ID_MAX - val + 1)
             }
             DICT_SPACE_ID => Self::DictSpace,

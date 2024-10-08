@@ -7,7 +7,7 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, PageNumber, UndoPageHeader, UndoPageTypes, UNIV_PAGE_SIZE};
+use super::page::{FlstNode, PageNumber, SpaceId, UndoPageHeader, UndoPageTypes, UNIV_PAGE_SIZE};
 use crate::{ibd::dict, util};
 
 /// XID data size
@@ -251,7 +251,7 @@ impl XaTrxInfo {
 }
 
 /// parsed rollback pointer
-#[derive(Clone, Derivative, Eq, PartialEq)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct RollPtr {
     #[derivative(Debug(format_with = "util::fmt_hex56"))]
@@ -263,7 +263,8 @@ pub struct RollPtr {
     pub insert: bool,
 
     /// (7 bits) rollback segment id
-    pub rseg_id: u8,
+    #[derivative(Debug(format_with = "util::fmt_enum_2"))]
+    pub rseg_id: SpaceId,
 
     /// (4 bytes) page number
     #[derivative(Debug(format_with = "util::fmt_enum_3"))]
@@ -275,10 +276,11 @@ pub struct RollPtr {
 
 impl RollPtr {
     pub fn new(value: u64) -> Self {
+        let seg_id = ((value >> 48) & 0x7f) as u32;
         Self {
             value,
             insert: ((value >> 55) & 0x1) > 0,
-            rseg_id: ((value >> 48) & 0x7f) as u8,
+            rseg_id: SpaceId::UndoSpace(seg_id),
             page_no: (((value >> 16) & 0xffffffff) as u32).into(),
             boffset: (value & 0xffff) as u16,
         }
