@@ -1493,6 +1493,27 @@ impl RedoRecForUndoInsert {
     }
 }
 
+/// Persistent dynamic metadata type, there should be 1 to 1 relationship
+/// between the metadata and the type. Please keep them in order so that we can
+/// iterate over it
+#[repr(u8)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Deserialize_repr, Serialize_repr, EnumString, FromPrimitive)]
+pub enum PersistentTypes {
+    /// The smallest type, which should be 1 less than the first true type
+    #[default]
+    PM_SMALLEST_TYPE = 0,
+
+    /// Persistent Metadata type for corrupted indexes
+    PM_INDEX_CORRUPTED = 1,
+
+    /// Persistent Metadata type for autoinc counter
+    PM_TABLE_AUTO_INC = 2,
+
+    /// The biggest type, which should be 1 bigger than the last true type
+    PM_BIGGEST_TYPE = 3,
+}
+
 /// log record payload for log for some persistent dynamic metadata change, see
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -1511,6 +1532,10 @@ pub struct RedoRecForTableDynamicMeta {
     /// (much compressed) version
     pub version: u64,
 
+    /// (1 byte) persistent_type
+    #[derivative(Debug(format_with = "util::fmt_enum"))]
+    pub persistent_type: PersistentTypes,
+
     // MetadataRecover::parseMetadataLog()
     /// total bytes
     #[derivative(Debug = "ignore")]
@@ -1527,9 +1552,17 @@ impl RedoRecForTableDynamicMeta {
         let version = util::u64_much_compressed(ptr, buf.clone());
         ptr += 2;
 
+        let b = util::u8_val(&buf, ptr);
+        ptr += 1;
+
+        let persistent_type: PersistentTypes = b.into();
+
+        // TODO: will parse PersistentTypes data
+
         Self {
             table_id: id.1,
             version: version.1,
+            persistent_type,
             total_bytes: ptr - addr,
             buf: buf.clone(),
             addr,
