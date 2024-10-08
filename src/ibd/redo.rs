@@ -15,7 +15,7 @@ use crate::{
 
 // log file size
 pub const OS_FILE_LOG_BLOCK_SIZE: usize = 512;
-pub const LOG_BLOCK_HDR_SIZE: usize = 12;
+
 // Maximum allowed block's number (stored in hdr_no) increased by 1.
 pub const LOG_BLOCK_MAX_NO: usize = 0x3FFFFFFF + 1;
 
