@@ -52,15 +52,15 @@ impl LogFile {
             if ptr >= buf.len() {
                 break;
             }
-            blocks.push(LogBlock::new(ptr, buf.clone()).into());
+            blocks.push(LogBlock::new(ptr, buf.clone(), ptr / OS_FILE_LOG_BLOCK_SIZE).into());
             ptr += OS_FILE_LOG_BLOCK_SIZE;
         }
 
         Self {
-            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone())),
-            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone()).into(),
+            block_0: Blocks::FileHeader(LogFileHeader::new(addr, buf.clone(), 0)),
+            block_1: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE, buf.clone(), 1).into(),
             block_2: Blocks::Unused,
-            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone()).into(),
+            block_3: LogCheckpoint::new(addr + OS_FILE_LOG_BLOCK_SIZE * 3, buf.clone(), 3).into(),
             log_block_list: blocks,
             buf: buf.clone(),
             addr,
@@ -109,6 +109,9 @@ pub struct LogFileHeader {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// block number, nth block in redo log file
+    pub block_no: usize,
+
     /// (4 bytes) log group id, Log file header format identifier (32-bit
     /// unsigned big-endian integer). This used to be called LOG_GROUP_ID and
     /// always written as 0, because InnoDB never supported more than one copy
@@ -139,8 +142,9 @@ pub struct LogFileHeader {
 }
 
 impl LogFileHeader {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         Self {
+            block_no,
             log_group_id: util::u32_val(&buf, addr),
             log_uuid: util::u32_val(&buf, addr + 4),
             start_lsn: util::u64_val(&buf, addr + 8),
@@ -164,6 +168,9 @@ pub struct LogCheckpoint {
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
 
+    /// block number, nth block in redo log file
+    pub block_no: usize,
+
     /// (8 bytes) checkpoint number
     pub checkpoint_no: u64,
 
@@ -177,8 +184,9 @@ pub struct LogCheckpoint {
 }
 
 impl LogCheckpoint {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         Self {
+            block_no,
             checkpoint_no: util::u64_val(&buf, addr),
             checkpoint_lsn: util::u64_val(&buf, addr + 8),
             checksum: util::u32_val(&buf, addr + OS_FILE_LOG_BLOCK_SIZE - 4),
@@ -199,6 +207,9 @@ pub struct LogBlock {
     /// block data buffer
     #[derivative(Debug = "ignore")]
     pub buf: Arc<Bytes>,
+
+    /// block number, nth block in redo log file
+    pub block_no: usize,
 
     /// (4 bytes) log block number, see LOG_BLOCK_HDR_NO, Offset to hdr_no,
     /// which is a log block number and must be > 0. It is allowed to wrap
@@ -247,7 +258,7 @@ impl LogBlock {
     /// versions this bit was used to mark first block in a write.
     const LOG_BLOCK_FLUSH_BIT_MASK: u32 = 0x80000000;
 
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, block_no: usize) -> Self {
         let b0 = util::u32_val(&buf, addr);
 
         let first_rec_offset = util::u16_val(&buf, addr + 6);
@@ -261,6 +272,7 @@ impl LogBlock {
         };
 
         Self {
+            block_no,
             hdr_no: b0 & (!Self::LOG_BLOCK_FLUSH_BIT_MASK),
             flush_flag: b0 & Self::LOG_BLOCK_FLUSH_BIT_MASK > 0,
             data_len: util::u16_val(&buf, addr + 4),

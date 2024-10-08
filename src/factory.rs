@@ -166,10 +166,10 @@ impl DatafileFactory {
     pub fn read_block(&mut self, block_no: usize) -> Result<Blocks> {
         let buf = self.block_buffer(block_no)?;
         let data = match block_no {
-            0 => Blocks::FileHeader(LogFileHeader::new(0, buf)),
+            0 => Blocks::FileHeader(LogFileHeader::new(0, buf, block_no)),
             2 => Blocks::Unused,
-            1 | 3 => LogCheckpoint::new(0, buf).into(),
-            _ => LogBlock::new(0, buf).into(),
+            1 | 3 => LogCheckpoint::new(0, buf, block_no).into(),
+            _ => LogBlock::new(0, buf, block_no).into(),
         };
         Ok(data)
     }

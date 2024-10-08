@@ -794,8 +794,7 @@ impl App {
         let buf = fact.file_buffer()?;
         let log_file = LogFile::new(0, buf);
 
-        for (i, blk) in log_file.log_block_list.iter().enumerate() {
-            let block_no = i + 4;
+        for blk in &log_file.log_block_list {
             if let Blocks::Block(block) = blk {
                 let rec_type = if let Some(rec) = &block.log_record {
                     rec.log_rec_hdr.log_rec_type.clone()
@@ -806,11 +805,7 @@ impl App {
                     continue;
                 }
                 if let Some(rec) = &block.log_record {
-                    println!(
-                        "{:>5} => {:?}",
-                        block_no.to_string().green(),
-                        rec.log_rec_hdr
-                    );
+                    println!("{:>6} => {:?}", block.block_no, &rec.log_rec_hdr);
                 }
             }
         }
