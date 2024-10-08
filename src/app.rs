@@ -802,7 +802,7 @@ impl App {
                 } else {
                     LogRecordTypes::UNDEF
                 };
-                if rec_type == log_rec_type {
+                if rec_type != log_rec_type {
                     continue;
                 }
                 if let Some(rec) = &block.log_record {
