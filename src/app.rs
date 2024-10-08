@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Error, Result};
 use colored::Colorize;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 
 use crate::{
     factory::DatafileFactory,
