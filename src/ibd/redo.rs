@@ -1557,7 +1557,9 @@ impl RedoRecForTableDynamicMeta {
 
         let persistent_type: PersistentTypes = b.into();
 
-        // TODO: will parse PersistentTypes data
+        // TODO: will parse metadata in those funciton, see dict0dict.cc
+        //   1. CorruptedIndexPersister::read(...)
+        //   2. AutoIncPersister::read(...)
 
         Self {
             table_id: id.1,
