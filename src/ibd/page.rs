@@ -1517,6 +1517,7 @@ pub struct TrxSysPageBody {
     pub fseg_hdr: FSegHeader,
 
     /// (8 * 128 bytes) the array of rollback segment specification slots
+    #[derivative(Debug(format_with = "util::fmt_oneline_vec"))]
     pub rseg_slots: Vec<RSegInfo>,
 
     /// (524 bytes) log info for binlog
