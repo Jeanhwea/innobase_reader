@@ -16,7 +16,7 @@ use crate::{
             BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
             IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
             SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
-            FSP_DICT_HDR_PAGE_NO, FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, UNIV_PAGE_SIZE,
+            FSP_DICT_HDR_PAGE_NO, FSP_TRX_SYS_PAGE_NO, UNIV_PAGE_SIZE,
             XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
