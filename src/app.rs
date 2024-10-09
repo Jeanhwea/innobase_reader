@@ -16,8 +16,8 @@ use crate::{
             BasePage, FileSpaceHeaderPageBody, FlstBaseNode, INodeEntry, INodePageBody,
             IndexPageBody, PageNumber, PageTypes, RSegArrayPageBody, RSegHeaderPageBody,
             SdiPageBody, SpaceId, TrxSysPageBody, UndoLogPageBody, XDesPageBody, EXTENT_PAGE_NUM,
-            FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, UNIV_PAGE_SIZE, XDES_ENTRY_MAX_COUNT,
-            XDES_PAGE_COUNT,
+            FSP_DICT_HDR_PAGE_NO, FSP_FIRST_RSEG_PAGE_NO, FSP_TRX_SYS_PAGE_NO, UNIV_PAGE_SIZE,
+            XDES_ENTRY_MAX_COUNT, XDES_PAGE_COUNT,
         },
         record::DataValue,
         redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
@@ -639,7 +639,7 @@ impl App {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
-                    SpaceId::SystemSpace if page_no == FSP_FIRST_RSEG_PAGE_NO => {
+                    SpaceId::SystemSpace if page_no != FSP_DICT_HDR_PAGE_NO => {
                         let rsa_hdr_page: BasePage<RSegHeaderPageBody> = fact.read_page(page_no)?;
                         println!("{:#?}", rsa_hdr_page);
                     }
