@@ -1,5 +1,6 @@
-CARGO = cargo
-CFLAG =
+CARGO  = cargo
+CFLAG  =
+DOCDIR = $(HOME)/code/github/read0code/read0code.github.io/pub/ibr
 
 all: run
 
@@ -42,6 +43,14 @@ release-linux:
 
 release-win:
 	$(CARGO) build --release $(CFLAG) --target=x86_64-pc-windows-gnu
+
+publish-doc: clean
+	@if test -d $(DOCDIR) ; then \
+	  $(CARGO) doc $(CFLAG) -q --no-deps && \
+	  rm -rf $(DOCDIR) && \
+	  cp -rf ./target/doc $(DOCDIR) && \
+	  echo "save to $(DOCDIR)"; \
+	fi;
 
 clean:
 	rm -rf target
