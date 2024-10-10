@@ -560,7 +560,7 @@ impl UndoRecForInsert {
     }
 }
 
-/// see trx_undo_page_report_modify(..)
+/// see trx_undo_page_report_modify(...)
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct UndoRecForUpdate {
