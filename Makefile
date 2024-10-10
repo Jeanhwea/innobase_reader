@@ -30,10 +30,10 @@ fix: format
 	$(CARGO) fix $(CFLAG) --allow-dirty --allow-staged
 
 install:
-	$(CARGO) install $(CFLAG) --offline --path .
-
-install-online:
 	$(CARGO) install $(CFLAG) --path .
+
+install-offline:
+	$(CARGO) install $(CFLAG) --offline --path .
 
 release: release-linux
 
@@ -53,7 +53,7 @@ publish-doc: clean
 	fi;
 
 clean:
-	rm -rf target
+	@rm -rf target
 
 # fake targets
 .PHONY: all run test doc browse format lint fix install clean
