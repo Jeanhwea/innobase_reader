@@ -19,6 +19,9 @@ doc:
 browse:
 	$(CARGO) doc $(CFLAG) --no-deps --open
 
+debug:
+	rust-gdb --args ./target/debug/ibr $(A)
+
 format:
 	git add src
 	rustup run nightly $(CARGO) fmt $(CFLAG)
