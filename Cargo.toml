@@ -1,6 +1,6 @@
 [package]
 name = "ibr"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Jinghui Hu <hujinghui@buaa.edu.cn>"]
 description = "A innobase datafile reader"
