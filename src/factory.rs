@@ -838,6 +838,7 @@ mod factory_tests_run {
     use std::path::PathBuf;
 
     use anyhow::Error;
+    use log::info;
 
     use crate::{
         factory::DatafileFactory,
@@ -855,8 +856,22 @@ mod factory_tests_run {
     fn view_redo_log_block_0() -> Result<(), Error> {
         util::init_unit_test();
         let mut fact = DatafileFactory::from_file(PathBuf::from(REDO_1))?;
-        let block = fact.read_block(0)?;
-        assert!(matches!(block, Blocks::FileHeader(_)));
+        let b0 = fact.read_block(0)?;
+        assert!(matches!(b0, Blocks::FileHeader(_)));
+
+        if let Blocks::FileHeader(hdr) = b0 {
+            assert_eq!(hdr.creator, "MySQL 8.0.37");
+        }
+
+        let b1 = fact.read_block(1)?;
+        assert!(matches!(b1, Blocks::Checkpoint(_)));
+
+        let b4 = fact.read_block(4)?;
+        assert!(matches!(b4, Blocks::Block(_)));
+        if let Blocks::Block(blk) = b4 {
+            assert_eq!(blk.data_len, 512);
+        }
+
         Ok(())
     }
 
