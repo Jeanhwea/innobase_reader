@@ -21,6 +21,7 @@ use crate::{
         },
         record::DataValue,
         redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
+        undo::UndoRecord,
     },
     util::{colored_extent_number, colored_page_number},
     Commands,
@@ -112,6 +113,17 @@ impl App {
                     }
                 },
             },
+            Commands::Undo {
+                page_no,
+                boffset,
+                n_uniq,
+            } => {
+                let mut fact = DatafileFactory::from_file(self.input.clone())?;
+                let buf = fact.page_buffer(page_no)?;
+                let addr = 0;
+                let undo_rec = UndoRecord::read(addr, buf, boffset, n_uniq);
+                println!("{:#?}", undo_rec)
+            }
             Commands::Redo {
                 block_no,
                 dump_log_type,

@@ -11,7 +11,7 @@ test:
 	$(CARGO) test -- --nocapture --show-output
 
 t0:
-	$(CARGO) test factory_tests_run::entry -- --nocapture --show-output
+	$(CARGO) test undo_tests::test_read_undo_record -- --nocapture --show-output
 
 doc:
 	$(CARGO) doc $(CFLAG)

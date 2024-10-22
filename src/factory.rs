@@ -838,7 +838,6 @@ mod factory_tests_run {
     use std::path::PathBuf;
 
     use anyhow::Error;
-    use log::info;
 
     use crate::{
         factory::DatafileFactory,

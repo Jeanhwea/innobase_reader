@@ -7,7 +7,9 @@ use num_enum::FromPrimitive;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum::{Display, EnumString};
 
-use super::page::{FlstNode, PageNumber, SpaceId, UndoPageHeader, UndoPageTypes, UNIV_PAGE_SIZE};
+use super::page::{
+    FlstNode, PageNumber, SpaceId, UndoPageHeader, UndoPageTypes, FIL_HEADER_SIZE, UNIV_PAGE_SIZE,
+};
 use crate::{ibd::dict, util};
 
 /// XID data size
@@ -44,7 +46,7 @@ impl UndoLog {
                 break;
             }
 
-            let rec = UndoRecord::new(rec_addr, buf.clone(), page_hdr);
+            let rec = UndoRecord::new(rec_addr, buf.clone(), page_hdr, None);
             rec_addr = rec.undo_rec_hdr.next_addr();
             let type_info = rec.undo_rec_hdr.type_info.clone();
             rec_list.push(rec);
@@ -307,7 +309,12 @@ pub struct UndoRecord {
 }
 
 impl UndoRecord {
-    pub fn new(addr: usize, buf: Arc<Bytes>, page_hdr: &UndoPageHeader) -> Self {
+    pub fn new(
+        addr: usize,
+        buf: Arc<Bytes>,
+        page_hdr: &UndoPageHeader,
+        n_uniq: Option<usize>,
+    ) -> Self {
         let hdr = UndoRecordHeader::new(addr, buf.clone());
         info!("hdr = {:?}", &hdr);
 
@@ -315,10 +322,10 @@ impl UndoRecord {
             UndoTypes::ZERO_VAL => UndoRecordPayloads::Nothing,
             _ => match page_hdr.page_type {
                 UndoPageTypes::TRX_UNDO_INSERT => {
-                    UndoRecordPayloads::Insert(UndoRecForInsert::new(addr + 3, buf.clone()))
+                    UndoRecordPayloads::Insert(UndoRecForInsert::new(addr + 3, buf.clone(), n_uniq))
                 }
                 UndoPageTypes::TRX_UNDO_UPDATE => {
-                    UndoRecordPayloads::Update(UndoRecForUpdate::new(addr + 3, buf.clone()))
+                    UndoRecordPayloads::Update(UndoRecForUpdate::new(addr + 3, buf.clone(), n_uniq))
                 }
                 UndoPageTypes::UNDEF => UndoRecordPayloads::Nothing,
             },
@@ -330,6 +337,11 @@ impl UndoRecord {
             buf: buf.clone(),
             addr,
         }
+    }
+
+    pub fn read(addr: usize, buf: Arc<Bytes>, boffset: usize, n_uniq: usize) -> Self {
+        let page_hdr = UndoPageHeader::new(addr + FIL_HEADER_SIZE, buf.clone());
+        Self::new(addr + boffset, buf.clone(), &page_hdr, Some(n_uniq))
     }
 }
 
@@ -532,7 +544,7 @@ pub struct UndoRecForInsert {
 }
 
 impl UndoRecForInsert {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, n_uniq: Option<usize>) -> Self {
         let mut ptr = addr;
 
         let undo_no = util::u64_much_compressed(ptr, buf.clone());
@@ -543,7 +555,7 @@ impl UndoRecForInsert {
 
         // key fields
         let mut key_fields = vec![];
-        let n_unique_key = dict::get_n_unique_key(table_id.1);
+        let n_unique_key = n_uniq.unwrap_or(dict::get_n_unique_key(table_id.1));
         for i in 0..n_unique_key {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
@@ -601,7 +613,7 @@ pub struct UndoRecForUpdate {
 }
 
 impl UndoRecForUpdate {
-    pub fn new(addr: usize, buf: Arc<Bytes>) -> Self {
+    pub fn new(addr: usize, buf: Arc<Bytes>, n_uniq: Option<usize>) -> Self {
         let mut ptr = addr;
 
         // info!("peek={:?}", buf.slice(ptr..ptr + 20).to_vec());
@@ -625,7 +637,7 @@ impl UndoRecForUpdate {
 
         // key fields
         let mut key_fields = vec![];
-        let n_unique_key = dict::get_n_unique_key(table_id.1);
+        let n_unique_key = n_uniq.unwrap_or(dict::get_n_unique_key(table_id.1));
         for i in 0..n_unique_key {
             let key = UndoRecKeyField::new(ptr, buf.clone(), i);
             ptr += key.total_bytes;
@@ -757,5 +769,34 @@ impl UndoRecUpdatedField {
             buf: buf.clone(),
             addr,
         }
+    }
+}
+
+#[cfg(test)]
+mod undo_tests {
+
+    use std::path::PathBuf;
+
+    use anyhow::Result;
+
+    use super::*;
+    use crate::{factory::DatafileFactory, util};
+
+    const REDO_1: &str = "data/redo_block_01";
+    const UNDO_1: &str = "data/undo_log_01";
+
+    #[test]
+    fn test_read_undo_record() -> Result<()> {
+        util::init_unit_test();
+
+        let mut fact = DatafileFactory::from_file(PathBuf::from(UNDO_1))?;
+        let page = 188;
+        let buf = fact.page_buffer(page)?;
+
+        let boffset = 418;
+        let ans = UndoRecord::read(0, buf, boffset, 1);
+        dbg!(&ans);
+
+        Ok(())
     }
 }

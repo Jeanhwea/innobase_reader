@@ -100,6 +100,19 @@ enum Commands {
         btree_root: Option<usize>,
     },
 
+    /// Undo log print
+    Undo {
+        /// The page number, starts from 0.
+        page_no: usize,
+
+        /// byte offset inside page
+        boffset: usize,
+
+        /// Print more information
+        #[arg(short, long, default_value_t = 1)]
+        n_uniq: usize,
+    },
+
     /// Redo log print
     Redo {
         /// The block number, starts from 0.
