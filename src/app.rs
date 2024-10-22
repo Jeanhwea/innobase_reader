@@ -21,6 +21,7 @@ use crate::{
         },
         record::DataValue,
         redo::{Blocks, LogFile, LogRecordTypes, RedoRecordPayloads},
+        undo::UndoRecord,
     },
     util::{colored_extent_number, colored_page_number},
     Commands,
@@ -112,6 +113,17 @@ impl App {
                     }
                 },
             },
+            Commands::Undo {
+                page_no,
+                boffset,
+                n_uniq,
+            } => {
+                let mut fact = DatafileFactory::from_file(self.input.clone())?;
+                let buf = fact.page_buffer(page_no)?;
+                let addr = 0;
+                let undo_rec = UndoRecord::read(addr, buf, boffset, n_uniq);
+                println!("{:#?}", undo_rec)
+            }
             Commands::Redo {
                 block_no,
                 dump_log_type,
@@ -890,6 +902,8 @@ mod app_tests {
 
     const IBD_01: &str = "data/departments.ibd";
     const IBD_02: &str = "data/dept_manager.ibd";
+    const REDO_1: &str = "data/redo_block_01";
+    const UNDO_1: &str = "data/undo_log_01";
 
     #[test]
     fn info_datafile() {
@@ -953,6 +967,22 @@ mod app_tests {
             verbose: false,
             btree_root: None,
         });
+        assert!(ans.is_ok());
+    }
+
+    #[test]
+    fn view_redo_log_file() {
+        util::init_unit_test();
+        let app = App::new(PathBuf::from(REDO_1));
+        let ans = app.do_view_log_file();
+        assert!(ans.is_ok());
+    }
+
+    #[test]
+    fn view_redo_log_block_0() {
+        util::init_unit_test();
+        let app = App::new(PathBuf::from(REDO_1));
+        let ans = app.do_view_block(0);
         assert!(ans.is_ok());
     }
 

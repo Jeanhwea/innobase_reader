@@ -841,9 +841,38 @@ mod factory_tests_run {
 
     use crate::{
         factory::DatafileFactory,
-        ibd::page::{BasePage, IndexPageBody, PageNumber, PageTypes},
+        ibd::{
+            page::{BasePage, IndexPageBody, PageNumber, PageTypes},
+            redo::Blocks,
+        },
         util,
     };
+
+    const REDO_1: &str = "data/redo_block_01";
+    const UNDO_1: &str = "data/undo_log_01";
+
+    #[test]
+    fn view_redo_log_block_0() -> Result<(), Error> {
+        util::init_unit_test();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(REDO_1))?;
+        let b0 = fact.read_block(0)?;
+        assert!(matches!(b0, Blocks::FileHeader(_)));
+
+        if let Blocks::FileHeader(hdr) = b0 {
+            assert_eq!(hdr.creator, "MySQL 8.0.37");
+        }
+
+        let b1 = fact.read_block(1)?;
+        assert!(matches!(b1, Blocks::Checkpoint(_)));
+
+        let b4 = fact.read_block(4)?;
+        assert!(matches!(b4, Blocks::Block(_)));
+        if let Blocks::Block(blk) = b4 {
+            assert_eq!(blk.data_len, 512);
+        }
+
+        Ok(())
+    }
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
     // const IBD_FILE: &str = "/opt/docker/mysql80027/rtc80027/tt.ibd";
