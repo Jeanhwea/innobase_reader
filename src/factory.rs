@@ -841,9 +841,24 @@ mod factory_tests_run {
 
     use crate::{
         factory::DatafileFactory,
-        ibd::page::{BasePage, IndexPageBody, PageNumber, PageTypes},
+        ibd::{
+            page::{BasePage, IndexPageBody, PageNumber, PageTypes},
+            redo::Blocks,
+        },
         util,
     };
+
+    const REDO_1: &str = "data/redo_block_01";
+    const UNDO_1: &str = "data/undo_log_01";
+
+    #[test]
+    fn view_redo_log_block_0() -> Result<(), Error> {
+        util::init_unit_test();
+        let mut fact = DatafileFactory::from_file(PathBuf::from(REDO_1))?;
+        let block = fact.read_block(0)?;
+        assert!(matches!(block, Blocks::FileHeader(_)));
+        Ok(())
+    }
 
     // const IBD_FILE: &str = "/opt/mysql/data/employees/employees.ibd";
     // const IBD_FILE: &str = "/opt/docker/mysql80027/rtc80027/tt.ibd";
