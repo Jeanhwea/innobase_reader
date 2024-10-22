@@ -105,10 +105,10 @@ enum Commands {
         /// The page number, starts from 0.
         page_no: usize,
 
-        /// byte offset inside page
+        /// The byte offset inside page
         boffset: usize,
 
-        /// Print more information
+        /// Number of unique keys, default value is 1.
         #[arg(short, long, default_value_t = 1)]
         n_uniq: usize,
     },
