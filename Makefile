@@ -1,6 +1,7 @@
 CARGO  = cargo
 CFLAG  =
 DOCDIR = $(HOME)/code/github/read0code/read0code.github.io/pub/ibr
+OSARCH = $(shell uname -m)
 
 all: run
 
@@ -42,8 +43,7 @@ release: release-linux
 
 # rustup target add x86_64-unknown-linux-musl
 release-linux:
-	$(CARGO) build --release $(CFLAG) --target=x86_64-unknown-linux-musl
-	$(CARGO) build --release $(CFLAG) --target=aarch64-unknown-linux-musl
+	$(CARGO) build --release $(CFLAG) --target=$(OSARCH)-unknown-linux-musl
 
 release-win:
 	$(CARGO) build --release $(CFLAG) --target=x86_64-pc-windows-gnu
