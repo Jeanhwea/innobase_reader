@@ -43,6 +43,7 @@ release: release-linux
 # rustup target add x86_64-unknown-linux-musl
 release-linux:
 	$(CARGO) build --release $(CFLAG) --target=x86_64-unknown-linux-musl
+	$(CARGO) build --release $(CFLAG) --target=aarch64-unknown-linux-musl
 
 release-win:
 	$(CARGO) build --release $(CFLAG) --target=x86_64-pc-windows-gnu
