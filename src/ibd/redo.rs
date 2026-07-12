@@ -98,14 +98,14 @@ impl LogFile {
 pub enum Blocks {
     FileHeader(LogFileHeader),
     Checkpoint(LogCheckpoint),
-    Block(LogBlock),
+    Block(Box<LogBlock>),
     Unused,
 }
 
 impl From<LogBlock> for Blocks {
     fn from(value: LogBlock) -> Self {
         if value.checksum > 0 {
-            Blocks::Block(value)
+            Blocks::Block(Box::new(value))
         } else {
             Blocks::Unused
         }

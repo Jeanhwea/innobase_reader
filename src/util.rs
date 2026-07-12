@@ -480,25 +480,25 @@ pub fn mach_get_compressed_size(n: u32) -> usize {
         1
     } else if n < 0x4000 {
         /* 10nnnnnn nnnnnnnn (14 bits) */
-        return 2;
+        2
     } else if n < 0x200000 {
         /* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
-        return 3;
+        3
     } else if n < 0x10000000 {
         /* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
-        return 4;
+        4
     } else if n >= 0xFFFFFC00 {
         /* 111110nn nnnnnnnn (10 bits) (extended) */
-        return 2;
+        2
     } else if n >= 0xFFFE0000 {
         /* 1111110n nnnnnnnn nnnnnnnn (17 bits) (extended) */
-        return 3;
+        3
     } else if n >= 0xFF000000 {
         /* 11111110 nnnnnnnn nnnnnnnn nnnnnnnn (24 bits) (extended) */
-        return 4;
+        4
     } else {
         /* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
-        return 5;
+        5
     }
 }
 

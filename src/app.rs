@@ -356,7 +356,7 @@ impl App {
                 println!();
             }
         }
-        if arr.len() % N_ELE_PER_LINE != 0 {
+        if !arr.len().is_multiple_of(N_ELE_PER_LINE) {
             println!();
         }
         Ok(())
